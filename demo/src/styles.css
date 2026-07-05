@@ -29,7 +29,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  min-width: 1180px;
+  min-width: 0;
 }
 
 button,
@@ -3047,299 +3047,307 @@ svg.donut-chart circle {
 .app-shell.dark .login-visual img {
   filter: saturate(0.72) contrast(0.88) brightness(0.82);
 }
-/* Desktop layout scale fix — makes 100% browser zoom look closer to the intended 80% mockup */
+/* De/* =========================================================
+   Final responsive scale + applications table
+   One clean block replaces older 80% scale patches.
+   Desktop should feel closer to ~70% browser zoom.
+   ========================================================= */
 
 @media (min-width: 1180px) {
   .app-shell {
-    font-size: 14.5px;
+    font-size: 12px !important;
+    grid-template-columns: 220px minmax(0, 1fr) !important;
     overflow: hidden;
   }
 
   .sidebar {
-    width: 260px !important;
-    flex: 0 0 260px !important;
-    padding: 24px 18px !important;
+    width: 220px !important;
+    flex: 0 0 220px !important;
+    padding: 16px 12px !important;
   }
 
-  .workspace {
-    min-width: 0;
-  }
-
-  .topbar {
-    min-height: 96px !important;
-    padding: 24px 36px !important;
-  }
-
-  .topbar-title h1 {
-    font-size: 32px !important;
-    line-height: 1.15;
-  }
-
-  .topbar-title p {
-    font-size: 16px !important;
-  }
-
-  .topbar-actions {
-    gap: 10px !important;
-    flex-wrap: nowrap;
-  }
-
-  .content {
-    padding: 32px 36px 44px !important;
-    overflow: auto;
-  }
-
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px) !important;
-    gap: 24px !important;
-    max-width: 1460px;
-    margin: 0 auto;
-  }
-
-  .main-column,
-  .right-column {
-    min-width: 0;
-  }
-
-  .right-column {
-    width: auto !important;
-    gap: 24px !important;
-  }
-
-  .metrics-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 20px !important;
-  }
-
-  .metric-card {
-    min-height: 132px !important;
-    padding: 24px !important;
-  }
-
-  .metric-card strong {
-    font-size: 40px !important;
-    line-height: 1;
-  }
-
-  .panel-card {
-    border-radius: 22px !important;
-  }
-
-  .summary-card,
-  .success-card {
-    padding: 26px !important;
-  }
-
-  .summary-content {
-    gap: 20px !important;
-    align-items: center;
-  }
-
-  .donut-visual {
-    width: 150px !important;
-    height: 150px !important;
-    flex: 0 0 150px;
-  }
-
-  .donut-hole {
-    width: 72px !important;
-    height: 72px !important;
-  }
-
-  .legend-list {
-    gap: 10px !important;
-    min-width: 0;
-  }
-
-  .applications-table {
-    min-width: 900px;
-    font-size: 14px;
-  }
-
-  .compact-table {
-    min-width: 780px;
-  }
-
-  .table-wrap {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-
-  .small-card-grid {
-    gap: 20px !important;
+  .brand {
+    gap: 9px !important;
+    padding: 4px 10px 16px !important;
+    margin-bottom: 12px !important;
   }
 
   .brand-logo-img {
-    width: 40px !important;
-    height: 40px !important;
+    width: 30px !important;
+    height: 30px !important;
   }
 
   .brand-name {
-    font-size: 22px !important;
+    font-size: 17px !important;
+    line-height: 1.05 !important;
+  }
+
+  .brand-subtitle {
+    font-size: 10px !important;
+    letter-spacing: 0.16em !important;
   }
 
   .nav-list {
-    gap: 10px !important;
+    gap: 6px !important;
+    margin-top: 10px !important;
   }
 
   .nav-item {
-    min-height: 48px !important;
-    padding: 0 18px !important;
+    min-height: 38px !important;
+    padding: 0 12px !important;
+    font-size: 12px !important;
+    border-radius: 13px !important;
+    gap: 10px !important;
+    grid-template-columns: 19px 1fr auto !important;
   }
 
-  .inspiration-card {
-    padding: 16px !important;
+  .nav-item svg {
+    width: 15px !important;
+    height: 15px !important;
   }
 
-  .inspiration-image {
-    aspect-ratio: 1 / 1;
-    height: auto !important;
+  .nav-badge {
+    min-width: 22px !important;
+    height: 18px !important;
+    font-size: 11px !important;
   }
 
-  .inspiration-card h3 {
-    font-size: 18px !important;
-  }
-
-  .inspiration-card p {
-    font-size: 14px !important;
-  }
-}
-
-/* Slightly tighter layout for laptop widths */
-@media (max-width: 1500px) and (min-width: 1180px) {
-  .content {
-    padding-inline: 26px !important;
+  .workspace {
+    grid-template-rows: 74px minmax(0, 1fr) !important;
+    min-width: 0 !important;
   }
 
   .topbar {
-    padding-inline: 26px !important;
+    min-height: 74px !important;
+    padding: 14px 26px !important;
+    gap: 18px !important;
+  }
+
+  .topbar h1,
+  .topbar-title h1 {
+    font-size: 25px !important;
+    line-height: 1.1 !important;
+  }
+
+  .topbar p,
+  .topbar-title p {
+    font-size: 13px !important;
+  }
+
+  .topbar-actions {
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .icon-button {
+    min-width: 38px !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    border-radius: 13px !important;
+  }
+
+  .icon-button svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .profile-button,
+  .select-trigger {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding-inline: 14px !important;
+    font-size: 12px !important;
+    border-radius: 13px !important;
+  }
+
+  .profile-button .avatar-soft {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .content {
+    padding: 24px 26px 34px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .dashboard-grid,
+  .page-section {
+    max-width: 1320px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr) 330px !important;
-    gap: 20px !important;
+    gap: 18px !important;
+  }
+
+  .main-column,
+  .right-column {
+    gap: 18px !important;
+    min-width: 0 !important;
   }
 
   .metrics-grid {
-    gap: 16px !important;
+    gap: 14px !important;
   }
 
   .metric-card {
-    min-height: 126px !important;
-    padding: 20px !important;
+    min-height: 104px !important;
+    padding: 16px 18px !important;
+    border-radius: 16px !important;
+  }
+
+  .metric-card span {
+    font-size: 10.5px !important;
   }
 
   .metric-card strong {
-    font-size: 36px !important;
+    font-size: 31px !important;
   }
 
-  .summary-content {
-    display: grid !important;
-    grid-template-columns: 140px minmax(0, 1fr);
-  }
-
-  .donut-visual {
-    width: 140px !important;
-    height: 140px !important;
-    flex-basis: 140px;
-  }
-
-  .primary-button,
-  .secondary-button,
-  .icon-button,
-  .profile-button {
-    min-height: 44px !important;
-  }
-}
-
-/* When there is not enough width, move summary cards under the main column */
-@media (max-width: 1280px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .right-column {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .upcoming-card {
-    grid-column: 1 / -1;
-  }
-}
-/* =========================================================
-   Applications layout fix + smaller desktop scale + mobile
-   ========================================================= */
-
-/* Global desktop scale: closer to the intended 80% mockup */
-@media (min-width: 1180px) {
-  .app-shell {
-    font-size: 13px;
-  }
-
-  .content {
-    padding: 24px 28px 36px !important;
-  }
-
-  .topbar {
-    min-height: 82px !important;
-    padding: 18px 28px !important;
-  }
-
-  .topbar-title h1 {
-    font-size: 28px !important;
-  }
-
-  .topbar-title p {
-    font-size: 14px !important;
-  }
-
-  .sidebar {
-    width: 238px !important;
-    flex: 0 0 238px !important;
-    padding: 18px 14px !important;
-  }
-
-  .brand-logo-img {
-    width: 34px !important;
-    height: 34px !important;
-  }
-
-  .brand-name {
-    font-size: 19px !important;
-  }
-
-  .brand-subtitle {
-    font-size: 11px !important;
-  }
-
-  .nav-item {
-    min-height: 42px !important;
-    padding: 0 14px !important;
-    font-size: 13px !important;
-  }
-
-  .primary-button,
-  .secondary-button,
-  .icon-button,
-  .profile-button,
-  .select-trigger {
-    min-height: 38px !important;
-    font-size: 13px !important;
-  }
-
-  .metric-card {
-    min-height: 112px !important;
-    padding: 18px !important;
-  }
-
-  .metric-card strong {
-    font-size: 34px !important;
+  .metric-card small {
+    font-size: 12px !important;
   }
 
   .panel-card {
+    border-radius: 17px !important;
+  }
+
+  .recent-panel .card-header,
+  .card-header {
+    padding: 22px 26px !important;
+  }
+
+  .card-header h2,
+  .panel-card h2,
+  .summary-card h2,
+  .success-card h2,
+  .upcoming-card h2 {
+    font-size: 20px !important;
+  }
+
+  .card-header p,
+  .summary-card p,
+  .success-card p {
+    font-size: 13px !important;
+  }
+
+  .summary-card,
+  .success-card,
+  .upcoming-card,
+  .mini-list-card,
+  .chart-panel {
+    padding: 22px !important;
+  }
+
+  .summary-content {
+    grid-template-columns: 128px minmax(0, 1fr) !important;
+    gap: 18px !important;
+    align-items: center !important;
+  }
+
+  .donut-visual {
+    width: 128px !important;
+    height: 128px !important;
+  }
+
+  .donut-hole {
+    width: 62px !important;
+    height: 62px !important;
+  }
+
+  .donut-hole strong {
+    font-size: 23px !important;
+  }
+
+  .donut-hole span {
+    font-size: 10px !important;
+  }
+
+  .legend-list {
+    gap: 8px !important;
+  }
+
+  .legend-item {
+    font-size: 12.5px !important;
+    gap: 8px !important;
+  }
+
+  .success-content strong {
+    font-size: 40px !important;
+  }
+
+  .success-sparkline {
+    height: 58px !important;
+  }
+
+  .small-card-grid {
+    gap: 14px !important;
+  }
+
+  .mini-row,
+  .event-row {
+    font-size: 12px !important;
+  }
+
+  /* Smaller, calmer inspiration card */
+  .inspiration-card {
+    max-width: 178px !important;
+    width: 100% !important;
+    margin: auto auto 0 !important;
+    padding: 12px !important;
     border-radius: 18px !important;
+  }
+
+  .inspiration-image {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    height: auto !important;
+    max-height: 148px !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+  }
+
+  .inspiration-image img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .inspiration-card h3,
+  .sidebar-card h3 {
+    margin-top: 12px !important;
+    font-size: 15px !important;
+    line-height: 1.15 !important;
+  }
+
+  .inspiration-card p,
+  .sidebar-card p {
+    margin-top: 6px !important;
+    font-size: 11.5px !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .inspiration-action {
+    margin-top: 10px !important;
+    min-height: 28px !important;
+    padding: 4px 8px !important;
+    font-size: 0 !important;
+  }
+
+  .inspiration-action svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .inspiration-action span {
+    display: none !important;
   }
 }
 
@@ -3357,101 +3365,71 @@ svg.donut-chart circle {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .applications-table th,
 .applications-table td {
-  padding: 18px 14px;
+  padding: 14px 12px;
   vertical-align: middle;
 }
 
 .applications-table th {
   white-space: nowrap;
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.09em;
 }
 
 .applications-table td {
   overflow: hidden;
 }
 
-.applications-table td:nth-child(1) {
-  width: 18%;
-}
-
-.applications-table td:nth-child(2) {
-  width: 22%;
-}
-
-.applications-table td:nth-child(3) {
-  width: 10%;
-}
-
-.applications-table td:nth-child(4) {
-  width: 13%;
-}
-
-.applications-table td:nth-child(5) {
-  width: 11%;
-  white-space: nowrap;
-}
-
-.applications-table td:nth-child(6) {
-  width: 9%;
-  white-space: nowrap;
-}
-
-.applications-table td:nth-child(7) {
-  width: 10%;
-  white-space: nowrap;
-}
-
-.applications-table td:nth-child(8) {
-  width: 12%;
-}
-
-.applications-table td:nth-child(9) {
-  width: 10%;
-}
-
 .company-cell {
-  gap: 12px;
+  gap: 11px;
 }
 
 .company-cell strong,
 .position-cell strong {
-  font-size: 13.5px;
+  font-size: 12.5px;
   line-height: 1.25;
 }
 
 .company-cell small,
 .position-cell small {
-  font-size: 11.5px;
+  font-size: 10.5px;
 }
 
 .company-logo {
-  width: 38px !important;
-  height: 38px !important;
-  flex: 0 0 38px !important;
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px !important;
+  border-radius: 12px !important;
+}
+
+.category-pill,
+.status-badge {
+  font-size: 11px !important;
+  padding: 6px 10px !important;
+  min-height: 28px !important;
 }
 
 .category-pill {
-  max-width: 110px;
+  max-width: 108px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 7px 12px !important;
-  font-size: 12px !important;
 }
 
 .status-custom-select {
-  min-width: 132px;
+  min-width: 124px;
 }
 
 .status-custom-select .select-trigger {
-  min-width: 132px;
-  padding-inline: 12px !important;
+  min-width: 124px;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding-inline: 10px !important;
+  border-radius: 999px !important;
 }
 
 .row-actions {
@@ -3462,44 +3440,85 @@ svg.donut-chart circle {
 }
 
 .row-actions .ghost-icon {
-  width: 34px !important;
-  height: 34px !important;
-  flex: 0 0 34px;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  flex: 0 0 32px;
 }
 
-/* Prevent broken date layout */
 .applications-table td:nth-child(5),
 .applications-table td:nth-child(7) {
+  white-space: nowrap;
   line-height: 1.25;
 }
 
-/* Dashboard compact table should also be smaller */
 .compact-table {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .compact-table th,
 .compact-table td {
-  padding: 15px 14px;
+  padding: 13px 12px;
 }
 
-/* Slightly narrower screens: keep table scrollable instead of squeezing text */
-@media (max-width: 1450px) and (min-width: 901px) {
+/* Keep the full applications table readable on laptop/desktop */
+@media (min-width: 901px) {
   .applications-table {
-    min-width: 1120px;
-  }
-
-  .applications-panel .table-wrap {
-    overflow-x: auto;
+    min-width: 1080px;
   }
 }
 
-/* Tablet/mobile: turn Applications table into cards */
+/* Large screens should not stretch the whole app too much */
+@media (min-width: 1500px) {
+  .dashboard-grid,
+  .page-section {
+    max-width: 1320px !important;
+  }
+
+  .content {
+    padding-inline: 30px !important;
+  }
+}
+
+/* Medium width: stack dashboard side cards below instead of squeezing */
+@media (max-width: 1280px) and (min-width: 901px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .right-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .upcoming-card {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Tablet/mobile: app becomes normal page layout and tables become cards */
 @media (max-width: 900px) {
+  html,
+  body,
+  #root {
+    min-width: 0;
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+  }
+
+  body {
+    min-width: 0 !important;
+    overflow-x: hidden;
+  }
+
   .app-shell {
     display: block;
     min-height: 100dvh;
-    overflow: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    font-size: 14px !important;
   }
 
   .sidebar {
@@ -3507,24 +3526,33 @@ svg.donut-chart circle {
     height: auto !important;
     min-height: auto !important;
     position: relative !important;
-    padding: 16px !important;
+    padding: 14px !important;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    overflow: visible;
+  }
+
+  .brand {
+    padding: 2px 4px 12px !important;
   }
 
   .nav-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+    overflow: visible;
+    flex: none;
   }
 
   .inspiration-card {
-    display: none;
+    display: none !important;
   }
 
   .workspace {
+    display: block;
     width: 100%;
     min-width: 0;
+    height: auto;
   }
 
   .topbar {
@@ -3538,7 +3566,8 @@ svg.donut-chart circle {
     gap: 14px;
   }
 
-  .topbar-title h1 {
+  .topbar-title h1,
+  .topbar h1 {
     font-size: 24px !important;
   }
 
@@ -3547,6 +3576,7 @@ svg.donut-chart circle {
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 8px;
+    white-space: normal;
   }
 
   .topbar-actions .primary-button,
@@ -3555,7 +3585,21 @@ svg.donut-chart circle {
   }
 
   .content {
-    padding: 18px 14px 32px !important;
+    height: auto;
+    padding: 16px 14px 32px !important;
+    overflow: visible;
+  }
+
+  .metrics-grid,
+  .stats-metrics-grid,
+  .small-card-grid,
+  .company-grid,
+  .document-grid,
+  .stats-grid,
+  .calendar-layout,
+  .notes-layout,
+  .details-grid {
+    grid-template-columns: 1fr !important;
   }
 
   .toolbar {
@@ -3620,41 +3664,15 @@ svg.donut-chart circle {
     color: var(--muted);
   }
 
-  .applications-table td:nth-child(1)::before {
-    content: "Company";
-  }
-
-  .applications-table td:nth-child(2)::before {
-    content: "Position";
-  }
-
-  .applications-table td:nth-child(3)::before {
-    content: "Category";
-  }
-
-  .applications-table td:nth-child(4)::before {
-    content: "Status";
-  }
-
-  .applications-table td:nth-child(5)::before {
-    content: "Date applied";
-  }
-
-  .applications-table td:nth-child(6)::before {
-    content: "Work mode";
-  }
-
-  .applications-table td:nth-child(7)::before {
-    content: "Last contact";
-  }
-
-  .applications-table td:nth-child(8)::before {
-    content: "Next step";
-  }
-
-  .applications-table td:nth-child(9)::before {
-    content: "Actions";
-  }
+  .applications-table td:nth-child(1)::before { content: "Company"; }
+  .applications-table td:nth-child(2)::before { content: "Position"; }
+  .applications-table td:nth-child(3)::before { content: "Category"; }
+  .applications-table td:nth-child(4)::before { content: "Status"; }
+  .applications-table td:nth-child(5)::before { content: "Date applied"; }
+  .applications-table td:nth-child(6)::before { content: "Work mode"; }
+  .applications-table td:nth-child(7)::before { content: "Last contact"; }
+  .applications-table td:nth-child(8)::before { content: "Next step"; }
+  .applications-table td:nth-child(9)::before { content: "Actions"; }
 
   .company-cell {
     align-items: center;
@@ -3671,8 +3689,43 @@ svg.donut-chart circle {
     padding-top: 8px;
   }
 
-  .details-grid {
-    grid-template-columns: 1fr !important;
+  .settings-modal,
+  .add-modal {
+    width: min(100%, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    border-radius: 22px;
+  }
+
+  .settings-body {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-tabs {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .settings-tabs button {
+    white-space: nowrap;
+  }
+
+  .form-grid,
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-form,
+  .modal-form,
+  .settings-content {
+    padding: 20px;
+  }
+
+  .add-form .modal-footer.inner,
+  .modal-form .modal-footer.inner {
+    margin: 20px -20px -20px;
+    padding: 16px 20px;
   }
 }
 
@@ -3705,7 +3758,8 @@ svg.donut-chart circle {
     flex-basis: 34px !important;
   }
 }
-/* Company demo logos */
+
+mpany demo logos */
 
 .demo-company-logo {
   position: relative;
