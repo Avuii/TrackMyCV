@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Job Application Tracker Logo" width="180" />
+  <img src="docs/logo-removebg.png" alt="Job Application Tracker Logo" width="180" />
 </p>
 
 <h1 align="center">Job Application Tracker</h1>
