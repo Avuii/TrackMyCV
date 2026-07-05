@@ -29,3 +29,20 @@ npm run dev
 - zdjęcia z `public/assets` w estetyce soft/cozy/coffee.
 
 Backend w .NET można później podpiąć przez zastąpienie operacji `localStorage` wywołaniami API.
+
+## Public demo safety note
+
+This repository contains only mock demo data. It does not include real job applications, real CV files, API keys, backend credentials or production secrets.
+
+The demo login is frontend-only and stores data in `localStorage`. It is intended only for portfolio presentation and should not be used as real authentication.
+
+Before publishing your own fork, make sure not to commit:
+
+- real e-mail addresses,
+- real CV files,
+- real application history,
+- API keys or `.env` files,
+- private screenshots,
+- unlicensed images.
+
+Company logos are loaded through Google's public favicon service when a company domain is provided. If no domain is provided, the app falls back to initials.

@@ -180,10 +180,10 @@ const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 
 const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Certificate', 'Other'];
 
 const initialProfile: Profile = {
-  name: 'Kasia Wiśniewska',
-  email: 'kasia@example.com',
-  title: 'Junior .NET / Cybersecurity Intern',
-  location: 'Warsaw / Łódź, Poland',
+  name: 'Demo User',
+  email: 'demo@example.com',
+  title: 'Software Engineering / Security Intern',
+  location: 'Remote / Poland',
   workMode: 'Hybrid'
 };
 
@@ -203,7 +203,7 @@ const initialSettings: AppSettings = {
   preferences: {
     categories: ['.NET', 'Cybersecurity', 'IAM', 'DevOps'],
     levels: ['Internship', 'Intern', 'Junior', 'Junior-friendly'],
-    locations: ['Warsaw', 'Łódź', 'Remote'],
+    locations: ['Remote', 'Warsaw', 'Kraków'],
     workModes: ['Hybrid', 'Remote'],
     noResponseDays: 14,
     ghostedDays: 30,
@@ -212,45 +212,45 @@ const initialSettings: AppSettings = {
 };
 
 const initialCompanies: Company[] = [
-  { id: 1, name: 'Microsoft', domain: 'microsoft.com', industry: 'Technology', location: 'Warsaw', website: 'https://careers.microsoft.com', contact: 'careers@microsoft.com', notes: 'Strong .NET match.' },
-  { id: 2, name: 'Deloitte', domain: 'deloitte.com', industry: 'Consulting', location: 'Warsaw', website: 'https://www.deloitte.com/careers', contact: 'recruitment@deloitte.com', notes: 'Cybersecurity and IAM roles.' },
-  { id: 3, name: 'EY', domain: 'ey.com', industry: 'Consulting', location: 'Warsaw', website: 'https://ey.com/careers', contact: 'careers@ey.com', notes: 'IAM-focused internships.' },
-  { id: 4, name: 'Allegro', domain: 'allegro.eu', industry: 'E-commerce', location: 'Remote', website: 'https://jobs.allegro.eu', contact: '', notes: 'Follow-up recommended.' },
-  { id: 5, name: 'Netguru', domain: 'netguru.com', industry: 'Software house', location: 'Remote', website: 'https://www.netguru.com/career', contact: '', notes: 'Useful feedback received.' },
-  { id: 6, name: 'Comarch', domain: 'comarch.pl', industry: 'Software house', location: 'Łódź', website: 'https://kariera.comarch.pl', contact: '', notes: 'No response.' },
-  { id: 7, name: 'Accenture', domain: 'accenture.com', industry: 'Consulting', location: 'Warsaw', website: 'https://www.accenture.com/careers', contact: '', notes: 'Security roles.' }
+  { id: 1, name: 'Northstar Labs', domain: '', industry: 'Technology', location: 'Remote', website: 'https://example.com/northstar', contact: 'careers@example.com', notes: 'Fictional demo company for portfolio presentation.' },
+  { id: 2, name: 'Riverstone Consulting', domain: '', industry: 'Consulting', location: 'Warsaw', website: 'https://example.com/riverstone', contact: 'recruitment@example.com', notes: 'Fictional consulting company with security roles.' },
+  { id: 3, name: 'BrightPath Digital', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/brightpath', contact: '', notes: 'Fictional company used for demo data.' },
+  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'Kraków', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
+  { id: 5, name: 'Oak & Code', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/oak-code', contact: '', notes: 'Fictional software studio.' },
+  { id: 6, name: 'Lumen Security', domain: '', industry: 'Cybersecurity', location: 'Warsaw', website: 'https://example.com/lumen-security', contact: '', notes: 'Fictional cybersecurity company.' },
+  { id: 7, name: 'MapleWorks', domain: '', industry: 'E-commerce', location: 'Remote', website: 'https://example.com/mapleworks', contact: '', notes: 'Fictional product company.' }
 ];
 
 const initialApplications: JobApplication[] = [
-  { id: 1, company: 'Microsoft', companyId: 1, domain: 'microsoft.com', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Warsaw', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: 'https://careers.microsoft.com', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Hybrid work, mentoring, training budget', notes: 'Revise async/await, DI and EF Core before interview.', cv: 'CV_NET_Intern_2026.pdf' },
-  { id: 2, company: 'Deloitte', companyId: 2, domain: 'deloitte.com', position: 'Cyber Security Analyst', category: 'Cybersecurity', level: 'Junior', status: 'In progress', dateApplied: '2026-05-18', lastContact: '2026-05-20', nextStep: 'HR interview', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://www.deloitte.com/careers', requirements: 'IAM, security basics, English, documentation', benefits: 'Learning path, consulting projects, private healthcare', notes: 'Prepare IAM, Entra ID and business motivation.', cv: 'CV_Cybersecurity_IAM_2026.pdf' },
-  { id: 3, company: 'EY', companyId: 3, domain: 'ey.com', position: 'IAM Intern', category: 'IAM', level: 'Intern', status: 'Applied', dateApplied: '2026-05-15', lastContact: '', nextStep: 'Waiting', location: 'Warsaw', workMode: 'On-site', source: 'LinkedIn', offerUrl: 'https://ey.com/careers', requirements: 'Active Directory, Entra ID, MFA, access management', benefits: 'Office events, training, mentor support', notes: 'Good match for IAM and cybersecurity direction.', cv: 'CV_Cybersecurity_IAM_2026.pdf' },
-  { id: 4, company: 'Allegro', companyId: 4, domain: 'allegro.eu', position: 'Junior DevOps', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'Remote', workMode: 'Remote', source: 'Just Join IT', offerUrl: 'https://jobs.allegro.eu', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Remote work, tech community, flexible hours', notes: 'Consider sending follow-up after 14 days.', cv: 'CV_General_IT_2026.pdf' },
-  { id: 5, company: 'Netguru', companyId: 5, domain: 'netguru.com', position: '.NET Developer', category: '.NET', level: 'Junior', status: 'Rejected', dateApplied: '2026-05-05', lastContact: '2026-05-12', nextStep: 'Closed', location: 'Remote', workMode: 'Remote', source: 'Pracuj.pl', offerUrl: 'https://www.netguru.com/career', requirements: 'C#, .NET, EF Core, testing', benefits: 'Remote-first, English projects, workshops', notes: 'Feedback: improve C# fundamentals and EF Core.', cv: 'CV_NET_Intern_2026.pdf' },
-  { id: 6, company: 'Comarch', companyId: 6, domain: 'comarch.pl', position: 'Junior Full-stack Developer', category: 'Full-stack', level: 'Junior', status: 'Ghosted', dateApplied: '2026-05-02', lastContact: '', nextStep: 'Archive or follow-up', location: 'Łódź', workMode: 'Hybrid', source: 'Pracuj.pl', offerUrl: 'https://kariera.comarch.pl', requirements: 'C#, React, SQL, Git', benefits: 'Hybrid work, training, team projects', notes: 'No response after 30 days.', cv: 'CV_Fullstack_React_NET.pdf' },
-  { id: 7, company: 'Accenture', companyId: 7, domain: 'accenture.com', position: 'Security Internship', category: 'Cybersecurity', level: 'Internship', status: 'Offer', dateApplied: '2026-04-28', lastContact: '2026-05-07', nextStep: 'Decision', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://www.accenture.com/careers', requirements: 'Security basics, cloud, English', benefits: 'Global projects, mentoring, certifications', notes: 'Strong match with cybersecurity path.', cv: 'CV_Cybersecurity_IAM_2026.pdf' }
+  { id: 1, company: 'Northstar Labs', companyId: 1, domain: '', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/northstar/job-1', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Mentoring, training budget, flexible work', notes: 'Demo note: prepare technical topics before the interview.', cv: 'CV_NET_Intern_Demo.pdf' },
+  { id: 2, company: 'Riverstone Consulting', companyId: 2, domain: '', position: 'Cyber Security Analyst Intern', category: 'Cybersecurity', level: 'Internship', status: 'In progress', dateApplied: '2026-05-18', lastContact: '2026-05-20', nextStep: 'HR interview', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://example.com/riverstone/job-2', requirements: 'IAM basics, security awareness, English, documentation', benefits: 'Learning path, mentor support, workshops', notes: 'Demo note: prepare motivation and security basics.', cv: 'CV_Security_Demo.pdf' },
+  { id: 3, company: 'BrightPath Digital', companyId: 3, domain: '', position: 'IAM Intern', category: 'IAM', level: 'Intern', status: 'Applied', dateApplied: '2026-05-15', lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/brightpath/job-3', requirements: 'Identity lifecycle, MFA, access management', benefits: 'Remote work, office events, training', notes: 'Demo note: good match for IAM interests.', cv: 'CV_Security_Demo.pdf' },
+  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'Kraków', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
+  { id: 5, company: 'Oak & Code', companyId: 5, domain: '', position: 'Junior Full-stack Developer', category: 'Full-stack', level: 'Junior', status: 'Rejected', dateApplied: '2026-05-05', lastContact: '2026-05-12', nextStep: 'Closed', location: 'Remote', workMode: 'Remote', source: 'Pracuj.pl', offerUrl: 'https://example.com/oak-code/job-5', requirements: 'C#, React, SQL, Git', benefits: 'Remote-first, workshops, team projects', notes: 'Demo note: add feedback and learning points here.', cv: 'CV_Fullstack_Demo.pdf' },
+  { id: 6, company: 'Lumen Security', companyId: 6, domain: '', position: 'Security Internship', category: 'Cybersecurity', level: 'Internship', status: 'Ghosted', dateApplied: '2026-05-02', lastContact: '', nextStep: 'Archive or follow-up', location: 'Warsaw', workMode: 'Hybrid', source: 'No Fluff Jobs', offerUrl: 'https://example.com/lumen-security/job-6', requirements: 'Security basics, cloud basics, communication', benefits: 'Mentoring, certifications, hybrid work', notes: 'Demo note: no response after 30 days.', cv: 'CV_Security_Demo.pdf' },
+  { id: 7, company: 'MapleWorks', companyId: 7, domain: '', position: 'Frontend Trainee', category: 'Frontend', level: 'Trainee', status: 'Offer', dateApplied: '2026-04-28', lastContact: '2026-05-07', nextStep: 'Decision', location: 'Remote', workMode: 'Remote', source: 'Direct referral', offerUrl: 'https://example.com/mapleworks/job-7', requirements: 'React, TypeScript, CSS, Git', benefits: 'Flexible work, product team, mentoring', notes: 'Demo note: strong frontend learning opportunity.', cv: 'CV_Frontend_Demo.pdf' }
 ];
 
 const initialEvents: CalendarEvent[] = [
-  { id: 1, title: 'Technical interview', company: 'Microsoft', applicationId: 1, date: '2026-05-28', time: '10:00', type: 'Technical interview', location: 'Teams', meetingLink: 'https://teams.microsoft.com', notes: 'Prepare C#, EF Core and REST API.' },
-  { id: 2, title: 'HR interview', company: 'Deloitte', applicationId: 2, date: '2026-05-29', time: '14:00', type: 'HR interview', location: 'Google Meet', meetingLink: 'https://meet.google.com', notes: 'Talk about IAM motivation.' },
-  { id: 3, title: 'Follow-up', company: 'Allegro', applicationId: 4, date: '2026-05-31', time: '09:00', type: 'Follow-up reminder', location: 'Email', meetingLink: '', notes: 'Send short follow-up.' },
-  { id: 4, title: 'Online test', company: 'EY', applicationId: 3, date: '2026-06-02', time: '16:00', type: 'Online test', location: 'Online', meetingLink: '', notes: 'IAM and logical test.' }
+  { id: 1, title: 'Technical interview', company: 'Northstar Labs', applicationId: 1, date: '2026-05-28', time: '10:00', type: 'Technical interview', location: 'Online', meetingLink: 'https://example.com/meeting', notes: 'Demo event: prepare technical questions.' },
+  { id: 2, title: 'HR interview', company: 'Riverstone Consulting', applicationId: 2, date: '2026-05-29', time: '14:00', type: 'HR interview', location: 'Online', meetingLink: 'https://example.com/meeting', notes: 'Demo event: prepare motivation and questions.' },
+  { id: 3, title: 'Follow-up', company: 'Cloudberry Systems', applicationId: 4, date: '2026-05-31', time: '09:00', type: 'Follow-up reminder', location: 'Email', meetingLink: '', notes: 'Demo event: send a short follow-up.' },
+  { id: 4, title: 'Online test', company: 'BrightPath Digital', applicationId: 3, date: '2026-06-02', time: '16:00', type: 'Online test', location: 'Online', meetingLink: '', notes: 'Demo event: complete online test.' }
 ];
 
 const initialDocuments: DocumentItem[] = [
-  { id: 1, name: 'CV_NET_Intern_2026.pdf', type: 'CV', category: '.NET', updated: '2026-05-18', usedIn: 5, size: '420 KB', url: '' },
-  { id: 2, name: 'CV_Cybersecurity_IAM_2026.pdf', type: 'CV', category: 'Cybersecurity', updated: '2026-05-19', usedIn: 4, size: '436 KB', url: '' },
-  { id: 3, name: 'CV_Fullstack_React_NET.pdf', type: 'CV', category: 'Full-stack', updated: '2026-05-12', usedIn: 2, size: '448 KB', url: '' },
-  { id: 4, name: 'Cover_Letter_Deloitte.pdf', type: 'Cover letter', category: 'Cybersecurity', updated: '2026-05-18', usedIn: 1, size: '198 KB', url: '' },
-  { id: 5, name: 'Portfolio_Link', type: 'Portfolio', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://avuii.github.io/PortfolioKS' },
-  { id: 6, name: 'GitHub_Profile', type: 'GitHub', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://github.com/Avuii' }
+  { id: 1, name: 'CV_NET_Intern_Demo.pdf', type: 'CV', category: '.NET', updated: '2026-05-18', usedIn: 5, size: '420 KB', url: '' },
+  { id: 2, name: 'CV_Security_Demo.pdf', type: 'CV', category: 'Cybersecurity', updated: '2026-05-19', usedIn: 4, size: '436 KB', url: '' },
+  { id: 3, name: 'CV_Fullstack_Demo.pdf', type: 'CV', category: 'Full-stack', updated: '2026-05-12', usedIn: 2, size: '448 KB', url: '' },
+  { id: 4, name: 'Cover_Letter_Demo.pdf', type: 'Cover letter', category: 'General', updated: '2026-05-18', usedIn: 1, size: '198 KB', url: '' },
+  { id: 5, name: 'Portfolio_Demo_Link', type: 'Portfolio', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://example.com/portfolio' },
+  { id: 6, name: 'GitHub_Demo_Profile', type: 'GitHub', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://github.com/example-user' }
 ];
 
 const initialNotes: NoteItem[] = [
-  { id: 1, title: 'Deloitte — HR interview preparation', company: 'Deloitte', application: 'Cyber Security Analyst', tag: 'Interview preparation', updated: '2026-05-21', body: 'Talk about developer background, interest in security, IAM and real business systems. Prepare answers about teamwork, English and learning mindset.', checklist: [{ id: 1, text: 'Prepare short intro in English', done: true }, { id: 2, text: 'Revise IAM basics', done: false }, { id: 3, text: 'Prepare questions to recruiter', done: false }] },
-  { id: 2, title: 'EY — IAM topics to revise', company: 'EY', application: 'IAM Intern', tag: 'Technical questions', updated: '2026-05-20', body: 'Revise identity lifecycle, authentication vs authorization, MFA, conditional access and basic AD structure.', checklist: [{ id: 1, text: 'Active Directory basics', done: false }, { id: 2, text: 'Entra ID vs AD', done: false }] },
-  { id: 3, title: 'Microsoft — .NET technical questions', company: 'Microsoft', application: '.NET Developer Intern', tag: 'Technical questions', updated: '2026-05-22', body: 'Review interfaces, dependency injection, async/await, IQueryable vs IEnumerable, try/catch/finally, EF Core migrations and REST endpoints.', checklist: [{ id: 1, text: 'DI container', done: true }, { id: 2, text: 'async/await', done: false }, { id: 3, text: 'EF Core migrations', done: false }] }
+  { id: 1, title: 'HR interview preparation', company: 'Riverstone Consulting', application: 'Cyber Security Analyst Intern', tag: 'Interview preparation', updated: '2026-05-21', body: 'Demo note: prepare a short introduction, motivation, project examples and questions to the recruiter.', checklist: [{ id: 1, text: 'Prepare short intro', done: true }, { id: 2, text: 'Revise role requirements', done: false }, { id: 3, text: 'Prepare questions to recruiter', done: false }] },
+  { id: 2, title: 'Security topics to revise', company: 'BrightPath Digital', application: 'IAM Intern', tag: 'Technical questions', updated: '2026-05-20', body: 'Demo note: revise authentication, authorization, MFA, identity lifecycle and access management basics.', checklist: [{ id: 1, text: 'Authentication vs authorization', done: false }, { id: 2, text: 'MFA basics', done: false }] },
+  { id: 3, title: '.NET technical questions', company: 'Northstar Labs', application: '.NET Developer Intern', tag: 'Technical questions', updated: '2026-05-22', body: 'Demo note: review OOP, dependency injection, async/await, REST endpoints and database basics.', checklist: [{ id: 1, text: 'Dependency injection', done: true }, { id: 2, text: 'async/await', done: false }, { id: 3, text: 'REST API basics', done: false }] }
 ];
 
 const inspirationCards = [
@@ -350,6 +350,39 @@ function formatWeekday(date: Date) {
   return new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(date);
 }
 
+function startOfMonth(value: string | Date) {
+  const date = typeof value === 'string' ? toDate(value) : new Date(value);
+  date.setDate(1);
+  date.setHours(12, 0, 0, 0);
+  return date;
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  next.setDate(1);
+  next.setHours(12, 0, 0, 0);
+  return next;
+}
+
+function formatMonthYear(date: Date) {
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(date);
+}
+
+function getMonthCells(monthDate: Date) {
+  const monthStart = startOfMonth(monthDate);
+  const firstGridDay = startOfWeek(monthStart);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = addDays(firstGridDay, index);
+    return {
+      date,
+      iso: toIsoDate(date),
+      day: date.getDate(),
+      isCurrentMonth: date.getMonth() === monthStart.getMonth()
+    };
+  });
+}
+
 function makeId() {
   return Date.now() + Math.floor(Math.random() * 1000);
 }
@@ -444,7 +477,9 @@ function CompanyLogo({ name, domain, large = false }: { name: string; domain?: s
 function Logo() {
   return (
     <div className="brand">
-      <div className="brand-icon" aria-hidden="true"><Folder size={24} /><Search className="brand-search" size={15} /></div>
+      <div className="brand-icon logo-image-shell" aria-hidden="true">
+        <img src="/logo/logo-removebg.png" alt="" className="brand-logo-img" />
+      </div>
       <div><div className="brand-name">TrackMyCV</div><div className="brand-subtitle">Job tracker</div></div>
     </div>
   );
@@ -487,7 +522,7 @@ function TextAreaField({ label, value, onChange, placeholder = '' }: { label: st
 }
 
 function LoginPage({ onLogin }: { onLogin: (profile: Profile) => void }) {
-  const [email, setEmail] = useState('kasia@example.com');
+  const [email, setEmail] = useState('demo@example.com');
   const [password, setPassword] = useState('demo1234');
   const [error, setError] = useState('');
   function submit(event: FormEvent) {
@@ -552,7 +587,7 @@ function Sidebar({ page, setPage, applications, settings }: { page: Page; setPag
 function Topbar({ page, profile, theme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
   const [open, setOpen] = useState(false);
   const isDashboard = page === 'dashboard';
-  const firstName = profile.name.split(' ')[0] || 'Kasia';
+  const firstName = profile.name.split(' ')[0] || 'Demo';
   function openSettings(tab: ProfileTab) {
     setOpen(false);
     onOpenSettings(tab);
@@ -616,8 +651,7 @@ function ApplicationSummary({ applications }: { applications: JobApplication[] }
   const rows = visibleStatuses
     .map((status) => [status, applications.filter((app) => app.status === status).length] as [Status, number])
     .filter(([, count]) => count > 0);
-  const total = applications.length || 1;
-  let offset = 0;
+  const total = applications.length;
   const colors: Record<string, string> = {
     Applied: '#c89561',
     'In progress': '#7f9eb6',
@@ -630,39 +664,27 @@ function ApplicationSummary({ applications }: { applications: JobApplication[] }
     'Task / test': '#b68a61',
     Archived: '#8b837a'
   };
+
+  let cursor = 0;
+  const gradient = rows.length
+    ? `conic-gradient(${rows.map(([status, count]) => {
+        const start = cursor;
+        const end = cursor + (count / Math.max(total, 1)) * 100;
+        cursor = end;
+        return `${colors[status]} ${start}% ${end}%`;
+      }).join(', ')})`
+    : 'conic-gradient(var(--surface-3) 0% 100%)';
+
   return (
     <section className="panel-card summary-card">
       <h2>Application summary</h2>
-      <p>{applications.length} total applications</p>
+      <p>{total} total applications</p>
       <div className="summary-content">
-        <div className="donut-shell" aria-hidden="true">
-          <svg viewBox="0 0 120 120" className="donut-chart">
-            <circle r="44" cx="60" cy="60" fill="none" stroke="var(--surface-3)" strokeWidth="18" />
-            {rows.map(([status, count]) => {
-              const value = (count / total) * 100;
-              const dash = `${value} ${100 - value}`;
-              const rotate = offset * 3.6 - 90;
-              offset += value;
-              return (
-                <circle
-                  key={status}
-                  r="44"
-                  cx="60"
-                  cy="60"
-                  fill="none"
-                  stroke={colors[status]}
-                  strokeWidth="18"
-                  strokeDasharray={dash}
-                  strokeDashoffset="0"
-                  pathLength="100"
-                  transform={`rotate(${rotate} 60 60)`}
-                />
-              );
-            })}
-            <circle r="27" cx="60" cy="60" fill="var(--surface)" />
-            <text x="60" y="57" textAnchor="middle" className="donut-number">{applications.length}</text>
-            <text x="60" y="74" textAnchor="middle" className="donut-label">apps</text>
-          </svg>
+        <div className="donut-visual" aria-hidden="true" style={{ background: gradient }}>
+          <div className="donut-hole">
+            <strong>{total}</strong>
+            <span>apps</span>
+          </div>
         </div>
         <div className="legend-list">
           {rows.map(([status, count]) => (
@@ -791,8 +813,9 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
   const [view, setView] = useState<CalendarView>('Month');
   const [modal, setModal] = useState<CalendarEvent | null>(null);
   const sorted = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(sorted[0]?.date || today()));
-  const days = Array.from({ length: 35 }, (_, index) => index + 1);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
+  const [monthDate, setMonthDate] = useState(() => startOfMonth(today()));
+  const monthCells = getMonthCells(monthDate);
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   function save(event: CalendarEvent) {
     if (events.some((item) => item.id === event.id)) setEvents(events.map((item) => item.id === event.id ? event : item));
@@ -813,15 +836,22 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
       <div className="calendar-layout">
         {view === 'Month' ? (
           <section className="panel-card calendar-card">
-            <div className="calendar-header-row"><h2>May 2026</h2><div><button className="ghost-icon" type="button">‹</button><button className="ghost-icon" type="button">›</button></div></div>
+            <div className="calendar-header-row">
+              <div><h2>{formatMonthYear(monthDate)}</h2><p>Monthly overview</p></div>
+              <div className="calendar-nav-controls">
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))} aria-label="Previous month">‹</button>
+                <button className="secondary-button today-button" type="button" onClick={() => setMonthDate(startOfMonth(today()))}>Today</button>
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))} aria-label="Next month">›</button>
+              </div>
+            </div>
             <div className="calendar-grid-head">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}</div>
-            <div className="calendar-grid-days">{days.map((day) => { const dayEvents = sorted.filter((event) => Number(event.date.slice(-2)) === day); return <button className={`calendar-day ${dayEvents.length ? 'has-event' : ''}`} type="button" key={day} onClick={() => dayEvents[0] ? setModal(dayEvents[0]) : newEvent(`2026-05-${String(day).padStart(2, '0')}`)}><span>{day}</span>{dayEvents.slice(0, 2).map((event) => <small key={event.id}>{event.title}</small>)}</button>; })}</div>
+            <div className="calendar-grid-days">{monthCells.map((cell) => { const dayEvents = sorted.filter((event) => event.date === cell.iso); return <button className={`calendar-day ${dayEvents.length ? 'has-event' : ''} ${!cell.isCurrentMonth ? 'muted-day' : ''}`} type="button" key={cell.iso} onClick={() => dayEvents[0] ? setModal(dayEvents[0]) : newEvent(cell.iso)}><span>{cell.day}</span>{dayEvents.slice(0, 2).map((event) => <small key={event.id}>{event.title}</small>)}</button>; })}</div>
           </section>
         ) : view === 'Week' ? (
           <section className="panel-card calendar-card week-calendar">
             <div className="calendar-header-row">
               <div><h2>Week view</h2><p>{formatWeekRange(weekStart)}</p></div>
-              <div><button className="ghost-icon" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹</button><button className="ghost-icon" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))}>›</button></div>
+              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">‹</button><button className="secondary-button today-button" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">›</button></div>
             </div>
             <div className="week-grid custom-scroll">
               {weekDays.map((day) => {
@@ -913,7 +943,7 @@ function ModalFooter({ onClose, submitLabel }: { onClose: () => void; submitLabe
 }
 
 function ApplicationModal({ application, companies, documents, categoryOptions, levelOptions, onClose, onSave }: { application?: JobApplication; companies: Company[]; documents: DocumentItem[]; categoryOptions: string[]; levelOptions: string[]; onClose: () => void; onSave: (app: JobApplication) => void }) {
-  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Warsaw', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: documents.find((doc) => doc.type === 'CV')?.name || 'CV_NET_Intern_2026.pdf' });
+  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: documents.find((doc) => doc.type === 'CV')?.name || 'CV_NET_Intern_Demo.pdf' });
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [key]: value })); }
   function chooseCompany(name: string) { const company = companies.find((item) => item.name === name); setForm((current) => ({ ...current, company: name, companyId: company?.id, domain: company?.domain || safeDomain(name), offerUrl: current.offerUrl || company?.website || '' })); }
   function submit(event: FormEvent) { event.preventDefault(); onSave({ ...form, id: application?.id || makeId(), domain: safeDomain(form.company, form.domain) }); }
@@ -971,7 +1001,7 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   }
   const categoryItems = uniqueOptions(categories, prefs.categories);
   const levelItems = uniqueOptions(levels, prefs.levels);
-  const locationItems = uniqueOptions(['Warsaw', 'Łódź', 'Remote', 'Kraków', 'Wrocław', 'Gdańsk'], prefs.locations);
+  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'Kraków', 'Wrocław', 'Gdańsk'], prefs.locations);
   return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><TextField label="Mark as no response after" value={String(prefs.noResponseDays)} onChange={(v) => patch({ noResponseDays: Number(v) || 0 })} /><TextField label="Mark as ghosted after" value={String(prefs.ghostedDays)} onChange={(v) => patch({ ghostedDays: Number(v) || 0 })} /><TextField label="Suggest follow-up after" value={String(prefs.followUpDays)} onChange={(v) => patch({ followUpDays: Number(v) || 0 })} /></div></div>;
 }
 
