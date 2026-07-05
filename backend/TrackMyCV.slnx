@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="TrackMyCV.Api/TrackMyCV.Api.csproj" />
+  <Project Path="TrackMyCV.Application/TrackMyCV.Application.csproj" />
+  <Project Path="TrackMyCV.Domain/TrackMyCV.Domain.csproj" />
+</Solution>
