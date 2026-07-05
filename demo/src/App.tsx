@@ -179,6 +179,9 @@ const eventTypes = ['HR interview', 'Technical interview', 'Recruitment task', '
 const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 'Banking', 'Cybersecurity', 'Other'];
 const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Certificate', 'Other'];
 
+const publicAsset = (path: string) =>
+  `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+
 const initialProfile: Profile = {
   name: 'Demo User',
   email: 'demo@example.com',
@@ -254,21 +257,21 @@ const initialNotes: NoteItem[] = [
 ];
 
 const inspirationCards = [
-  { title: 'Stay consistent', text: 'Small steps every day lead to big changes.', image: '/assets/bed-coffe.jpg' },
-  { title: 'Slow progress counts', text: 'One thoughtful application is still progress.', image: '/assets/cofee-photo2.webp' },
-  { title: 'Keep it soft', text: 'You do not need chaos to move forward.', image: '/assets/candle-vanilla.jpg' },
-  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up — all count.', image: '/assets/croissant-bow.jpg' },
-  { title: 'Protect your energy', text: 'Not every rejection says something about you.', image: '/assets/cat-bed.jpg' },
-  { title: 'One clean step', text: 'Today can be only one application. That is enough.', image: '/assets/cozy-home.jpg' },
-  { title: 'Stay curious', text: 'Every offer teaches you what to learn next.', image: '/assets/desk-photo2.jpg' },
-  { title: 'Reset gently', text: 'A quiet break can make the next step clearer.', image: '/assets/coffee-metal.jpg' },
-  { title: 'No rush, still moving', text: 'Consistency is calmer than pressure.', image: '/assets/pancake.jpg' },
-  { title: 'Focus on fit', text: 'The right process should feel possible, not impossible.', image: '/assets/work2.webp' },
-  { title: 'Cozy focus', text: 'A clear space helps a clear next step.', image: '/assets/work3.webp' },
-  { title: 'Gentle discipline', text: 'You can be ambitious without rushing yourself.', image: '/assets/cat.jpg' },
-  { title: 'Make it manageable', text: 'Break the search into small warm rituals.', image: '/assets/cofee-photo.webp' },
-  { title: 'Warm reset', text: 'Rest is part of staying consistent.', image: '/assets/cozy-home.jpg' },
-  { title: 'Soft confidence', text: 'Your path can be calm and still serious.', image: '/assets/work1.jpg' }
+  { title: 'Stay consistent', text: 'Small steps every day lead to big changes.', image: publicAsset('assets/bed-coffe.jpg') },
+  { title: 'Slow progress counts', text: 'One thoughtful application is still progress.', image: publicAsset('assets/cofee-photo2.webp') },
+  { title: 'Keep it soft', text: 'You do not need chaos to move forward.', image: publicAsset('assets/candle-vanilla.jpg') },
+  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up — all count.', image: publicAsset('assets/croissant-bow.jpg') },
+  { title: 'Protect your energy', text: 'Not every rejection says something about you.', image: publicAsset('assets/cat-bed.jpg') },
+  { title: 'One clean step', text: 'Today can be only one application. That is enough.', image: publicAsset('assets/cozy-home.jpg') },
+  { title: 'Stay curious', text: 'Every offer teaches you what to learn next.', image: publicAsset('assets/desk-photo2.jpg') },
+  { title: 'Reset gently', text: 'A quiet break can make the next step clearer.', image: publicAsset('assets/coffee-metal.jpg') },
+  { title: 'No rush, still moving', text: 'Consistency is calmer than pressure.', image: publicAsset('assets/pancake.jpg') },
+  { title: 'Focus on fit', text: 'The right process should feel possible, not impossible.', image: publicAsset('assets/work2.webp') },
+  { title: 'Cozy focus', text: 'A clear space helps a clear next step.', image: publicAsset('assets/work3.webp') },
+  { title: 'Gentle discipline', text: 'You can be ambitious without rushing yourself.', image: publicAsset('assets/cat.jpg') },
+  { title: 'Make it manageable', text: 'Break the search into small warm rituals.', image: publicAsset('assets/cofee-photo.webp') },
+  { title: 'Warm reset', text: 'Rest is part of staying consistent.', image: publicAsset('assets/cozy-home.jpg') },
+  { title: 'Soft confidence', text: 'Your path can be calm and still serious.', image: publicAsset('assets/work1.jpg') }
 ];
 
 const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
@@ -478,7 +481,7 @@ function Logo() {
   return (
     <div className="brand">
       <div className="brand-icon logo-image-shell" aria-hidden="true">
-        <img src="/logo/logo-removebg.png" alt="" className="brand-logo-img" />
+        <img src={publicAsset('logo/logo-removebg.png')} alt="" className="brand-logo-img" />
       </div>
       <div><div className="brand-name">TrackMyCV</div><div className="brand-subtitle">Job tracker</div></div>
     </div>
@@ -549,7 +552,7 @@ function LoginPage({ onLogin }: { onLogin: (profile: Profile) => void }) {
           <small>Demo accepts any e-mail and password with at least 4 characters.</small>
         </form>
       </section>
-      <aside className="login-visual"><img src="/assets/work2.webp" alt="Soft work setup" /><div className="visual-card"><CheckCircle2 size={18} /> Soft productivity dashboard</div></aside>
+      <aside className="login-visual"><img src={publicAsset('assets/work2.webp')} alt="Soft work setup" /><div className="visual-card"><CheckCircle2 size={18} /> Soft productivity dashboard</div></aside>
     </main>
   );
 }
