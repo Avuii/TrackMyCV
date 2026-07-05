@@ -801,21 +801,174 @@ function UpcomingCard({ events, onOpenCalendar }: { events: CalendarEvent[]; onO
   return <section className="panel-card upcoming-card"><div className="mini-title"><CalendarDays size={17} /><h2>Upcoming</h2></div>{upcoming.map((event) => <div className="event-row" key={event.id}><span className="event-icon"><CalendarDays size={15} /></span><div><strong>{event.title} — {event.company}</strong><small>{formatDate(event.date)}, {event.time}</small></div></div>)}<button className="mini-link with-arrow" type="button" onClick={onOpenCalendar}>View calendar <ChevronDown className="chevron-right" size={16} /></button></section>;
 }
 
-function ApplicationsTable({ applications, compact = false, selectedId, onSelect, onStatusChange, onDelete, onEdit }: { applications: JobApplication[]; compact?: boolean; selectedId?: number; onSelect?: (application: JobApplication) => void; onStatusChange?: (id: number, status: Status) => void; onDelete?: (id: number) => void; onEdit?: (application: JobApplication) => void }) {
+function ApplicationsTable({
+  applications,
+  compact = false,
+  selectedId,
+  onSelect,
+  onStatusChange,
+  onDelete,
+  onEdit
+}: {
+  applications: JobApplication[];
+  compact?: boolean;
+  selectedId?: number;
+  onSelect?: (application: JobApplication) => void;
+  onStatusChange?: (id: number, status: Status) => void;
+  onDelete?: (id: number) => void;
+  onEdit?: (application: JobApplication) => void;
+}) {
   return (
     <div className="table-wrap custom-scroll">
       <table className={`applications-table ${compact ? 'compact-table' : ''}`}>
-        <thead><tr><th>Company</th><th>Position</th>{!compact ? <th>Category</th> : null}<th>Status</th><th>Date applied</th>{!compact ? <th>Work mode</th> : null}{!compact ? <th>Last contact</th> : null}<th>Next step</th>{!compact ? <th aria-label="Actions" /> : null}</tr></thead>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Position</th>
+            {!compact ? <th>Category</th> : null}
+            <th>Status</th>
+            <th>Date applied</th>
+            {!compact ? <th>Work mode</th> : null}
+            {!compact ? <th>Last contact</th> : null}
+            <th>Next step</th>
+            {!compact ? <th aria-label="Actions" /> : null}
+          </tr>
+        </thead>
+
         <tbody>
-          {applications.map((app) => <tr key={app.id} className={selectedId === app.id ? 'selected-row' : ''} onClick={() => onSelect?.(app)}><td><div className="company-cell"><CompanyLogo name={app.company} domain={app.domain} /><div><strong>{app.company}</strong>{!compact ? <small><MapPin size={12} /> {app.location}</small> : null}</div></div></td><td><div className="position-cell"><strong>{app.position}</strong>{!compact ? <small>{app.level}</small> : null}</div></td>{!compact ? <td><CategoryPill category={app.category} /></td> : null}<td>{onStatusChange && !compact ? <div onClick={(e) => e.stopPropagation()}><CustomSelect value={app.status} options={statuses} onChange={(value) => onStatusChange(app.id, value as Status)} className="status-custom-select" /></div> : <StatusBadge status={app.status} />}</td><td>{formatDate(app.dateApplied)}</td>{!compact ? <td>{app.workMode}</td> : null}{!compact ? <td>{formatDate(app.lastContact)}</td> : null}<td>{app.nextStep}</td>{!compact ? <td className="row-actions"><button className="ghost-icon" type="button" aria-label="Edit" onClick={(event) => { event.stopPropagation(); onEdit?.(app); }}><Pencil size={17} /></button><button className="ghost-icon" type="button" aria-label="Open offer" onClick={(event) => { event.stopPropagation(); if (app.offerUrl) window.open(app.offerUrl, '_blank'); }}><ExternalLink size={17} /></button><button className="ghost-icon danger" type="button" aria-label="Delete" onClick={(event) => { event.stopPropagation(); onDelete?.(app.id); }}><Trash2 size={17} /></button></td> : null}</tr>)}
+          {applications.map((app) => (
+            <tr
+              key={app.id}
+              className={selectedId === app.id ? 'selected-row' : ''}
+              onClick={() => onSelect?.(app)}
+            >
+              <td>
+                <div className="company-cell">
+                  <CompanyLogo name={app.company} domain={app.domain} />
+                  <div>
+                    <strong>{app.company}</strong>
+                    {!compact ? (
+                      <small>
+                        <MapPin size={12} /> {app.location}
+                      </small>
+                    ) : null}
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div className="position-cell">
+                  <strong>{app.position}</strong>
+                  {!compact ? <small>{app.level}</small> : null}
+                </div>
+              </td>
+
+              {!compact ? (
+                <td>
+                  <CategoryPill category={app.category} />
+                </td>
+              ) : null}
+
+              <td>
+                {onStatusChange && !compact ? (
+                  <div onClick={(event) => event.stopPropagation()}>
+                    <CustomSelect
+                      value={app.status}
+                      options={statuses}
+                      onChange={(value) => onStatusChange(app.id, value as Status)}
+                      className="status-custom-select"
+                    />
+                  </div>
+                ) : (
+                  <StatusBadge status={app.status} />
+                )}
+              </td>
+
+              <td>{formatDate(app.dateApplied)}</td>
+
+              {!compact ? <td>{app.workMode}</td> : null}
+              {!compact ? <td>{formatDate(app.lastContact)}</td> : null}
+
+              <td className="next-step-cell">{app.nextStep}</td>
+
+              {!compact ? (
+                <td className="row-actions">
+                  <button
+                    className="ghost-icon"
+                    type="button"
+                    aria-label="Edit"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEdit?.(app);
+                    }}
+                  >
+                    <Pencil size={17} />
+                  </button>
+
+                  <button
+                    className="ghost-icon"
+                    type="button"
+                    aria-label="Open offer"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (app.offerUrl) window.open(app.offerUrl, '_blank');
+                    }}
+                  >
+                    <ExternalLink size={17} />
+                  </button>
+
+                  <button
+                    className="ghost-icon danger"
+                    type="button"
+                    aria-label="Delete"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete?.(app.id);
+                    }}
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                </td>
+              ) : null}
+            </tr>
+          ))}
         </tbody>
       </table>
-      {!applications.length ? <div className="empty-state"><Folder size={28} /><strong>No results</strong><span>Try changing filters or add a new application.</span></div> : null}
+
+      {!applications.length ? (
+        <div className="empty-state">
+          <Folder size={28} />
+          <strong>No results</strong>
+          <span>Try changing filters or add a new application.</span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function ApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onStatusChange, onDelete, selectedApplication, setSelectedApplication, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onStatusChange: (id: number, status: Status) => void; onDelete: (id: number) => void; selectedApplication: JobApplication | null; setSelectedApplication: (application: JobApplication | null) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
+function ApplicationsPage({
+  applications,
+  onOpenApplication,
+  onOpenEditApplication,
+  onStatusChange,
+  onDelete,
+  selectedApplication,
+  setSelectedApplication,
+  onExport,
+  categoryOptions,
+  levelOptions
+}: {
+  applications: JobApplication[];
+  onOpenApplication: () => void;
+  onOpenEditApplication: (app: JobApplication) => void;
+  onStatusChange: (id: number, status: Status) => void;
+  onDelete: (id: number) => void;
+  selectedApplication: JobApplication | null;
+  setSelectedApplication: (application: JobApplication | null) => void;
+  onExport: () => void;
+  categoryOptions: string[];
+  levelOptions: string[];
+}) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All');
   const [category, setCategory] = useState('All');
@@ -823,21 +976,158 @@ function ApplicationsPage({ applications, onOpenApplication, onOpenEditApplicati
   const [location, setLocation] = useState('All');
   const [mode, setMode] = useState('All');
   const [source, setSource] = useState('All');
-  const locations = useMemo(() => ['All', ...Array.from(new Set(applications.map((app) => app.location))).filter(Boolean)], [applications]);
-  const filtered = useMemo(() => applications.filter((app) => {
-    const search = `${app.company} ${app.position} ${app.category} ${app.source} ${app.location}`.toLowerCase();
-    return search.includes(query.toLowerCase()) && (status === 'All' || app.status === status) && (category === 'All' || app.category === category) && (level === 'All' || app.level === level) && (location === 'All' || app.location === location) && (mode === 'All' || app.workMode === mode) && (source === 'All' || app.source === source);
-  }), [applications, query, status, category, level, location, mode, source]);
+  const [previewApplication, setPreviewApplication] = useState<JobApplication | null>(selectedApplication);
+
+  const locations = useMemo(
+    () => ['All', ...Array.from(new Set(applications.map((app) => app.location))).filter(Boolean)],
+    [applications]
+  );
+
+  const filtered = useMemo(
+    () =>
+      applications.filter((app) => {
+        const search = `${app.company} ${app.position} ${app.category} ${app.source} ${app.location}`.toLowerCase();
+
+        return (
+          search.includes(query.toLowerCase()) &&
+          (status === 'All' || app.status === status) &&
+          (category === 'All' || app.category === category) &&
+          (level === 'All' || app.level === level) &&
+          (location === 'All' || app.location === location) &&
+          (mode === 'All' || app.workMode === mode) &&
+          (source === 'All' || app.source === source)
+        );
+      }),
+    [applications, query, status, category, level, location, mode, source]
+  );
+
   useEffect(() => {
-    if (!filtered.length) setSelectedApplication(null);
-    else if (!selectedApplication || !filtered.some((app) => app.id === selectedApplication.id)) setSelectedApplication(filtered[0]);
-  }, [filtered, selectedApplication, setSelectedApplication]);
-  const hasFilters = query || status !== 'All' || category !== 'All' || level !== 'All' || location !== 'All' || mode !== 'All' || source !== 'All';
-  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search company, position..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Status" value={status} options={['All', ...statuses]} onChange={setStatus} /><CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} /><CustomSelect label="Level" value={level} options={['All', ...levelOptions]} onChange={setLevel} /><CustomSelect label="Location" value={location} options={locations} onChange={setLocation} /><CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} /><CustomSelect label="Source" value={source} options={['All', ...sources]} onChange={setSource} /><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export</button>{hasFilters ? <button className="secondary-button" type="button" onClick={() => { setQuery(''); setStatus('All'); setCategory('All'); setLevel('All'); setLocation('All'); setMode('All'); setSource('All'); }}>Clear</button> : null}</div><section className="panel-card applications-panel"><ApplicationsTable applications={filtered} selectedId={selectedApplication?.id} onSelect={setSelectedApplication} onStatusChange={onStatusChange} onDelete={onDelete} onEdit={onOpenEditApplication} /></section>{selectedApplication ? <section className="panel-card details-panel"><ApplicationDetails application={selectedApplication} onEdit={() => onOpenEditApplication(selectedApplication)} /></section> : null}</section>;
+    if (previewApplication && !applications.some((app) => app.id === previewApplication.id)) {
+      setPreviewApplication(null);
+      setSelectedApplication(null);
+    }
+  }, [applications, previewApplication, setSelectedApplication]);
+
+  const hasFilters =
+    query ||
+    status !== 'All' ||
+    category !== 'All' ||
+    level !== 'All' ||
+    location !== 'All' ||
+    mode !== 'All' ||
+    source !== 'All';
+
+  function openPreview(application: JobApplication) {
+    setSelectedApplication(application);
+    setPreviewApplication(application);
+  }
+
+  function clearFilters() {
+    setQuery('');
+    setStatus('All');
+    setCategory('All');
+    setLevel('All');
+    setLocation('All');
+    setMode('All');
+    setSource('All');
+  }
+
+  return (
+    <section className="page-section">
+      <div className="toolbar">
+        <div className="search-field wide">
+          <Search size={18} />
+          <input
+            placeholder="Search company, position..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+
+        <CustomSelect label="Status" value={status} options={['All', ...statuses]} onChange={setStatus} />
+        <CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} />
+        <CustomSelect label="Level" value={level} options={['All', ...levelOptions]} onChange={setLevel} />
+        <CustomSelect label="Location" value={location} options={locations} onChange={setLocation} />
+        <CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} />
+        <CustomSelect label="Source" value={source} options={['All', ...sources]} onChange={setSource} />
+
+        <button className="secondary-button" type="button" onClick={onExport}>
+          <Download size={17} /> Export
+        </button>
+
+        {hasFilters ? (
+          <button className="secondary-button" type="button" onClick={clearFilters}>
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      <section className="panel-card applications-panel">
+        <ApplicationsTable
+          applications={filtered}
+          onSelect={openPreview}
+          onStatusChange={onStatusChange}
+          onDelete={onDelete}
+          onEdit={onOpenEditApplication}
+        />
+      </section>
+
+      {previewApplication ? (
+        <ApplicationDetailsModal
+          application={previewApplication}
+          onClose={() => setPreviewApplication(null)}
+          onEdit={() => {
+            setPreviewApplication(null);
+            onOpenEditApplication(previewApplication);
+          }}
+        />
+      ) : null}
+    </section>
+  );
 }
 
 function ApplicationDetails({ application, onEdit }: { application: JobApplication; onEdit: () => void }) {
   return <div className="details-grid"><div><div className="details-heading"><CompanyLogo name={application.company} domain={application.domain} large /><div><h2>{application.company}</h2><p>{application.position}</p></div><StatusBadge status={application.status} /></div><div className="details-actions"><button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Open offer</button><button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button></div></div><div className="details-lists"><InfoList title="Requirements" text={application.requirements} /><InfoList title="Benefits" text={application.benefits} /><InfoList title="Details" text={`${application.location}, ${application.workMode}, ${application.source}, ${application.cv}`} /></div><div className="timeline-card"><h3>Recruitment timeline</h3>{['Saved offer', 'CV sent', application.lastContact ? 'Company response' : 'Waiting', application.nextStep].map((item, index) => <div className="timeline-row" key={`${item}-${index}`}><span /><div><strong>{item}</strong><small>{index === 0 ? formatDate(application.dateApplied) : index === 1 ? formatDate(application.dateApplied) : index === 2 ? formatDate(application.lastContact) : 'Next step'}</small></div></div>)}</div></div>;
+}
+
+
+function ApplicationDetailsModal({
+  application,
+  onClose,
+  onEdit
+}: {
+  application: JobApplication;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <BaseModal
+      title="Application details"
+      subtitle={`${application.company} · ${application.position}`}
+      onClose={onClose}
+    >
+      <div className="application-details-modal custom-scroll">
+        <ApplicationDetails application={application} onEdit={onEdit} />
+
+        {application.notes ? (
+          <section className="application-modal-note">
+            <h3>Notes</h3>
+            <p>{application.notes}</p>
+          </section>
+        ) : null}
+
+        <footer className="modal-footer inner">
+          <button className="secondary-button" type="button" onClick={onClose}>
+            Close
+          </button>
+
+          <button className="primary-button" type="button" onClick={onEdit}>
+            <Pencil size={17} /> Edit application
+          </button>
+        </footer>
+      </div>
+    </BaseModal>
+  );
 }
 
 function InfoList({ title, text }: { title: string; text: string }) {
