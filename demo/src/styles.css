@@ -3913,111 +3913,44 @@ mpany demo logos */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 10px 24px rgba(0, 0, 0, 0.18);
-}
+}/* =========================================================
+   Applications table final fix
+   - native status select prevents dropdowns from opening under rows
+   - row actions use an inner flex wrapper, so row borders stay even
+   - position wraps nicely and the table remains responsive
+   ========================================================= */
 
-/* Fix oversized company logo pseudo-elements */
-
-.company-logo,
-.company-cell .company-logo {
-  width: 34px !important;
-  height: 34px !important;
-  min-width: 34px !important;
-  max-width: 34px !important;
-  flex: 0 0 34px !important;
-  border-radius: 12px !important;
-}
-
-.company-logo.large,
-.company-logo.large.demo-company-logo {
-  width: 46px !important;
-  height: 46px !important;
-  min-width: 46px !important;
-  max-width: 46px !important;
-  flex: 0 0 46px !important;
-  border-radius: 14px !important;
-}
-
-.demo-company-logo::before,
-.demo-company-logo::after {
-  content: none !important;
-  display: none !important;
-}
-
-.demo-company-logo {
-  position: relative !important;
+.applications-panel {
   overflow: hidden !important;
-  display: inline-grid !important;
-  place-items: center !important;
-  box-shadow: 0 5px 14px rgba(103, 78, 55, 0.08) !important;
 }
-
-.demo-company-logo > span {
-  position: static !important;
-  z-index: 1 !important;
-  font-size: 12px !important;
-  font-weight: 850 !important;
-  line-height: 1 !important;
-}
-
-.company-logo.large.demo-company-logo > span {
-  font-size: 14px !important;
-}
-
-/* Simple clean logo backgrounds */
-
-.demo-company-logo.northstar {
-  background: #eadfce !important;
-  color: #7b5b39 !important;
-}
-
-.demo-company-logo.riverstone {
-  background: #dff1ea !important;
-  color: #276a5b !important;
-}
-
-.demo-company-logo.brightpath {
-  background: #e3eaf5 !important;
-  color: #4f668a !important;
-}
-
-.demo-company-logo.cloudberry {
-  background: #f1dfe8 !important;
-  color: #8d4f67 !important;
-}
-
-.demo-company-logo.oakcode {
-  background: #e9dec3 !important;
-  color: #6f5b2f !important;
-}
-
-.demo-company-logo.lumen {
-  background: #e2ddd4 !important;
-  color: #5d5b54 !important;
-}
-
-.demo-company-logo.mapleworks {
-  background: #efd7c5 !important;
-  color: #7e4d2d !important;
-}
-
-.demo-company-logo.fallback {
-  background: #eadfce !important;
-  color: #86684d !important;
-}
-/* Applications table cleanup */
 
 .applications-panel .table-wrap {
-  overflow-x: auto;
+  width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 
 .applications-table {
-  min-width: 1180px;
-  table-layout: fixed;
+  width: 100% !important;
+  min-width: 1120px !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  font-size: 12px !important;
 }
 
-.applications-table th,
-.applications-table td {
-  padding: 14px 12px !important;
+.applications-table thead th {
+  height: 48px !important;
+  padding: 0 12px !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+.applications-table tbody td {
+  height: 62px !important;
+  padding: 10px 12px !important;
+  vertical-align: middle !important;
+  border-bottom: 1px solid var(--border) !important;
+  overflow: hidden !important;
 }
 
 .applications-table th:first-child,
@@ -4032,27 +3965,30 @@ mpany demo logos */
 
 .applications-table th:nth-child(3),
 .applications-table td:nth-child(3) {
-  width: 122px !important;
+  width: 118px !important;
 }
 
 .applications-table th:nth-child(4),
 .applications-table td:nth-child(4) {
-  width: 148px !important;
+  width: 136px !important;
 }
 
 .applications-table th:nth-child(5),
 .applications-table td:nth-child(5) {
   width: 126px !important;
+  white-space: nowrap !important;
 }
 
 .applications-table th:nth-child(6),
 .applications-table td:nth-child(6) {
   width: 96px !important;
+  white-space: nowrap !important;
 }
 
 .applications-table th:nth-child(7),
 .applications-table td:nth-child(7) {
-  width: 126px !important;
+  width: 122px !important;
+  white-space: nowrap !important;
 }
 
 .applications-table th:nth-child(8),
@@ -4062,16 +3998,28 @@ mpany demo logos */
 
 .applications-table th:last-child,
 .applications-table td:last-child {
-  width: 132px !important;
+  width: 128px !important;
 }
 
 .applications-table tbody tr {
   cursor: pointer;
 }
 
+.company-cell,
 .position-cell {
-  max-width: 100%;
-  min-width: 0;
+  min-width: 0 !important;
+}
+
+.company-cell strong,
+.position-cell strong {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+}
+
+.company-cell small,
+.position-cell small {
+  font-size: 10.5px !important;
+  line-height: 1.25 !important;
 }
 
 .position-cell strong {
@@ -4079,79 +4027,152 @@ mpany demo logos */
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   white-space: normal !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.25 !important;
-}
-
-.position-cell small {
-  margin-top: 4px;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .category-pill {
-  max-width: 108px !important;
-}
-
-.status-custom-select {
-  width: 132px !important;
-  min-width: 132px !important;
-}
-
-.status-custom-select .select-trigger {
-  width: 132px !important;
-  min-width: 132px !important;
+  max-width: 102px !important;
+  min-height: 27px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .next-step-cell {
   white-space: normal !important;
-  line-height: 1.25;
+  line-height: 1.25 !important;
+}
+
+.status-table-select {
+  width: 126px !important;
+  height: 34px !important;
+  max-width: 100% !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 999px !important;
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  padding: 0 34px 0 12px !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  line-height: 34px !important;
+  outline: none !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  appearance: auto !important;
+}
+
+.status-table-select:focus {
+  border-color: var(--selected-border, #ca996a) !important;
+  box-shadow: 0 0 0 4px var(--focus-ring, rgba(154, 118, 88, 0.12)) !important;
+}
+
+.status-table-select option {
+  background: var(--surface) !important;
+  color: var(--text) !important;
 }
 
 .row-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6px;
+  text-align: right !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+}
+
+.row-actions-inner {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+}
+
+.row-actions .ghost-icon,
+.row-actions-inner .ghost-icon {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 11px !important;
 }
 
 /* Application details modal */
-
 .application-details-modal {
-  padding: 28px 34px 34px;
-  max-height: calc(100dvh - 180px);
-  overflow-y: auto;
+  padding: 26px 32px 32px !important;
+  max-height: calc(100dvh - 180px) !important;
+  overflow-y: auto !important;
 }
 
 .application-details-modal .details-grid {
-  grid-template-columns: 1fr 1.25fr 0.95fr;
+  grid-template-columns: 1fr 1.25fr 0.95fr !important;
 }
 
 .application-modal-note {
-  margin-top: 22px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--surface-2);
+  margin-top: 22px !important;
+  padding: 18px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 18px !important;
+  background: var(--surface-2) !important;
 }
 
 .application-modal-note h3,
 .application-modal-note p {
-  margin: 0;
+  margin: 0 !important;
 }
 
 .application-modal-note p {
-  margin-top: 8px;
-  color: var(--muted);
-  line-height: 1.55;
+  margin-top: 8px !important;
+  color: var(--muted) !important;
+  line-height: 1.55 !important;
+}
+
+/* clean company logos - disables oversized pseudo elements */
+.demo-company-logo::before,
+.demo-company-logo::after {
+  content: none !important;
+  display: none !important;
+}
+
+.demo-company-logo {
+  display: inline-grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  box-shadow: 0 5px 14px rgba(103, 78, 55, 0.08) !important;
+}
+
+.demo-company-logo > span {
+  position: static !important;
+  z-index: 1 !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
 }
 
 @media (max-width: 900px) {
   .applications-table {
-    min-width: 0;
+    min-width: 0 !important;
+    font-size: 13px !important;
+  }
+
+  .applications-table tbody td {
+    height: auto !important;
+    padding: 8px 0 !important;
+    overflow: visible !important;
+  }
+
+  .status-table-select {
+    width: 100% !important;
+  }
+
+  .row-actions {
+    text-align: left !important;
+  }
+
+  .row-actions-inner {
+    justify-content: flex-start !important;
   }
 
   .application-details-modal {
-    padding: 20px;
+    padding: 20px !important;
   }
 
   .application-details-modal .details-grid {
