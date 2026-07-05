@@ -21,6 +21,7 @@ import {
   Globe,
   Heart,
   LayoutDashboard,
+  List as ListIcon,
   Link as LinkIcon,
   LogOut,
   Mail,
@@ -37,6 +38,7 @@ import {
   StickyNote,
   Sun,
   Tag,
+  Table2,
   Trash2,
   Upload,
   User,
@@ -983,6 +985,7 @@ function ApplicationsPage({
   const [location, setLocation] = useState('All');
   const [mode, setMode] = useState('All');
   const [source, setSource] = useState('All');
+  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
   const [previewApplication, setPreviewApplication] = useState<JobApplication | null>(selectedApplication);
 
   const locations = useMemo(
@@ -1058,6 +1061,25 @@ function ApplicationsPage({
         <CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} />
         <CustomSelect label="Source" value={source} options={['All', ...sources]} onChange={setSource} />
 
+        <div className="view-switch" aria-label="Applications view mode">
+          <button
+            className={viewMode === 'list' ? 'selected' : ''}
+            type="button"
+            onClick={() => setViewMode('list')}
+            aria-pressed={viewMode === 'list'}
+          >
+            <ListIcon size={16} /> List
+          </button>
+          <button
+            className={viewMode === 'table' ? 'selected' : ''}
+            type="button"
+            onClick={() => setViewMode('table')}
+            aria-pressed={viewMode === 'table'}
+          >
+            <Table2 size={16} /> Table
+          </button>
+        </div>
+
         <button className="secondary-button" type="button" onClick={onExport}>
           <Download size={17} /> Export
         </button>
@@ -1069,15 +1091,25 @@ function ApplicationsPage({
         ) : null}
       </div>
 
-      <section className="panel-card applications-panel">
-        <ApplicationsTable
+      {viewMode === 'list' ? (
+        <DesktopApplicationsList
           applications={filtered}
           onSelect={openPreview}
           onStatusChange={onStatusChange}
           onDelete={onDelete}
           onEdit={onOpenEditApplication}
         />
-      </section>
+      ) : (
+        <section className="panel-card applications-panel">
+          <ApplicationsTable
+            applications={filtered}
+            onSelect={openPreview}
+            onStatusChange={onStatusChange}
+            onDelete={onDelete}
+            onEdit={onOpenEditApplication}
+          />
+        </section>
+      )}
 
       {previewApplication ? (
         <ApplicationDetailsModal
@@ -1088,6 +1120,104 @@ function ApplicationsPage({
             onOpenEditApplication(previewApplication);
           }}
         />
+      ) : null}
+    </section>
+  );
+}
+
+
+function DesktopApplicationsList({
+  applications,
+  onSelect,
+  onStatusChange,
+  onDelete,
+  onEdit
+}: {
+  applications: JobApplication[];
+  onSelect: (application: JobApplication) => void;
+  onStatusChange: (id: number, status: Status) => void;
+  onDelete: (id: number) => void;
+  onEdit: (application: JobApplication) => void;
+}) {
+  return (
+    <section className="desktop-applications-list" aria-label="Applications list">
+      {applications.map((app) => (
+        <article className="desktop-application-card" key={app.id} onClick={() => onSelect(app)}>
+          <div className="desktop-application-main">
+            <CompanyLogo name={app.company} domain={app.domain} large />
+            <div className="desktop-application-copy">
+              <div className="desktop-application-title-row">
+                <div>
+                  <h2>{app.position}</h2>
+                  <p>{app.company}</p>
+                </div>
+                <StatusBadge status={app.status} />
+              </div>
+
+              <div className="desktop-application-meta">
+                <span><MapPin size={14} /> {app.location}</span>
+                <span><Monitor size={14} /> {app.workMode}</span>
+                <span><Tag size={14} /> {app.category}</span>
+                <span><BriefcaseBusiness size={14} /> {app.level}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="desktop-application-side" onClick={(event) => event.stopPropagation()}>
+            <div className="desktop-application-dates">
+              <span>Applied <strong>{formatDate(app.dateApplied)}</strong></span>
+              <span>Last contact <strong>{formatDate(app.lastContact)}</strong></span>
+            </div>
+
+            <div className="desktop-next-step">
+              <span>Next step</span>
+              <strong>{app.nextStep || 'Waiting'}</strong>
+            </div>
+
+            <div className="desktop-application-status">
+              <CustomSelect
+                value={app.status}
+                options={statuses}
+                onChange={(value) => onStatusChange(app.id, value as Status)}
+              />
+            </div>
+
+            <div className="desktop-application-actions">
+              <button
+                className="ghost-icon"
+                type="button"
+                aria-label="Edit application"
+                onClick={() => onEdit(app)}
+              >
+                <Pencil size={17} />
+              </button>
+              <button
+                className="ghost-icon"
+                type="button"
+                aria-label="Open offer"
+                onClick={() => app.offerUrl && window.open(app.offerUrl, '_blank')}
+              >
+                <ExternalLink size={17} />
+              </button>
+              <button
+                className="ghost-icon danger"
+                type="button"
+                aria-label="Delete application"
+                onClick={() => onDelete(app.id)}
+              >
+                <Trash2 size={17} />
+              </button>
+            </div>
+          </div>
+        </article>
+      ))}
+
+      {!applications.length ? (
+        <div className="empty-state panel-card">
+          <Folder size={28} />
+          <strong>No results</strong>
+          <span>Try changing filters or add a new application.</span>
+        </div>
       ) : null}
     </section>
   );
@@ -2057,7 +2187,7 @@ function App() {
   function deleteApplication(id: number) { setApplications(applications.filter((app) => app.id !== id)); if (selectedApplication?.id === id) setSelectedApplication(null); setToast('Application removed.'); }
   function resetDemo() { if (!confirm('Reset all demo data?')) return; setApplications(initialApplications); setCompanies(initialCompanies); setEvents(initialEvents); setDocuments(initialDocuments); setNotes(initialNotes); setSettings(initialSettings); setProfile(initialProfile); setToast('Demo data reset.'); }
   function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications, companies, events, documents, notes }, setToast); }
-  const shellClass = `app-shell ${theme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')}`;
+  const shellClass = `app-shell ${theme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
   const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
   const levelOptions = uniqueOptions(levels, settings.preferences.levels);
 

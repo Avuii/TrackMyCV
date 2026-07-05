@@ -5657,3 +5657,397 @@ svg.donut-chart circle {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   Polished list view + soft loading animations
+   ========================================================= */
+
+.view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  min-height: 52px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+.view-switch button {
+  border: 0;
+  min-height: 40px;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--accent-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  font-weight: 800;
+  transition: 0.18s ease;
+}
+
+.view-switch button:hover {
+  background: var(--accent-soft);
+}
+
+.view-switch button.selected {
+  background: var(--accent);
+  color: #fffaf4;
+  box-shadow: 0 8px 16px rgba(122, 88, 61, 0.16);
+}
+
+.desktop-applications-list {
+  display: grid;
+  gap: 14px;
+}
+
+.desktop-application-card {
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(255, 253, 249, 0.92), rgba(248, 243, 237, 0.84)),
+    var(--surface);
+  border-radius: 24px;
+  box-shadow: var(--shadow-soft);
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.82fr);
+  gap: 18px;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  position: relative;
+  overflow: visible;
+}
+
+.dark .desktop-application-card {
+  background:
+    linear-gradient(135deg, rgba(43, 38, 33, 0.92), rgba(51, 45, 39, 0.84)),
+    var(--surface);
+}
+
+.desktop-application-card::before {
+  content: "";
+  position: absolute;
+  inset: 12px auto 12px 0;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), rgba(154, 118, 88, 0.28));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.desktop-application-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 18px 36px rgba(80, 60, 42, 0.13);
+}
+
+.desktop-application-card:hover::before {
+  opacity: 1;
+}
+
+.desktop-application-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.desktop-application-copy {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.desktop-application-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.desktop-application-title-row h2,
+.desktop-application-title-row p {
+  margin: 0;
+}
+
+.desktop-application-title-row h2 {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.desktop-application-title-row p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.desktop-application-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.desktop-application-meta span {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--accent-strong);
+  border-radius: 999px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.desktop-application-side {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.86fr) minmax(130px, 1fr) 150px auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.desktop-application-dates,
+.desktop-next-step {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.desktop-application-dates span,
+.desktop-next-step span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.desktop-application-dates strong,
+.desktop-next-step strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-next-step {
+  border-left: 1px solid var(--border);
+  padding-left: 14px;
+}
+
+.desktop-application-status .custom-select {
+  min-width: 142px;
+  z-index: 8;
+}
+
+.desktop-application-status .select-trigger {
+  min-height: 42px;
+  height: 42px;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.desktop-application-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.desktop-application-actions .ghost-icon {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border-radius: 14px !important;
+}
+
+@media (max-width: 1180px) and (min-width: 901px) {
+  .desktop-application-card {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-application-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) 150px auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .view-switch,
+  .desktop-applications-list {
+    display: none !important;
+  }
+}
+
+@keyframes softRevealUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes softRevealIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes donutLoad {
+  from {
+    opacity: 0;
+    transform: rotate(-18deg) scale(0.88);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes lineDraw {
+  from {
+    stroke-dashoffset: 520;
+    opacity: 0.3;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes gentlePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+.app-shell.animations-on .metric-card,
+.app-shell.animations-on .panel-card,
+.app-shell.animations-on .desktop-application-card,
+.app-shell.animations-on .mobile-card,
+.app-shell.animations-on .mobile-application-card,
+.app-shell.animations-on .company-card,
+.app-shell.animations-on .document-card,
+.app-shell.animations-on .note-card,
+.login-card {
+  animation: softRevealUp 0.46s ease both;
+}
+
+.app-shell.animations-on .metrics-grid .metric-card:nth-child(1),
+.app-shell.animations-on .stats-metrics-grid .metric-card:nth-child(1) { animation-delay: 0.03s; }
+.app-shell.animations-on .metrics-grid .metric-card:nth-child(2),
+.app-shell.animations-on .stats-metrics-grid .metric-card:nth-child(2) { animation-delay: 0.07s; }
+.app-shell.animations-on .metrics-grid .metric-card:nth-child(3),
+.app-shell.animations-on .stats-metrics-grid .metric-card:nth-child(3) { animation-delay: 0.11s; }
+.app-shell.animations-on .metrics-grid .metric-card:nth-child(4),
+.app-shell.animations-on .stats-metrics-grid .metric-card:nth-child(4) { animation-delay: 0.15s; }
+.app-shell.animations-on .stats-metrics-grid .metric-card:nth-child(5) { animation-delay: 0.19s; }
+.app-shell.animations-on .stats-metrics-grid .metric-card:nth-child(6) { animation-delay: 0.23s; }
+
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(1),
+.app-shell.animations-on .applications-table tbody tr:nth-child(1) { animation-delay: 0.03s; }
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(2),
+.app-shell.animations-on .applications-table tbody tr:nth-child(2) { animation-delay: 0.07s; }
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(3),
+.app-shell.animations-on .applications-table tbody tr:nth-child(3) { animation-delay: 0.11s; }
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(4),
+.app-shell.animations-on .applications-table tbody tr:nth-child(4) { animation-delay: 0.15s; }
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(5),
+.app-shell.animations-on .applications-table tbody tr:nth-child(5) { animation-delay: 0.19s; }
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(6),
+.app-shell.animations-on .applications-table tbody tr:nth-child(6) { animation-delay: 0.23s; }
+.app-shell.animations-on .desktop-applications-list .desktop-application-card:nth-child(7),
+.app-shell.animations-on .applications-table tbody tr:nth-child(7) { animation-delay: 0.27s; }
+
+.app-shell.animations-on .applications-table tbody tr {
+  animation: softRevealUp 0.42s ease both;
+}
+
+.app-shell.animations-on .donut-visual {
+  animation: donutLoad 0.72s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.app-shell.animations-on .bar-row > div > span {
+  transform-origin: left center;
+  animation: barGrow 0.72s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.app-shell.animations-on .bar-row:nth-child(1) > div > span { animation-delay: 0.08s; }
+.app-shell.animations-on .bar-row:nth-child(2) > div > span { animation-delay: 0.14s; }
+.app-shell.animations-on .bar-row:nth-child(3) > div > span { animation-delay: 0.20s; }
+.app-shell.animations-on .bar-row:nth-child(4) > div > span { animation-delay: 0.26s; }
+.app-shell.animations-on .bar-row:nth-child(5) > div > span { animation-delay: 0.32s; }
+.app-shell.animations-on .bar-row:nth-child(6) > div > span { animation-delay: 0.38s; }
+
+.app-shell.animations-on .success-sparkline .sparkline-line {
+  stroke-dasharray: 520;
+  stroke-dashoffset: 520;
+  animation: lineDraw 1.05s ease-out 0.18s both;
+}
+
+.app-shell.animations-on .success-sparkline .sparkline-fill {
+  animation: softRevealIn 0.75s ease 0.2s both;
+}
+
+.app-shell.animations-on .positive-trend,
+.app-shell.animations-on .mobile-fab {
+  animation: softRevealIn 0.42s ease both, gentlePulse 2.6s ease-in-out 1.2s infinite;
+}
+
+.app-shell.animations-off *,
+.app-shell.animations-off *::before,
+.app-shell.animations-off *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
