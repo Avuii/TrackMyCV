@@ -1391,6 +1391,637 @@ function Toast({ message }: { message: string }) {
   return <div className="toast"><CheckCircle2 size={17} /> {message}</div>;
 }
 
+function useIsMobile(breakpoint = 900) {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= breakpoint;
+  });
+
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+type MobileLayoutProps = {
+  shellClass: string;
+  page: Page;
+  setPage: (page: Page) => void;
+  profile: Profile;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  settings: AppSettings;
+  applications: JobApplication[];
+  companies: Company[];
+  events: CalendarEvent[];
+  documents: DocumentItem[];
+  notes: NoteItem[];
+  setCompanies: (companies: Company[]) => void;
+  setEvents: (events: CalendarEvent[]) => void;
+  setDocuments: (documents: DocumentItem[]) => void;
+  setNotes: (notes: NoteItem[]) => void;
+  setToast: (value: string) => void;
+  onOpenApplication: () => void;
+  onOpenEditApplication: (application: JobApplication) => void;
+  onStatusChange: (id: number, status: Status) => void;
+  onDeleteApplication: (id: number) => void;
+  onOpenSettings: (tab?: ProfileTab) => void;
+  onLogout: () => void;
+  onExport: () => void;
+  categoryOptions: string[];
+  levelOptions: string[];
+  children?: React.ReactNode;
+};
+
+function MobileLayout({
+  shellClass,
+  page,
+  setPage,
+  profile,
+  theme,
+  setTheme,
+  settings,
+  applications,
+  companies,
+  events,
+  documents,
+  notes,
+  setCompanies,
+  setEvents,
+  setDocuments,
+  setNotes,
+  setToast,
+  onOpenApplication,
+  onOpenEditApplication,
+  onStatusChange,
+  onDeleteApplication,
+  onOpenSettings,
+  onLogout,
+  onExport,
+  categoryOptions,
+  levelOptions,
+  children
+}: MobileLayoutProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  function openAddApplication() {
+    setPage('applications');
+    onOpenApplication();
+  }
+
+  return (
+    <div className={`${shellClass} mobile-app-shell`}>
+      <MobileHeader
+        page={page}
+        profile={profile}
+        theme={theme}
+        setTheme={setTheme}
+        onOpenSettings={onOpenSettings}
+      />
+
+      <main className="mobile-content custom-scroll">
+        {page === 'dashboard' ? (
+          <MobileDashboardPage
+            applications={applications}
+            events={events}
+            setPage={setPage}
+            onOpenEditApplication={onOpenEditApplication}
+          />
+        ) : null}
+
+        {page === 'applications' ? (
+          <MobileApplicationsPage
+            applications={applications}
+            onOpenApplication={openAddApplication}
+            onOpenEditApplication={onOpenEditApplication}
+            onStatusChange={onStatusChange}
+            onDelete={onDeleteApplication}
+            onExport={onExport}
+            categoryOptions={categoryOptions}
+            levelOptions={levelOptions}
+          />
+        ) : null}
+
+        {page === 'calendar' ? (
+          <MobileCalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} />
+        ) : null}
+
+        {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
+        {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
+        {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
+        {page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={onExport} setToast={setToast} /> : null}
+      </main>
+
+      <FloatingActionButton onClick={openAddApplication} label="Add application" />
+      <MobileBottomNav page={page} setPage={setPage} onMore={() => setMoreOpen(true)} />
+
+      {moreOpen ? (
+        <MobileMoreMenu
+          page={page}
+          setPage={setPage}
+          onClose={() => setMoreOpen(false)}
+          onOpenSettings={onOpenSettings}
+          onLogout={onLogout}
+          onExport={onExport}
+          theme={theme}
+          setTheme={setTheme}
+          settings={settings}
+        />
+      ) : null}
+
+      {children}
+    </div>
+  );
+}
+
+function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
+  const meta = pageLabels[page];
+  const firstName = profile.name.split(' ')[0] || 'Demo';
+
+  return (
+    <header className="mobile-header">
+      <div className="mobile-header-top">
+        <Logo />
+        <div className="mobile-header-actions">
+          <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+          <button className="mobile-avatar-button" type="button" onClick={() => onOpenSettings('profile')} aria-label="Open profile">
+            <span>{getInitials(firstName)}</span>
+          </button>
+        </div>
+      </div>
+      <div className="mobile-page-title">
+        <span>{firstName}'s job tracker</span>
+        <h1>{page === 'dashboard' ? `Good morning, ${firstName}` : meta.title}</h1>
+        <p>{page === 'dashboard' ? 'Your next recruitment steps in one calm view.' : meta.subtitle}</p>
+      </div>
+    </header>
+  );
+}
+
+function MobileBottomNav({ page, setPage, onMore }: { page: Page; setPage: (page: Page) => void; onMore: () => void }) {
+  const primaryItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
+    { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { id: 'applications', label: 'Apps', icon: BriefcaseBusiness },
+    { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+    { id: 'notes', label: 'Notes', icon: StickyNote }
+  ];
+  const moreActive = !primaryItems.some((item) => item.id === page);
+
+  return (
+    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+      {primaryItems.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button key={item.id} type="button" className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>
+            <Icon size={19} />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+      <button type="button" className={moreActive ? 'active' : ''} onClick={onMore}>
+        <MoreHorizontal size={20} />
+        <span>More</span>
+      </button>
+    </nav>
+  );
+}
+
+function FloatingActionButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button className="mobile-fab" type="button" onClick={onClick} aria-label={label}>
+      <Plus size={22} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onExport, theme, setTheme, settings }: { page: Page; setPage: (page: Page) => void; onClose: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; onExport: () => void; theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings }) {
+  const items: { id: Page; label: string; icon: typeof Building2; description: string }[] = [
+    { id: 'companies', label: 'Companies', icon: Building2, description: 'Company history and contacts' },
+    { id: 'statistics', label: 'Statistics', icon: BarChart3, description: 'Progress and response rates' },
+    { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' }
+  ];
+
+  return (
+    <MobileBottomSheet title="More" subtitle="Secondary pages and app options." onClose={onClose}>
+      <div className="mobile-more-list">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button key={item.id} type="button" className={page === item.id ? 'active' : ''} onClick={() => { setPage(item.id); onClose(); }}>
+              <span className="mobile-more-icon"><Icon size={19} /></span>
+              <div>
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </div>
+            </button>
+          );
+        })}
+        <button type="button" onClick={() => { onOpenSettings('profile'); onClose(); }}>
+          <span className="mobile-more-icon"><User size={19} /></span>
+          <div><strong>Profile & settings</strong><small>Profile, notifications and preferences</small></div>
+        </button>
+        <button type="button" onClick={() => { onOpenSettings('appearance'); onClose(); }}>
+          <span className="mobile-more-icon"><Palette size={19} /></span>
+          <div><strong>Appearance</strong><small>{theme} · {settings.accent}</small></div>
+        </button>
+        <button type="button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+          <span className="mobile-more-icon">{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</span>
+          <div><strong>Switch theme</strong><small>Change between light and dark mode</small></div>
+        </button>
+        <button type="button" onClick={onExport}>
+          <span className="mobile-more-icon"><Download size={19} /></span>
+          <div><strong>Export CSV</strong><small>Download applications data</small></div>
+        </button>
+        <button type="button" className="danger" onClick={onLogout}>
+          <span className="mobile-more-icon"><LogOut size={19} /></span>
+          <div><strong>Log out</strong><small>Exit demo session</small></div>
+        </button>
+      </div>
+    </MobileBottomSheet>
+  );
+}
+
+function MobileBottomSheet({ title, subtitle, onClose, children, className = '' }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <div className="mobile-sheet-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className={`mobile-bottom-sheet ${className}`} role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="mobile-sheet-handle" aria-hidden="true" />
+        <header className="mobile-sheet-header">
+          <div>
+            <h2>{title}</h2>
+            {subtitle ? <p>{subtitle}</p> : null}
+          </div>
+          <button className="close-button" type="button" onClick={onClose} aria-label="Close"><X size={20} /></button>
+        </header>
+        <div className="mobile-sheet-body custom-scroll">{children}</div>
+      </section>
+    </div>
+  );
+}
+
+function MobileDashboardPage({ applications, events, setPage, onOpenEditApplication }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; onOpenEditApplication: (app: JobApplication) => void }) {
+  const stats = calculateStats(applications);
+  const nextActions = applications
+    .filter((app) => ['Interview', 'Task / test', 'No response', 'Ghosted', 'In progress'].includes(app.status))
+    .slice(0, 4);
+  const recent = [...applications].sort((a, b) => b.dateApplied.localeCompare(a.dateApplied)).slice(0, 3);
+  const upcoming = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).slice(0, 3);
+
+  return (
+    <section className="mobile-dashboard">
+      <div className="mobile-metrics-row custom-scroll">
+        <MetricCard label="Total" value={stats.total} hint="applications" />
+        <MetricCard label="Active" value={stats.active} hint="open processes" tone="blue-text" />
+        <MetricCard label="Interviews" value={stats.interviews} hint="positive stages" tone="rose-text" />
+        <MetricCard label="Response" value={`${stats.responseRate}%`} hint="all time" tone="green-text" />
+      </div>
+
+      <section className="mobile-section-card">
+        <div className="mobile-section-head">
+          <div><h2>Next actions</h2><p>Things worth checking first.</p></div>
+          <button type="button" onClick={() => setPage('applications')}>All</button>
+        </div>
+        <div className="mobile-action-list">
+          {nextActions.map((app) => <MobileActionItem key={app.id} application={app} onClick={() => onOpenEditApplication(app)} />)}
+          {!nextActions.length ? <MobileEmptyState icon={CheckCircle2} title="Nothing urgent" text="No urgent recruitment steps for now." /> : null}
+        </div>
+      </section>
+
+      <section className="mobile-section-card">
+        <div className="mobile-section-head">
+          <div><h2>Recent applications</h2><p>Latest saved entries.</p></div>
+          <button type="button" onClick={() => setPage('applications')}>Open</button>
+        </div>
+        <div className="mobile-card-list compact">
+          {recent.map((app) => <MobileApplicationCard key={app.id} application={app} onOpen={() => onOpenEditApplication(app)} onEdit={() => onOpenEditApplication(app)} />)}
+        </div>
+      </section>
+
+      <section className="mobile-section-card">
+        <div className="mobile-section-head">
+          <div><h2>Agenda</h2><p>Upcoming recruitment events.</p></div>
+          <button type="button" onClick={() => setPage('calendar')}>Calendar</button>
+        </div>
+        <div className="mobile-agenda-list">
+          {upcoming.map((event) => <MobileAgendaItem key={event.id} event={event} />)}
+          {!upcoming.length ? <MobileEmptyState icon={CalendarDays} title="No events" text="Add interviews and reminders to your calendar." /> : null}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function MobileActionItem({ application, onClick }: { application: JobApplication; onClick: () => void }) {
+  return (
+    <button className="mobile-action-item" type="button" onClick={onClick}>
+      <CompanyLogo name={application.company} domain={application.domain} />
+      <div>
+        <strong>{application.nextStep || application.status}</strong>
+        <span>{application.company} · {application.position}</span>
+      </div>
+      <StatusBadge status={application.status} />
+    </button>
+  );
+}
+
+function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onStatusChange: (id: number, status: Status) => void; onDelete: (id: number) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('All');
+  const [category, setCategory] = useState('All');
+  const [level, setLevel] = useState('All');
+  const [location, setLocation] = useState('All');
+  const [mode, setMode] = useState('All');
+  const [source, setSource] = useState('All');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [details, setDetails] = useState<JobApplication | null>(null);
+
+  const locations = useMemo(() => ['All', ...Array.from(new Set(applications.map((app) => app.location))).filter(Boolean)], [applications]);
+  const filtered = useMemo(() => applications.filter((app) => {
+    const search = `${app.company} ${app.position} ${app.category} ${app.source} ${app.location}`.toLowerCase();
+    return search.includes(query.toLowerCase()) &&
+      (status === 'All' || app.status === status) &&
+      (category === 'All' || app.category === category) &&
+      (level === 'All' || app.level === level) &&
+      (location === 'All' || app.location === location) &&
+      (mode === 'All' || app.workMode === mode) &&
+      (source === 'All' || app.source === source);
+  }), [applications, query, status, category, level, location, mode, source]);
+
+  const activeFilters = [status, category, level, location, mode, source].filter((value) => value !== 'All');
+  const hasFilters = query || activeFilters.length > 0;
+
+  function clearFilters() {
+    setQuery('');
+    setStatus('All');
+    setCategory('All');
+    setLevel('All');
+    setLocation('All');
+    setMode('All');
+    setSource('All');
+  }
+
+  return (
+    <section className="mobile-applications-page">
+      <div className="mobile-search-row">
+        <label className="mobile-search-field">
+          <Search size={18} />
+          <input placeholder="Search applications..." value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <button className="mobile-filter-button" type="button" onClick={() => setFiltersOpen(true)}>
+          <SlidersHorizontal size={18} />
+          <span>Filters</span>
+          {activeFilters.length ? <strong>{activeFilters.length}</strong> : null}
+        </button>
+      </div>
+
+      <div className="mobile-filter-chips custom-scroll">
+        {activeFilters.map((filter) => <span key={filter}>{filter}</span>)}
+        {hasFilters ? <button type="button" onClick={clearFilters}>Clear</button> : null}
+      </div>
+
+      <div className="mobile-list-summary">
+        <div><strong>{filtered.length}</strong><span>{filtered.length === 1 ? 'application' : 'applications'}</span></div>
+        <div className="mobile-list-actions">
+          <button type="button" onClick={onExport}><Download size={16} /> Export</button>
+          <button type="button" onClick={onOpenApplication}><Plus size={16} /> Add</button>
+        </div>
+      </div>
+
+      <div className="mobile-card-list">
+        {filtered.map((app) => (
+          <MobileApplicationCard
+            key={app.id}
+            application={app}
+            onOpen={() => setDetails(app)}
+            onEdit={() => onOpenEditApplication(app)}
+            onDelete={() => onDelete(app.id)}
+            onStatusChange={(nextStatus) => onStatusChange(app.id, nextStatus)}
+          />
+        ))}
+        {!filtered.length ? <MobileEmptyState icon={Folder} title="No results" text="Try changing filters or add a new application." /> : null}
+      </div>
+
+      {filtersOpen ? (
+        <MobileFiltersSheet
+          status={status}
+          setStatus={setStatus}
+          category={category}
+          setCategory={setCategory}
+          level={level}
+          setLevel={setLevel}
+          location={location}
+          setLocation={setLocation}
+          mode={mode}
+          setMode={setMode}
+          source={source}
+          setSource={setSource}
+          locations={locations}
+          categoryOptions={categoryOptions}
+          levelOptions={levelOptions}
+          onClose={() => setFiltersOpen(false)}
+          onClear={clearFilters}
+        />
+      ) : null}
+
+      {details ? (
+        <ApplicationDetailsSheet
+          application={details}
+          onClose={() => setDetails(null)}
+          onEdit={() => {
+            setDetails(null);
+            onOpenEditApplication(details);
+          }}
+          onDelete={() => {
+            onDelete(details.id);
+            setDetails(null);
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function MobileApplicationCard({ application, onOpen, onEdit, onDelete, onStatusChange }: { application: JobApplication; onOpen: () => void; onEdit: () => void; onDelete?: () => void; onStatusChange?: (status: Status) => void }) {
+  return (
+    <article className="mobile-application-card">
+      <button className="mobile-card-main" type="button" onClick={onOpen}>
+        <div className="mobile-card-topline">
+          <div className="mobile-card-company">
+            <CompanyLogo name={application.company} domain={application.domain} />
+            <div>
+              <strong>{application.company}</strong>
+              <span>{application.location} · {application.workMode}</span>
+            </div>
+          </div>
+          <StatusBadge status={application.status} />
+        </div>
+        <h2>{application.position}</h2>
+        <div className="mobile-card-meta">
+          <span>{application.category}</span>
+          <span>{application.level}</span>
+          <span>{formatDate(application.dateApplied)}</span>
+        </div>
+        <div className="mobile-next-step"><Clock size={15} /><span>Next: {application.nextStep || 'Waiting'}</span></div>
+      </button>
+      <div className="mobile-card-actions-row">
+        {onStatusChange ? (
+          <select value={application.status} onChange={(event) => onStatusChange(event.target.value as Status)} aria-label={`Change status for ${application.company}`}>
+            {statuses.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        ) : null}
+        <button type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={16} /> Open</button>
+        <button type="button" onClick={onEdit}><Pencil size={16} /> Edit</button>
+        {onDelete ? <button className="danger" type="button" onClick={onDelete}><Trash2 size={16} /></button> : null}
+      </div>
+    </article>
+  );
+}
+
+function MobileFiltersSheet({ status, setStatus, category, setCategory, level, setLevel, location, setLocation, mode, setMode, source, setSource, locations, categoryOptions, levelOptions, onClose, onClear }: { status: string; setStatus: (value: string) => void; category: string; setCategory: (value: string) => void; level: string; setLevel: (value: string) => void; location: string; setLocation: (value: string) => void; mode: string; setMode: (value: string) => void; source: string; setSource: (value: string) => void; locations: string[]; categoryOptions: string[]; levelOptions: string[]; onClose: () => void; onClear: () => void }) {
+  return (
+    <MobileBottomSheet title="Filters" subtitle="Narrow down your recruitment list." onClose={onClose} className="mobile-filters-sheet">
+      <div className="mobile-filter-grid">
+        <div className="form-field"><span>Status</span><CustomSelect value={status} options={['All', ...statuses]} onChange={setStatus} /></div>
+        <div className="form-field"><span>Category</span><CustomSelect value={category} options={['All', ...categoryOptions]} onChange={setCategory} /></div>
+        <div className="form-field"><span>Level</span><CustomSelect value={level} options={['All', ...levelOptions]} onChange={setLevel} /></div>
+        <div className="form-field"><span>Location</span><CustomSelect value={location} options={locations} onChange={setLocation} /></div>
+        <div className="form-field"><span>Work mode</span><CustomSelect value={mode} options={['All', ...workModes]} onChange={setMode} /></div>
+        <div className="form-field"><span>Source</span><CustomSelect value={source} options={['All', ...sources]} onChange={setSource} /></div>
+      </div>
+      <div className="mobile-sheet-actions">
+        <button className="secondary-button" type="button" onClick={onClear}>Clear</button>
+        <button className="primary-button" type="button" onClick={onClose}>Show results</button>
+      </div>
+    </MobileBottomSheet>
+  );
+}
+
+function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <MobileBottomSheet title="Application details" subtitle={`${application.company} · ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
+      <div className="mobile-detail-hero">
+        <CompanyLogo name={application.company} domain={application.domain} large />
+        <div>
+          <h2>{application.position}</h2>
+          <p>{application.company}</p>
+        </div>
+        <StatusBadge status={application.status} />
+      </div>
+
+      <div className="mobile-detail-grid">
+        <div><span>Date applied</span><strong>{formatDate(application.dateApplied)}</strong></div>
+        <div><span>Last contact</span><strong>{formatDate(application.lastContact)}</strong></div>
+        <div><span>Work mode</span><strong>{application.workMode}</strong></div>
+        <div><span>Source</span><strong>{application.source}</strong></div>
+      </div>
+
+      <div className="mobile-detail-section">
+        <h3>Next step</h3>
+        <p>{application.nextStep || 'Waiting'}</p>
+      </div>
+      <div className="mobile-detail-section">
+        <h3>Requirements</h3>
+        <p>{application.requirements || 'No requirements saved yet.'}</p>
+      </div>
+      <div className="mobile-detail-section">
+        <h3>Notes</h3>
+        <p>{application.notes || 'No notes saved yet.'}</p>
+      </div>
+
+      <div className="mobile-sheet-actions sticky-actions">
+        <button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Offer</button>
+        <button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button>
+        <button className="secondary-button danger-button" type="button" onClick={onDelete}><Trash2 size={17} /> Delete</button>
+      </div>
+    </MobileBottomSheet>
+  );
+}
+
+function MobileCalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
+  const [modal, setModal] = useState<CalendarEvent | null>(null);
+  const sorted = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  const grouped = sorted.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
+    acc[event.date] = acc[event.date] || [];
+    acc[event.date].push(event);
+    return acc;
+  }, {});
+
+  function save(event: CalendarEvent) {
+    if (events.some((item) => item.id === event.id)) setEvents(events.map((item) => item.id === event.id ? event : item));
+    else setEvents([event, ...events]);
+    setModal(null);
+    setToast('Calendar event saved.');
+  }
+
+  function remove(id: number) {
+    setEvents(events.filter((event) => event.id !== id));
+    setToast('Calendar event removed.');
+  }
+
+  function addEvent() {
+    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date: today(), time: '10:00', type: 'HR interview', location: 'Online', meetingLink: '', notes: '' });
+  }
+
+  return (
+    <section className="mobile-calendar-page">
+      <div className="mobile-list-summary">
+        <div><strong>{events.length}</strong><span>events</span></div>
+        <div className="mobile-list-actions"><button type="button" onClick={addEvent}><Plus size={16} /> Add event</button></div>
+      </div>
+      <div className="mobile-agenda-groups">
+        {Object.entries(grouped).map(([date, dayEvents]) => (
+          <section className="mobile-agenda-group" key={date}>
+            <h2>{formatDate(date)}</h2>
+            {dayEvents.map((event) => (
+              <div className="mobile-calendar-event" key={event.id}>
+                <button type="button" onClick={() => setModal(event)}>
+                  <span>{event.time}</span>
+                  <div><strong>{event.title}</strong><small>{event.company} · {event.location}</small></div>
+                </button>
+                <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
+                <button className="ghost-icon danger" type="button" onClick={() => remove(event.id)}><Trash2 size={16} /></button>
+              </div>
+            ))}
+          </section>
+        ))}
+        {!events.length ? <MobileEmptyState icon={CalendarDays} title="No events" text="Add interviews, tests and follow-up reminders." /> : null}
+      </div>
+      {modal ? <EventModal event={modal} applications={applications} onClose={() => setModal(null)} onSave={save} /> : null}
+    </section>
+  );
+}
+
+function MobileAgendaItem({ event }: { event: CalendarEvent }) {
+  return (
+    <div className="mobile-agenda-item">
+      <span>{event.time}</span>
+      <div>
+        <strong>{event.title}</strong>
+        <small>{formatDate(event.date)} · {event.company}</small>
+      </div>
+    </div>
+  );
+}
+
+function MobileEmptyState({ icon: Icon, title, text }: { icon: typeof Folder; title: string; text: string }) {
+  return (
+    <div className="mobile-empty-state">
+      <Icon size={26} />
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+
 function App() {
   const [isLoggedIn, setLoggedIn] = useState(() => readStorage(STORAGE.session, false));
   const [profile, setProfile] = useState<Profile>(() => readStorage(STORAGE.profile, initialProfile));
@@ -1430,9 +2061,54 @@ function App() {
   const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
   const levelOptions = uniqueOptions(levels, settings.preferences.levels);
 
+  const isMobile = useIsMobile();
+
   if (!isLoggedIn) return <LoginPage onLogin={login} />;
 
-  return <div className={shellClass}><Sidebar page={page} setPage={setPage} applications={applications} settings={settings} /><div className="workspace"><Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => setEditingApplication(null)} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} /><div className="content custom-scroll">{page !== 'dashboard' ? <PageHeader page={page} /> : null}{page === 'dashboard' ? <DashboardPage applications={applications} events={events} setPage={setPage} /> : null}{page === 'applications' ? <ApplicationsPage applications={applications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(applications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} /> : null}{page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}{page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}{page === 'calendar' ? <CalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} /> : null}{page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={() => exportCsv(applications, setToast)} setToast={setToast} /> : null}{page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}</div></div>{settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onExport={() => exportCsv(applications, setToast)} onBackup={backup} onReset={resetDemo} /> : null}{editingApplication !== undefined ? <ApplicationModal application={editingApplication || undefined} companies={companies} documents={documents} categoryOptions={categoryOptions} levelOptions={levelOptions} onClose={() => setEditingApplication(undefined)} onSave={saveApplication} /> : null}{toast ? <Toast message={toast} /> : null}</div>;
+  const commonOverlays = (
+    <>
+      {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onExport={() => exportCsv(applications, setToast)} onBackup={backup} onReset={resetDemo} /> : null}
+      {editingApplication !== undefined ? <ApplicationModal application={editingApplication || undefined} companies={companies} documents={documents} categoryOptions={categoryOptions} levelOptions={levelOptions} onClose={() => setEditingApplication(undefined)} onSave={saveApplication} /> : null}
+      {toast ? <Toast message={toast} /> : null}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileLayout
+        shellClass={shellClass}
+        page={page}
+        setPage={setPage}
+        profile={profile}
+        theme={theme}
+        setTheme={setTheme}
+        settings={settings}
+        applications={applications}
+        companies={companies}
+        events={events}
+        documents={documents}
+        notes={notes}
+        setCompanies={setCompanies}
+        setEvents={setEvents}
+        setDocuments={setDocuments}
+        setNotes={setNotes}
+        setToast={setToast}
+        onOpenApplication={() => setEditingApplication(null)}
+        onOpenEditApplication={(app) => setEditingApplication(app)}
+        onStatusChange={updateStatus}
+        onDeleteApplication={deleteApplication}
+        onOpenSettings={openSettings}
+        onLogout={logout}
+        onExport={() => exportCsv(applications, setToast)}
+        categoryOptions={categoryOptions}
+        levelOptions={levelOptions}
+      >
+        {commonOverlays}
+      </MobileLayout>
+    );
+  }
+
+  return <div className={shellClass}><Sidebar page={page} setPage={setPage} applications={applications} settings={settings} /><div className="workspace"><Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => setEditingApplication(null)} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} /><div className="content custom-scroll">{page !== 'dashboard' ? <PageHeader page={page} /> : null}{page === 'dashboard' ? <DashboardPage applications={applications} events={events} setPage={setPage} /> : null}{page === 'applications' ? <ApplicationsPage applications={applications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(applications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} /> : null}{page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}{page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}{page === 'calendar' ? <CalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} /> : null}{page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={() => exportCsv(applications, setToast)} setToast={setToast} /> : null}{page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}</div></div>{commonOverlays}</div>;
 }
 
 export default App;
