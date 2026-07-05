@@ -3705,3 +3705,158 @@ svg.donut-chart circle {
     flex-basis: 34px !important;
   }
 }
+/* Company demo logos */
+
+.demo-company-logo {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(142, 112, 82, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 8px 18px rgba(103, 78, 55, 0.10);
+}
+
+.demo-company-logo > span {
+  position: relative;
+  z-index: 2;
+  font-weight: 900;
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+}
+
+.demo-company-logo::before,
+.demo-company-logo::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  opacity: 0.85;
+}
+
+.demo-company-logo::before {
+  width: 72%;
+  height: 72%;
+  left: -18%;
+  top: -18%;
+}
+
+.demo-company-logo::after {
+  width: 52%;
+  height: 52%;
+  right: -14%;
+  bottom: -14%;
+}
+
+.demo-company-logo.northstar {
+  background: linear-gradient(135deg, #efe8dc, #d8c4ab);
+  color: #7b5b39;
+}
+
+.demo-company-logo.northstar::before {
+  background: #ffffff;
+}
+
+.demo-company-logo.northstar::after {
+  background: #c89561;
+}
+
+.demo-company-logo.riverstone {
+  background: linear-gradient(135deg, #e7f5ef, #b6dfd0);
+  color: #276a5b;
+}
+
+.demo-company-logo.riverstone::before {
+  background: #ffffff;
+}
+
+.demo-company-logo.riverstone::after {
+  background: #46b6a0;
+}
+
+.demo-company-logo.brightpath {
+  background: linear-gradient(135deg, #eef2fb, #c7d4ea);
+  color: #4f668a;
+}
+
+.demo-company-logo.brightpath::before {
+  background: #ffffff;
+}
+
+.demo-company-logo.brightpath::after {
+  background: #7f9eb6;
+}
+
+.demo-company-logo.cloudberry {
+  background: linear-gradient(135deg, #f6e9ef, #e8c7d6);
+  color: #8d4f67;
+}
+
+.demo-company-logo.cloudberry::before {
+  background: #fff7fb;
+}
+
+.demo-company-logo.cloudberry::after {
+  background: #d987a6;
+}
+
+.demo-company-logo.oakcode {
+  background: linear-gradient(135deg, #efe8d6, #d7c59f);
+  color: #6f5b2f;
+}
+
+.demo-company-logo.oakcode::before {
+  background: #fffaf0;
+}
+
+.demo-company-logo.oakcode::after {
+  background: #9aa879;
+}
+
+.demo-company-logo.lumen {
+  background: linear-gradient(135deg, #f0eee8, #cfc7b9);
+  color: #5d5b54;
+}
+
+.demo-company-logo.lumen::before {
+  background: #ffffff;
+}
+
+.demo-company-logo.lumen::after {
+  background: #8d8a80;
+}
+
+.demo-company-logo.mapleworks {
+  background: linear-gradient(135deg, #f3e3d5, #dba57f);
+  color: #7e4d2d;
+}
+
+.demo-company-logo.mapleworks::before {
+  background: #fff5ec;
+}
+
+.demo-company-logo.mapleworks::after {
+  background: #c87956;
+}
+
+.demo-company-logo.fallback {
+  background: linear-gradient(135deg, #f3eee6, #d9c9b7);
+  color: #86684d;
+}
+
+.demo-company-logo.fallback::before {
+  background: #ffffff;
+}
+
+.demo-company-logo.fallback::after {
+  background: #b99b7d;
+}
+
+.company-logo.large.demo-company-logo > span {
+  font-size: 1rem;
+}
+
+.dark .demo-company-logo {
+  border-color: rgba(214, 181, 142, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.18);
+}
