@@ -871,14 +871,19 @@ function ApplicationsTable({
 
               <td>
                 {onStatusChange && !compact ? (
-                  <div onClick={(event) => event.stopPropagation()}>
-                    <CustomSelect
-                      value={app.status}
-                      options={statuses}
-                      onChange={(value) => onStatusChange(app.id, value as Status)}
-                      className="status-custom-select"
-                    />
-                  </div>
+                  <select
+                    className={`status-table-select status-${getStatusClass(app.status)}`}
+                    value={app.status}
+                    aria-label={`Change status for ${app.company}`}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => onStatusChange(app.id, event.target.value as Status)}
+                  >
+                    {statuses.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <StatusBadge status={app.status} />
                 )}
@@ -893,41 +898,43 @@ function ApplicationsTable({
 
               {!compact ? (
                 <td className="row-actions">
-                  <button
-                    className="ghost-icon"
-                    type="button"
-                    aria-label="Edit"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onEdit?.(app);
-                    }}
-                  >
-                    <Pencil size={17} />
-                  </button>
+                  <div className="row-actions-inner">
+                    <button
+                      className="ghost-icon"
+                      type="button"
+                      aria-label="Edit"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onEdit?.(app);
+                      }}
+                    >
+                      <Pencil size={17} />
+                    </button>
 
-                  <button
-                    className="ghost-icon"
-                    type="button"
-                    aria-label="Open offer"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (app.offerUrl) window.open(app.offerUrl, '_blank');
-                    }}
-                  >
-                    <ExternalLink size={17} />
-                  </button>
+                    <button
+                      className="ghost-icon"
+                      type="button"
+                      aria-label="Open offer"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (app.offerUrl) window.open(app.offerUrl, '_blank');
+                      }}
+                    >
+                      <ExternalLink size={17} />
+                    </button>
 
-                  <button
-                    className="ghost-icon danger"
-                    type="button"
-                    aria-label="Delete"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete?.(app.id);
-                    }}
-                  >
-                    <Trash2 size={17} />
-                  </button>
+                    <button
+                      className="ghost-icon danger"
+                      type="button"
+                      aria-label="Delete"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete?.(app.id);
+                      }}
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
                 </td>
               ) : null}
             </tr>
