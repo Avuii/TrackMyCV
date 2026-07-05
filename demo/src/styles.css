@@ -3914,3 +3914,93 @@ mpany demo logos */
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 10px 24px rgba(0, 0, 0, 0.18);
 }
+
+/* Fix oversized company logo pseudo-elements */
+
+.company-logo,
+.company-cell .company-logo {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  flex: 0 0 34px !important;
+  border-radius: 12px !important;
+}
+
+.company-logo.large,
+.company-logo.large.demo-company-logo {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  flex: 0 0 46px !important;
+  border-radius: 14px !important;
+}
+
+.demo-company-logo::before,
+.demo-company-logo::after {
+  content: none !important;
+  display: none !important;
+}
+
+.demo-company-logo {
+  position: relative !important;
+  overflow: hidden !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  box-shadow: 0 5px 14px rgba(103, 78, 55, 0.08) !important;
+}
+
+.demo-company-logo > span {
+  position: static !important;
+  z-index: 1 !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+}
+
+.company-logo.large.demo-company-logo > span {
+  font-size: 14px !important;
+}
+
+/* Simple clean logo backgrounds */
+
+.demo-company-logo.northstar {
+  background: #eadfce !important;
+  color: #7b5b39 !important;
+}
+
+.demo-company-logo.riverstone {
+  background: #dff1ea !important;
+  color: #276a5b !important;
+}
+
+.demo-company-logo.brightpath {
+  background: #e3eaf5 !important;
+  color: #4f668a !important;
+}
+
+.demo-company-logo.cloudberry {
+  background: #f1dfe8 !important;
+  color: #8d4f67 !important;
+}
+
+.demo-company-logo.oakcode {
+  background: #e9dec3 !important;
+  color: #6f5b2f !important;
+}
+
+.demo-company-logo.lumen {
+  background: #e2ddd4 !important;
+  color: #5d5b54 !important;
+}
+
+.demo-company-logo.mapleworks {
+  background: #efd7c5 !important;
+  color: #7e4d2d !important;
+}
+
+.demo-company-logo.fallback {
+  background: #eadfce !important;
+  color: #86684d !important;
+}
