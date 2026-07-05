@@ -3268,3 +3268,440 @@ svg.donut-chart circle {
     grid-column: 1 / -1;
   }
 }
+/* =========================================================
+   Applications layout fix + smaller desktop scale + mobile
+   ========================================================= */
+
+/* Global desktop scale: closer to the intended 80% mockup */
+@media (min-width: 1180px) {
+  .app-shell {
+    font-size: 13px;
+  }
+
+  .content {
+    padding: 24px 28px 36px !important;
+  }
+
+  .topbar {
+    min-height: 82px !important;
+    padding: 18px 28px !important;
+  }
+
+  .topbar-title h1 {
+    font-size: 28px !important;
+  }
+
+  .topbar-title p {
+    font-size: 14px !important;
+  }
+
+  .sidebar {
+    width: 238px !important;
+    flex: 0 0 238px !important;
+    padding: 18px 14px !important;
+  }
+
+  .brand-logo-img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .brand-name {
+    font-size: 19px !important;
+  }
+
+  .brand-subtitle {
+    font-size: 11px !important;
+  }
+
+  .nav-item {
+    min-height: 42px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .icon-button,
+  .profile-button,
+  .select-trigger {
+    min-height: 38px !important;
+    font-size: 13px !important;
+  }
+
+  .metric-card {
+    min-height: 112px !important;
+    padding: 18px !important;
+  }
+
+  .metric-card strong {
+    font-size: 34px !important;
+  }
+
+  .panel-card {
+    border-radius: 18px !important;
+  }
+}
+
+/* Applications page table cleanup */
+.applications-panel {
+  overflow: hidden;
+}
+
+.applications-panel .table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.applications-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.applications-table th,
+.applications-table td {
+  padding: 18px 14px;
+  vertical-align: middle;
+}
+
+.applications-table th {
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.applications-table td {
+  overflow: hidden;
+}
+
+.applications-table td:nth-child(1) {
+  width: 18%;
+}
+
+.applications-table td:nth-child(2) {
+  width: 22%;
+}
+
+.applications-table td:nth-child(3) {
+  width: 10%;
+}
+
+.applications-table td:nth-child(4) {
+  width: 13%;
+}
+
+.applications-table td:nth-child(5) {
+  width: 11%;
+  white-space: nowrap;
+}
+
+.applications-table td:nth-child(6) {
+  width: 9%;
+  white-space: nowrap;
+}
+
+.applications-table td:nth-child(7) {
+  width: 10%;
+  white-space: nowrap;
+}
+
+.applications-table td:nth-child(8) {
+  width: 12%;
+}
+
+.applications-table td:nth-child(9) {
+  width: 10%;
+}
+
+.company-cell {
+  gap: 12px;
+}
+
+.company-cell strong,
+.position-cell strong {
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+
+.company-cell small,
+.position-cell small {
+  font-size: 11.5px;
+}
+
+.company-logo {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+}
+
+.category-pill {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 7px 12px !important;
+  font-size: 12px !important;
+}
+
+.status-custom-select {
+  min-width: 132px;
+}
+
+.status-custom-select .select-trigger {
+  min-width: 132px;
+  padding-inline: 12px !important;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.row-actions .ghost-icon {
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px;
+}
+
+/* Prevent broken date layout */
+.applications-table td:nth-child(5),
+.applications-table td:nth-child(7) {
+  line-height: 1.25;
+}
+
+/* Dashboard compact table should also be smaller */
+.compact-table {
+  font-size: 13px;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 15px 14px;
+}
+
+/* Slightly narrower screens: keep table scrollable instead of squeezing text */
+@media (max-width: 1450px) and (min-width: 901px) {
+  .applications-table {
+    min-width: 1120px;
+  }
+
+  .applications-panel .table-wrap {
+    overflow-x: auto;
+  }
+}
+
+/* Tablet/mobile: turn Applications table into cards */
+@media (max-width: 900px) {
+  .app-shell {
+    display: block;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    position: relative !important;
+    padding: 16px !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .inspiration-card {
+    display: none;
+  }
+
+  .workspace {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    min-height: auto !important;
+    padding: 14px 16px !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .topbar-title h1 {
+    font-size: 24px !important;
+  }
+
+  .topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .topbar-actions .primary-button,
+  .topbar-actions .secondary-button {
+    flex: 1 1 150px;
+  }
+
+  .content {
+    padding: 18px 14px 32px !important;
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .search-field.wide,
+  .custom-select,
+  .toolbar .secondary-button,
+  .toolbar .primary-button {
+    width: 100%;
+  }
+
+  .applications-table,
+  .applications-table thead,
+  .applications-table tbody,
+  .applications-table tr,
+  .applications-table th,
+  .applications-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .applications-table thead {
+    display: none;
+  }
+
+  .applications-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+  }
+
+  .applications-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .applications-table tr {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--surface);
+    padding: 14px;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .applications-table td {
+    padding: 8px 0;
+    border: 0 !important;
+    overflow: visible;
+  }
+
+  .applications-table td::before {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .applications-table td:nth-child(1)::before {
+    content: "Company";
+  }
+
+  .applications-table td:nth-child(2)::before {
+    content: "Position";
+  }
+
+  .applications-table td:nth-child(3)::before {
+    content: "Category";
+  }
+
+  .applications-table td:nth-child(4)::before {
+    content: "Status";
+  }
+
+  .applications-table td:nth-child(5)::before {
+    content: "Date applied";
+  }
+
+  .applications-table td:nth-child(6)::before {
+    content: "Work mode";
+  }
+
+  .applications-table td:nth-child(7)::before {
+    content: "Last contact";
+  }
+
+  .applications-table td:nth-child(8)::before {
+    content: "Next step";
+  }
+
+  .applications-table td:nth-child(9)::before {
+    content: "Actions";
+  }
+
+  .company-cell {
+    align-items: center;
+  }
+
+  .status-custom-select,
+  .status-custom-select .select-trigger {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
+    padding-top: 8px;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 520px) {
+  .nav-list {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-actions .icon-button {
+    flex: 1 1 42px;
+  }
+
+  .profile-button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .page-header h1 {
+    font-size: 24px !important;
+  }
+
+  .applications-table tr {
+    padding: 12px;
+  }
+
+  .company-logo {
+    width: 34px !important;
+    height: 34px !important;
+    flex-basis: 34px !important;
+  }
+}
