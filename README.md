@@ -10,12 +10,17 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-in%20development-6366F1?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/demo-GitHub%20Pages-22C55E?style=for-the-badge" />
   <img src="https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-22C55E?style=for-the-badge" />
   <img src="https://img.shields.io/badge/backend-ASP.NET%20Core-512BD4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/database-SQL%20Server-2563EB?style=for-the-badge" />
   <img src="https://img.shields.io/badge/auth-email%20%2B%20password-F97316?style=for-the-badge" />
 </p>
-
+<p align="center">
+  <a href="https://avuii.github.io/TrackMyCV/">
+    <strong>Open Live Demo</strong>
+  </a>
+</p>
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="Job Application Tracker Dashboard Preview" width="800" />
 </p>
