@@ -179,8 +179,16 @@ const eventTypes = ['HR interview', 'Technical interview', 'Recruitment task', '
 const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 'Banking', 'Cybersecurity', 'Other'];
 const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Certificate', 'Other'];
 
-const publicAsset = (path: string) =>
-  `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+type ViteImportMeta = ImportMeta & {
+  env?: {
+    BASE_URL?: string;
+  };
+};
+
+const publicAsset = (path: string) => {
+  const baseUrl = ((import.meta as ViteImportMeta).env?.BASE_URL ?? '/').replace(/\/?$/, '/');
+  return `${baseUrl}${path.replace(/^\/+/, '')}`;
+};
 
 const initialProfile: Profile = {
   name: 'Demo User',
@@ -223,6 +231,37 @@ const initialCompanies: Company[] = [
   { id: 6, name: 'Lumen Security', domain: '', industry: 'Cybersecurity', location: 'Warsaw', website: 'https://example.com/lumen-security', contact: '', notes: 'Fictional cybersecurity company.' },
   { id: 7, name: 'MapleWorks', domain: '', industry: 'E-commerce', location: 'Remote', website: 'https://example.com/mapleworks', contact: '', notes: 'Fictional product company.' }
 ];
+
+const demoCompanyLogos: Record<string, { label: string; className: string }> = {
+  'Northstar Labs': {
+    label: 'N',
+    className: 'northstar'
+  },
+  'Riverstone Consulting': {
+    label: 'R',
+    className: 'riverstone'
+  },
+  'BrightPath Digital': {
+    label: 'B',
+    className: 'brightpath'
+  },
+  'Cloudberry Systems': {
+    label: 'C',
+    className: 'cloudberry'
+  },
+  'Oak & Code': {
+    label: 'O',
+    className: 'oakcode'
+  },
+  'Lumen Security': {
+    label: 'L',
+    className: 'lumen'
+  },
+  MapleWorks: {
+    label: 'M',
+    className: 'mapleworks'
+  }
+};
 
 const initialApplications: JobApplication[] = [
   { id: 1, company: 'Northstar Labs', companyId: 1, domain: '', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/northstar/job-1', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Mentoring, training budget, flexible work', notes: 'Demo note: prepare technical topics before the interview.', cv: 'CV_NET_Intern_Demo.pdf' },
@@ -467,12 +506,47 @@ function downloadJson(filename: string, data: unknown, setToast: (value: string)
   setToast('Backup downloaded.');
 }
 
-function CompanyLogo({ name, domain, large = false }: { name: string; domain?: string; large?: boolean }) {
+function CompanyLogo({
+  name,
+  domain,
+  large = false
+}: {
+  name: string;
+  domain?: string;
+  large?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
-  const resolvedDomain = safeDomain(name, domain);
+  const demoLogo = demoCompanyLogos[name];
+  const cleanDomain = domain?.trim();
+
+  if (demoLogo) {
+    return (
+      <span
+        className={`company-logo demo-company-logo ${demoLogo.className} ${large ? 'large' : ''}`}
+        aria-label={`${name} logo`}
+      >
+        <span>{demoLogo.label}</span>
+      </span>
+    );
+  }
+
+  if (cleanDomain && !failed) {
+    const resolvedDomain = safeDomain(name, cleanDomain);
+
+    return (
+      <span className={`company-logo ${large ? 'large' : ''}`} aria-label={`${name} logo`}>
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${resolvedDomain}&sz=64`}
+          alt=""
+          onError={() => setFailed(true)}
+        />
+      </span>
+    );
+  }
+
   return (
-    <span className={`company-logo ${large ? 'large' : ''}`}>
-      {!failed ? <img src={`https://www.google.com/s2/favicons?domain=${resolvedDomain}&sz=64`} alt="" onError={() => setFailed(true)} /> : <span>{getInitials(name)}</span>}
+    <span className={`company-logo demo-company-logo fallback ${large ? 'large' : ''}`} aria-label={`${name} logo`}>
+      <span>{getInitials(name)}</span>
     </span>
   );
 }
