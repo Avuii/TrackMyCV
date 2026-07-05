@@ -26,6 +26,7 @@
 
 - [📌 Overview](#-overview)
 - [🧩 Current Status](#-current-status)
+- [🗂️ Application Sections](#️-application-sections)
 - [✨ Features](#-features)
   - [📊 Dashboard](#-dashboard)
   - [📄 Applications](#-applications)
@@ -77,6 +78,22 @@ The project is currently under active development.
 | Email notifications | Planned |
 | Backend persistence | Planned |
 | Deployment | Planned |
+
+---
+
+## 🗂️ Application Sections
+
+The application is divided into several main sections. Each section represents a different part of the job application tracking process.
+
+| Preview                                                                                              | Section                 | Description                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/screenshots/dashboard.png" alt="Dashboard preview" width="260" />                     | **Dashboard**           | Main overview screen with summary cards, charts, application statistics and upcoming recruitment events. It gives the user a quick understanding of the current recruitment situation. |
+| <img src="docs/screenshots/applications.png" alt="Applications preview" width="260" />               | **Applications**        | Main list of saved job applications with company name, position, status, location, work mode, dates and notes. This section helps keep all applications organized in one place.        |
+| <img src="docs/screenshots/application-details.png" alt="Application details preview" width="260" /> | **Application Details** | Detailed view of a selected application with recruitment stage, important dates, notes and next steps. It allows the user to review one recruitment process more precisely.            |
+| <img src="docs/screenshots/calendar.png" alt="Calendar preview" width="260" />                       | **Calendar**            | Weekly and monthly calendar view for interviews, deadlines, follow-ups and recruitment-related events. It helps the user keep track of important dates.                                |
+| <img src="docs/screenshots/analytics.png" alt="Analytics preview" width="260" />                     | **Analytics**           | Visual section with charts and summaries such as application status distribution, success rate and interview conversion. It helps analyze recruitment progress over time.              |
+| <img src="docs/screenshots/notifications.png" alt="Notifications preview" width="260" />             | **Notifications**       | Planned section for email reminders about interviews, follow-ups, deadlines and applications without response. It helps the user avoid missing important recruitment actions.          |
+| <img src="docs/screenshots/account-settings.png" alt="Account settings preview" width="260" />       | **Account Settings**    | Planned section for managing user account, notification email, password and preferences. It allows the user to configure the application for personal use.                             |
 
 ---
 
@@ -360,8 +377,6 @@ Backend example:
   }
 }
 ```
-
-Sensitive values should not be committed to the repository.
 
 For local development, use user secrets or environment variables.
 
