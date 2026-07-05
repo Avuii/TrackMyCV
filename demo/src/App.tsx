@@ -522,7 +522,7 @@ function Sidebar({ page, setPage, applications }: { page: Page; setPage: (page: 
   }, []);
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar custom-scroll">
       <Logo />
       <nav className="nav-list" aria-label="Main navigation">
         {navItems.map((item) => {
