@@ -3047,3 +3047,224 @@ svg.donut-chart circle {
 .app-shell.dark .login-visual img {
   filter: saturate(0.72) contrast(0.88) brightness(0.82);
 }
+/* Desktop layout scale fix — makes 100% browser zoom look closer to the intended 80% mockup */
+
+@media (min-width: 1180px) {
+  .app-shell {
+    font-size: 14.5px;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    width: 260px !important;
+    flex: 0 0 260px !important;
+    padding: 24px 18px !important;
+  }
+
+  .workspace {
+    min-width: 0;
+  }
+
+  .topbar {
+    min-height: 96px !important;
+    padding: 24px 36px !important;
+  }
+
+  .topbar-title h1 {
+    font-size: 32px !important;
+    line-height: 1.15;
+  }
+
+  .topbar-title p {
+    font-size: 16px !important;
+  }
+
+  .topbar-actions {
+    gap: 10px !important;
+    flex-wrap: nowrap;
+  }
+
+  .content {
+    padding: 32px 36px 44px !important;
+    overflow: auto;
+  }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px) !important;
+    gap: 24px !important;
+    max-width: 1460px;
+    margin: 0 auto;
+  }
+
+  .main-column,
+  .right-column {
+    min-width: 0;
+  }
+
+  .right-column {
+    width: auto !important;
+    gap: 24px !important;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 20px !important;
+  }
+
+  .metric-card {
+    min-height: 132px !important;
+    padding: 24px !important;
+  }
+
+  .metric-card strong {
+    font-size: 40px !important;
+    line-height: 1;
+  }
+
+  .panel-card {
+    border-radius: 22px !important;
+  }
+
+  .summary-card,
+  .success-card {
+    padding: 26px !important;
+  }
+
+  .summary-content {
+    gap: 20px !important;
+    align-items: center;
+  }
+
+  .donut-visual {
+    width: 150px !important;
+    height: 150px !important;
+    flex: 0 0 150px;
+  }
+
+  .donut-hole {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .legend-list {
+    gap: 10px !important;
+    min-width: 0;
+  }
+
+  .applications-table {
+    min-width: 900px;
+    font-size: 14px;
+  }
+
+  .compact-table {
+    min-width: 780px;
+  }
+
+  .table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .small-card-grid {
+    gap: 20px !important;
+  }
+
+  .brand-logo-img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .brand-name {
+    font-size: 22px !important;
+  }
+
+  .nav-list {
+    gap: 10px !important;
+  }
+
+  .nav-item {
+    min-height: 48px !important;
+    padding: 0 18px !important;
+  }
+
+  .inspiration-card {
+    padding: 16px !important;
+  }
+
+  .inspiration-image {
+    aspect-ratio: 1 / 1;
+    height: auto !important;
+  }
+
+  .inspiration-card h3 {
+    font-size: 18px !important;
+  }
+
+  .inspiration-card p {
+    font-size: 14px !important;
+  }
+}
+
+/* Slightly tighter layout for laptop widths */
+@media (max-width: 1500px) and (min-width: 1180px) {
+  .content {
+    padding-inline: 26px !important;
+  }
+
+  .topbar {
+    padding-inline: 26px !important;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) 330px !important;
+    gap: 20px !important;
+  }
+
+  .metrics-grid {
+    gap: 16px !important;
+  }
+
+  .metric-card {
+    min-height: 126px !important;
+    padding: 20px !important;
+  }
+
+  .metric-card strong {
+    font-size: 36px !important;
+  }
+
+  .summary-content {
+    display: grid !important;
+    grid-template-columns: 140px minmax(0, 1fr);
+  }
+
+  .donut-visual {
+    width: 140px !important;
+    height: 140px !important;
+    flex-basis: 140px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .icon-button,
+  .profile-button {
+    min-height: 44px !important;
+  }
+}
+
+/* When there is not enough width, move summary cards under the main column */
+@media (max-width: 1280px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .right-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .upcoming-card {
+    grid-column: 1 / -1;
+  }
+}
