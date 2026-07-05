@@ -9,12 +9,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-in%20development-6366F1?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/demo-GitHub%20Pages-22C55E?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-22C55E?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/backend-ASP.NET%20Core-512BD4?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/database-SQL%20Server-2563EB?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/auth-email%20%2B%20password-F97316?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/status-in%20development-A67856?labelColor=5C5148&style=for-the-badge" />
+  <img src="https://img.shields.io/badge/demo-GitHub%20Pages-C49A6C?labelColor=7A5C42&style=for-the-badge" />
+  <img src="https://img.shields.io/badge/frontend-React-8BA6A9?labelColor=5F7476&style=for-the-badge" />
+  <img src="https://img.shields.io/badge/typescript-Frontend-6E8FA3?labelColor=4D6473&style=for-the-badge" />
+  <img src="https://img.shields.io/badge/backend-ASP.NET%20Core-8A6F5A?labelColor=5E4B3D&style=for-the-badge" />
+  <img src="https://img.shields.io/badge/database-SQL%20Server-B88B6A?labelColor=735846&style=for-the-badge" />
+  <img src="https://img.shields.io/badge/auth-email%20%2B%20password-C76D6D?labelColor=7A4A4A&style=for-the-badge" />
 </p>
 <p align="center">
   <a href="https://avuii.github.io/TrackMyCV/">
