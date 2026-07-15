@@ -61,3 +61,21 @@ package-lock.json
 
 # Optional local config
 *.local
+# Visual Studio local files
+.vs/
+*.vsidx
+*.suo
+*.user
+*.rsuser
+
+# .NET build output
+bin/
+obj/
+
+# Frontend
+node_modules/
+dist/
+
+# Local env files
+.env
+.env.local
