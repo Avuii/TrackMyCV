@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   BarChart3,
   Bell,
@@ -47,7 +47,14 @@ import {
   XCircle
 } from 'lucide-react';
 import { applications, companies, documents, notes, upcomingEvents } from './mockData';
-import type { JobApplication, Page } from './types';
+import {
+  applicationStatusOptions,
+  toDateInputValue,
+  workModeOptions,
+  type ApplicationUpsertInput
+} from './api/applicationsApi';
+import { useApplications } from './features/applications/hooks/useApplications';
+import type { ApplicationId, ApplicationStatus, JobApplication, Page, WorkMode } from './types';
 
 const navItems: { id: Page; label: string; icon: typeof LayoutDashboard; badge?: number }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -284,8 +291,17 @@ function SuccessRateCard() {
   );
 }
 
-function RecentApplicationsTable({ compact = true }: { compact?: boolean }) {
-  const rows = compact ? applications.slice(0, 5) : applications;
+type RecentApplicationsTableProps = {
+  compact?: boolean;
+  rows?: JobApplication[];
+  onSelect?: (application: JobApplication) => void;
+  onEdit?: (application: JobApplication) => void;
+  onDelete?: (application: JobApplication) => void;
+};
+
+function RecentApplicationsTable({ compact = true, rows: providedRows, onSelect, onEdit, onDelete }: RecentApplicationsTableProps) {
+  const rows = providedRows ?? (compact ? applications.slice(0, 5) : applications);
+
   return (
     <div className="table-wrap">
       <table className={`applications-table ${compact ? 'compact-table' : ''}`}>
@@ -304,10 +320,10 @@ function RecentApplicationsTable({ compact = true }: { compact?: boolean }) {
         </thead>
         <tbody>
           {rows.map((app) => (
-            <tr key={app.id}>
+            <tr key={app.id} onClick={() => onSelect?.(app)}>
               <td>
                 <div className="company-cell">
-                  <span className="company-logo">{app.company[0]}</span>
+                  <span className="company-logo">{app.company[0] || '?'}</span>
                   <div>
                     <strong>{app.company}</strong>
                     {!compact ? (
@@ -338,9 +354,39 @@ function RecentApplicationsTable({ compact = true }: { compact?: boolean }) {
               <td>{app.nextStep}</td>
               {!compact ? (
                 <td className="row-actions">
-                  <button className="ghost-icon" type="button" aria-label="Open menu">
-                    <MoreHorizontal size={18} />
-                  </button>
+                  <div className="document-actions">
+                    {onEdit ? (
+                      <button
+                        className="ghost-icon"
+                        type="button"
+                        aria-label="Edit application"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEdit(app);
+                        }}
+                      >
+                        <Pencil size={17} />
+                      </button>
+                    ) : null}
+                    {onDelete ? (
+                      <button
+                        className="ghost-icon danger"
+                        type="button"
+                        aria-label="Delete application"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDelete(app);
+                        }}
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    ) : null}
+                    {!onEdit && !onDelete ? (
+                      <button className="ghost-icon" type="button" aria-label="Open menu">
+                        <MoreHorizontal size={18} />
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               ) : null}
             </tr>
@@ -428,6 +474,82 @@ function UpcomingCard() {
 }
 
 function ApplicationsPage() {
+  const {
+    applications: apiApplications,
+    loading,
+    saving,
+    error,
+    loadApplications,
+    createApplication,
+    updateApplication,
+    deleteApplication
+  } = useApplications();
+  const [selectedApplicationId, setSelectedApplicationId] = useState<ApplicationId | null>(null);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
+  const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (apiApplications.length === 0) {
+      setSelectedApplicationId(null);
+      return;
+    }
+
+    if (!apiApplications.some((application) => application.id === selectedApplicationId)) {
+      setSelectedApplicationId(apiApplications[0].id);
+    }
+  }, [apiApplications, selectedApplicationId]);
+
+  const selectedApplication = apiApplications.find((application) => application.id === selectedApplicationId) ?? apiApplications[0] ?? null;
+
+  const openCreateModal = () => {
+    setFormError(null);
+    setEditingApplication(null);
+    setModalMode('create');
+  };
+
+  const openEditModal = (application: JobApplication) => {
+    setFormError(null);
+    setEditingApplication(application);
+    setModalMode('edit');
+  };
+
+  const closeModal = () => {
+    setFormError(null);
+    setEditingApplication(null);
+    setModalMode(null);
+  };
+
+  const handleSubmit = async (application: ApplicationUpsertInput) => {
+    try {
+      if (modalMode === 'create') {
+        const created = await createApplication(application);
+        setSelectedApplicationId(created.id);
+      } else if (editingApplication) {
+        const updated = await updateApplication(editingApplication.id, application);
+        setSelectedApplicationId(updated.id);
+      }
+
+      closeModal();
+    } catch (submitError) {
+      setFormError(submitError instanceof Error ? submitError.message : 'Could not save application.');
+    }
+  };
+
+  const handleDelete = async (application: JobApplication) => {
+    const confirmed = window.confirm(`Delete application for ${application.company}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteApplication(application.id);
+    } catch (deleteError) {
+      window.alert(deleteError instanceof Error ? deleteError.message : 'Could not delete application.');
+    }
+  };
+
   return (
     <section className="page-section">
       <PageTitle title="Applications" subtitle="Manage your job applications and recruitment stages." />
@@ -440,24 +562,85 @@ function ApplicationsPage() {
           <button className="chip-button" type="button" key={filter}>{filter} <ChevronDown size={15} /></button>
         ))}
         <button className="secondary-button" type="button"><Download size={17} /> Export</button>
-        <button className="primary-button" type="button"><Plus size={17} /> Add application</button>
+        <button className="primary-button" type="button" onClick={openCreateModal}><Plus size={17} /> Add application</button>
       </div>
       <section className="panel-card applications-panel">
-        <RecentApplicationsTable compact={false} />
+        {loading ? (
+          <ApplicationsStateMessage title="Loading applications" text="Fetching applications from the API." />
+        ) : error && apiApplications.length === 0 ? (
+          <ApplicationsStateMessage title="Could not load applications" text={error} actionLabel="Try again" onAction={loadApplications} />
+        ) : apiApplications.length === 0 ? (
+          <ApplicationsStateMessage title="No applications yet" text="Add your first application to start tracking the process." actionLabel="Add application" onAction={openCreateModal} />
+        ) : (
+          <RecentApplicationsTable
+            compact={false}
+            rows={apiApplications}
+            onSelect={(application) => setSelectedApplicationId(application.id)}
+            onEdit={openEditModal}
+            onDelete={handleDelete}
+          />
+        )}
       </section>
       <section className="panel-card details-panel">
-        <ApplicationDetails application={applications[0]} />
+        {selectedApplication ? (
+          <ApplicationDetails application={selectedApplication} onEdit={openEditModal} />
+        ) : (
+          <ApplicationsStateMessage title="No application selected" text="Select or add an application to see the details." />
+        )}
       </section>
+      {modalMode ? (
+        <ApplicationFormModal
+          mode={modalMode}
+          application={editingApplication}
+          saving={saving}
+          error={formError}
+          onClose={closeModal}
+          onSubmit={handleSubmit}
+        />
+      ) : null}
     </section>
   );
 }
 
-function ApplicationDetails({ application }: { application: JobApplication }) {
+function ApplicationsStateMessage({
+  title,
+  text,
+  actionLabel,
+  onAction
+}: {
+  title: string;
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="modal-content">
+      <div className="mini-title">
+        <BriefcaseBusiness size={18} />
+        <h2>{title}</h2>
+      </div>
+      <p>{text}</p>
+      {actionLabel && onAction ? (
+        <button className="secondary-button" type="button" onClick={onAction}>
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ApplicationDetails({ application, onEdit }: { application: JobApplication; onEdit?: (application: JobApplication) => void }) {
+  const openOffer = () => {
+    if (application.offerUrl) {
+      window.open(application.offerUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className="details-grid">
       <div>
         <div className="details-heading">
-          <span className="company-logo large">{application.company[0]}</span>
+          <span className="company-logo large">{application.company[0] || '?'}</span>
           <div>
             <h2>{application.company}</h2>
             <p>{application.position}</p>
@@ -465,8 +648,8 @@ function ApplicationDetails({ application }: { application: JobApplication }) {
           <StatusBadge status={application.status} />
         </div>
         <div className="details-actions">
-          <button className="secondary-button" type="button"><ExternalLink size={17} /> Open offer</button>
-          <button className="secondary-button" type="button"><Pencil size={17} /> Edit</button>
+          <button className="secondary-button" type="button" onClick={openOffer}><ExternalLink size={17} /> Open offer</button>
+          <button className="secondary-button" type="button" onClick={() => onEdit?.(application)}><Pencil size={17} /> Edit</button>
         </div>
       </div>
       <div className="details-lists">
@@ -490,12 +673,240 @@ function ApplicationDetails({ application }: { application: JobApplication }) {
   );
 }
 
+type ApplicationFormState = {
+  companyId: string | null;
+  company: string;
+  position: string;
+  category: string;
+  level: string;
+  status: ApplicationStatus;
+  dateApplied: string;
+  lastContact: string;
+  nextStep: string;
+  location: string;
+  workMode: WorkMode;
+  source: string;
+  requirements: string;
+  benefits: string;
+  notes: string;
+  offerUrl: string;
+  cv: string;
+};
+
+const todayInputValue = () => new Date().toISOString().slice(0, 10);
+
+const emptyApplicationForm = (): ApplicationFormState => ({
+  companyId: null,
+  company: '',
+  position: '',
+  category: '',
+  level: '',
+  status: 'Saved',
+  dateApplied: todayInputValue(),
+  lastContact: '',
+  nextStep: '',
+  location: '',
+  workMode: 'Remote',
+  source: '',
+  requirements: '',
+  benefits: '',
+  notes: '',
+  offerUrl: '',
+  cv: ''
+});
+
+const applicationToFormState = (application: JobApplication | null): ApplicationFormState => {
+  if (!application) {
+    return emptyApplicationForm();
+  }
+
+  return {
+    companyId: application.companyId ?? null,
+    company: application.company,
+    position: application.position,
+    category: application.category,
+    level: application.level,
+    status: application.status,
+    dateApplied: toDateInputValue(application.dateApplied),
+    lastContact: toDateInputValue(application.lastContact),
+    nextStep: application.nextStep,
+    location: application.location,
+    workMode: application.workMode,
+    source: application.source,
+    requirements: application.requirements.join(', '),
+    benefits: application.benefits.join(', '),
+    notes: application.notes,
+    offerUrl: application.offerUrl,
+    cv: application.cv
+  };
+};
+
+const splitFormList = (value: string) =>
+  value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const formStateToApplication = (form: ApplicationFormState): ApplicationUpsertInput => ({
+  companyId: form.companyId,
+  company: form.company.trim(),
+  position: form.position.trim(),
+  category: form.category.trim(),
+  level: form.level.trim(),
+  status: form.status,
+  dateApplied: form.dateApplied,
+  lastContact: form.lastContact,
+  nextStep: form.nextStep.trim(),
+  location: form.location.trim(),
+  workMode: form.workMode,
+  source: form.source.trim(),
+  requirements: splitFormList(form.requirements),
+  benefits: splitFormList(form.benefits),
+  notes: form.notes.trim(),
+  offerUrl: form.offerUrl.trim(),
+  cv: form.cv.trim()
+});
+
+function ApplicationFormModal({
+  mode,
+  application,
+  saving,
+  error,
+  onClose,
+  onSubmit
+}: {
+  mode: 'create' | 'edit';
+  application: JobApplication | null;
+  saving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (application: ApplicationUpsertInput) => Promise<void>;
+}) {
+  const [form, setForm] = useState<ApplicationFormState>(() => applicationToFormState(application));
+  const title = mode === 'create' ? 'Add application' : 'Edit application';
+
+  const updateField = <T extends keyof ApplicationFormState>(field: T, value: ApplicationFormState[T]) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void onSubmit(formStateToApplication(form));
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <form className="settings-modal" role="dialog" aria-modal="true" aria-label={title} onSubmit={handleSubmit}>
+        <header className="modal-header">
+          <div>
+            <h2>{title}</h2>
+            <p>{mode === 'create' ? 'Create a new tracked application.' : 'Update application details and status.'}</p>
+          </div>
+          <button className="close-button" type="button" onClick={onClose} aria-label="Close application form">
+            <X size={20} />
+          </button>
+        </header>
+        <main className="modal-content custom-scroll">
+          {error ? (
+            <div className="setting-group">
+              <span className="setting-label">Error</span>
+              <p>{error}</p>
+            </div>
+          ) : null}
+          <div className="form-grid">
+            <ApplicationFormInput label="Company" value={form.company} onChange={(value) => updateField('company', value)} required />
+            <ApplicationFormInput label="Position" value={form.position} onChange={(value) => updateField('position', value)} required />
+            <ApplicationFormInput label="Category" value={form.category} onChange={(value) => updateField('category', value)} />
+            <ApplicationFormInput label="Level" value={form.level} onChange={(value) => updateField('level', value)} />
+            <ApplicationFormInput label="Date applied" type="date" value={form.dateApplied} onChange={(value) => updateField('dateApplied', value)} required />
+            <ApplicationFormInput label="Last contact" type="date" value={form.lastContact} onChange={(value) => updateField('lastContact', value)} />
+            <ApplicationFormInput label="Next step" value={form.nextStep} onChange={(value) => updateField('nextStep', value)} />
+            <ApplicationFormInput label="Location" value={form.location} onChange={(value) => updateField('location', value)} />
+            <ApplicationFormInput label="Source" value={form.source} onChange={(value) => updateField('source', value)} />
+            <ApplicationFormInput label="CV" value={form.cv} onChange={(value) => updateField('cv', value)} />
+            <ApplicationFormInput label="Offer URL" value={form.offerUrl} onChange={(value) => updateField('offerUrl', value)} />
+            <ApplicationFormInput label="Notes" value={form.notes} onChange={(value) => updateField('notes', value)} />
+            <ApplicationFormInput label="Requirements" value={form.requirements} onChange={(value) => updateField('requirements', value)} />
+            <ApplicationFormInput label="Benefits" value={form.benefits} onChange={(value) => updateField('benefits', value)} />
+          </div>
+          <SelectionTokenGroup
+            title="Status"
+            tokens={applicationStatusOptions}
+            selected={form.status}
+            onSelect={(status) => updateField('status', status)}
+          />
+          <SelectionTokenGroup
+            title="Work mode"
+            tokens={workModeOptions}
+            selected={form.workMode}
+            onSelect={(workMode) => updateField('workMode', workMode)}
+          />
+        </main>
+        <footer className="modal-footer">
+          <button className="secondary-button" type="button" onClick={onClose}>Cancel</button>
+          <button className="primary-button" type="submit" disabled={saving}>
+            <CheckCircle2 size={17} /> {saving ? 'Saving...' : 'Save application'}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function ApplicationFormInput({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  required = false
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="form-field">
+      <span>{label}</span>
+      <input type={type} value={value} required={required} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function SelectionTokenGroup<T extends string>({
+  title,
+  tokens,
+  selected,
+  onSelect
+}: {
+  title: string;
+  tokens: T[];
+  selected: T;
+  onSelect: (token: T) => void;
+}) {
+  return (
+    <div className="setting-group">
+      <span className="setting-label">{title}</span>
+      <div className="token-row">
+        {tokens.map((token) => (
+          <button className={selected === token ? 'selected' : ''} type="button" key={token} onClick={() => onSelect(token)}>
+            {token}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function InfoList({ title, items }: { title: string; items: string[] }) {
+  const visibleItems = items.filter(Boolean);
+
   return (
     <div className="info-list">
       <h3>{title}</h3>
       <div>
-        {items.map((item) => <span key={item}>{item}</span>)}
+        {visibleItems.length > 0 ? visibleItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>) : <span>-</span>}
       </div>
     </div>
   );

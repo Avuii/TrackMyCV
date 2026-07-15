@@ -18,8 +18,11 @@ export type ApplicationStatus =
 
 export type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
 
+export type ApplicationId = string | number;
+
 export interface JobApplication {
-  id: number;
+  id: ApplicationId;
+  companyId?: string | null;
   company: string;
   position: string;
   category: string;
