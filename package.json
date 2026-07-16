@@ -1,0 +1,10 @@
+{
+  "name": "trackmycv",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:skip-db": "node scripts/dev.mjs --skip-db"
+  }
+}

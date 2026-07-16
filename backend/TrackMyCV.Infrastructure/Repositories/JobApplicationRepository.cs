@@ -18,19 +18,20 @@ public class JobApplicationRepository : IJobApplicationRepository
         _context = context;
     }
 
-    public async Task<List<JobApplication>> GetAllAsync()
+    public async Task<List<JobApplication>> GetAllAsync(Guid userId)
     {
         return await _context.JobApplications
             .Include(x => x.Company)
+            .Where(x => x.AppUserId == userId)
             .OrderByDescending(x => x.DateApplied)
             .ToListAsync();
     }
 
-    public async Task<JobApplication?> GetByIdAsync(Guid id)
+    public async Task<JobApplication?> GetByIdAsync(Guid id, Guid userId)
     {
         return await _context.JobApplications
             .Include(x => x.Company)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id && x.AppUserId == userId);
     }
 
     public async Task<JobApplication> CreateAsync(JobApplication application)

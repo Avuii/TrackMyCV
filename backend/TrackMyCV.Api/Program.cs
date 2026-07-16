@@ -1,4 +1,7 @@
-﻿using TrackMyCV.Infrastructure;
+using TrackMyCV.Api.Auth;
+using Microsoft.EntityFrameworkCore;
+using TrackMyCV.Infrastructure;
+using TrackMyCV.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,12 +25,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("Frontend");
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<TokenAuthenticationMiddleware>();
 
 app.MapControllers();
 

@@ -9,6 +9,10 @@ namespace TrackMyCV.Domain.Entities;
 
 public class JobApplication : BaseEntity
 {
+    public Guid? AppUserId { get; set; }
+
+    public AppUser? AppUser { get; set; }
+
     public Guid? CompanyId { get; set; }
 
     public Company? Company { get; set; }

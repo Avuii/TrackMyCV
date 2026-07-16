@@ -421,6 +421,17 @@ small {
   min-width: 0;
 }
 
+.topbar-title {
+  flex: 1;
+}
+
+.topbar-title h1,
+.topbar-title p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar-spacer {
   flex: 1;
 }
@@ -673,17 +684,28 @@ small {
   display: grid;
   gap: 6px;
   align-content: center;
+  min-width: 0;
 }
 
 .metric-card strong {
-  font-size: 39px;
+  font-size: clamp(26px, 2.35vw, 39px);
   line-height: 1;
   color: var(--accent);
   letter-spacing: -0.05em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.metric-card span,
+.metric-card small {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .metric-card small {
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .blue-text { color: #456c91 !important; }
@@ -1350,9 +1372,17 @@ small {
 
 .bar-row {
   display: grid;
-  grid-template-columns: 120px 1fr 34px;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) 34px;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+.bar-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bar-row > div {
@@ -6032,6 +6062,27 @@ svg.donut-chart circle {
 .app-shell.animations-on .positive-trend,
 .app-shell.animations-on .mobile-fab {
   animation: softRevealIn 0.42s ease both, gentlePulse 2.6s ease-in-out 1.2s infinite;
+}
+
+@media (min-width: 901px) {
+  :root {
+    --desktop-app-scale: 0.8;
+  }
+
+  .app-shell {
+    width: calc(100vw / var(--desktop-app-scale));
+    height: calc(100dvh / var(--desktop-app-scale));
+    min-height: calc(100dvh / var(--desktop-app-scale));
+    max-height: none;
+    transform: scale(var(--desktop-app-scale));
+    transform-origin: top left;
+  }
+
+  .workspace,
+  .sidebar {
+    height: calc(100dvh / var(--desktop-app-scale));
+    min-height: 0;
+  }
 }
 
 .app-shell.animations-off *,

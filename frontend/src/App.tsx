@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   Bell,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
+  Check,
   CheckCircle2,
   CheckSquare,
   ChevronDown,
   Clock,
   Database,
   Download,
+  Edit3,
   ExternalLink,
   Eye,
   FileText,
@@ -19,7 +21,8 @@ import {
   Globe,
   Heart,
   LayoutDashboard,
-  Link,
+  List as ListIcon,
+  Link as LinkIcon,
   LogOut,
   Mail,
   MapPin,
@@ -28,239 +31,980 @@ import {
   MoreHorizontal,
   Palette,
   Pencil,
-  PieChart,
   Plus,
   Search,
-  Shield,
   SlidersHorizontal,
   Sparkles,
   StickyNote,
   Sun,
   Tag,
-  Target,
+  Table2,
   Trash2,
-  TrendingUp,
   Upload,
   User,
   Video,
-  X,
-  XCircle
+  X
 } from 'lucide-react';
-import { applications, companies, documents, notes, upcomingEvents } from './mockData';
-import {
-  applicationStatusOptions,
-  toDateInputValue,
-  workModeOptions,
-  type ApplicationUpsertInput
-} from './api/applicationsApi';
 import { useApplications } from './features/applications/hooks/useApplications';
-import type { ApplicationId, ApplicationStatus, JobApplication, Page, WorkMode } from './types';
+import { useDocuments } from './features/documents/hooks/useDocuments';
+import { authApi, type AuthUser, type LoginInput, type RegisterInput } from './api/authApi';
+import { clearAuthToken, getAuthToken } from './api/apiClient';
+import type { ApplicationUpsertInput } from './api/applicationsApi';
+import type { StoredDocument } from './api/documentsApi';
+import type { ApplicationStatus as ApiApplicationStatus, JobApplication as ApiJobApplication } from './types';
+import {
+  applications as richApplications,
+  calendarEvents as richCalendarEvents,
+  companies as richCompanies,
+  documents as richDocuments,
+  notes as richNotes
+} from './mockData';
 
-const navItems: { id: Page; label: string; icon: typeof LayoutDashboard; badge?: number }[] = [
+type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes';
+type Theme = 'light' | 'dark';
+type Status = 'Saved' | 'Applied' | 'In progress' | 'Interview' | 'Task / test' | 'Offer' | 'Rejected' | 'No response' | 'Ghosted' | 'Archived';
+type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
+type CalendarView = 'Month' | 'Week' | 'List';
+type ProfileTab = 'profile' | 'appearance' | 'notifications' | 'preferences' | 'data';
+type DocKind = 'CV' | 'Cover letter' | 'Portfolio' | 'GitHub' | 'LinkedIn' | 'Job offer' | 'Task description' | 'Recruiter email' | 'Certificate' | 'Other';
+type EntityId = string | number;
+
+type JobApplication = {
+  id: EntityId;
+  company: string;
+  companyId?: EntityId | null;
+  domain: string;
+  position: string;
+  category: string;
+  level: string;
+  status: Status;
+  dateApplied: string;
+  lastContact: string;
+  nextStep: string;
+  location: string;
+  workMode: WorkMode;
+  source: string;
+  offerUrl: string;
+  requirements: string;
+  benefits: string;
+  notes: string;
+  cv: string;
+};
+
+type Company = {
+  id: number;
+  name: string;
+  domain: string;
+  industry: string;
+  location: string;
+  website: string;
+  contact: string;
+  notes: string;
+};
+
+type CalendarEvent = {
+  id: number;
+  title: string;
+  company: string;
+  applicationId?: EntityId;
+  date: string;
+  time: string;
+  type: string;
+  location: string;
+  meetingLink: string;
+  notes: string;
+};
+
+type DocumentItem = {
+  id: EntityId;
+  name: string;
+  type: DocKind;
+  category: string;
+  updated: string;
+  usedIn: number;
+  size: string;
+  url: string;
+  language?: string;
+  targetRole?: string;
+  fileName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  usedInApplicationsCount?: number;
+  assignedApplications?: EntityId[];
+  tags?: string[];
+  status?: 'Active' | 'Archived';
+  notes?: string;
+  successRate?: number;
+  lastUsedAt?: string;
+  isDefault?: boolean;
+};
+
+type ChecklistItem = {
+  id: number;
+  text: string;
+  done: boolean;
+};
+
+type NoteItem = {
+  id: number;
+  title: string;
+  company: string;
+  application: string;
+  tag: string;
+  tags?: string[];
+  type?: string;
+  updated: string;
+  lastEdited?: string;
+  preview?: string;
+  body: string;
+  pinned?: boolean;
+  favorite?: boolean;
+  checklist: ChecklistItem[];
+};
+
+type Profile = {
+  name: string;
+  email: string;
+  title: string;
+  location: string;
+  workMode: WorkMode;
+};
+
+type AppSettings = {
+  showMotivation: boolean;
+  animations: boolean;
+  density: 'Comfortable' | 'Compact';
+  accent: 'Taupe' | 'Champagne' | 'Dusty rose' | 'Soft brown' | 'Beige';
+  notifications: {
+    interviews: boolean;
+    followUps: boolean;
+    deadlines: boolean;
+    weekly: boolean;
+    monthly: boolean;
+    reminderTime: string;
+  };
+  preferences: {
+    categories: string[];
+    levels: string[];
+    locations: string[];
+    workModes: WorkMode[];
+    noResponseDays: number;
+    ghostedDays: number;
+    followUpDays: number;
+  };
+};
+
+const STORAGE = {
+  session: 'trackmycv.session.v3',
+  profile: 'trackmycv.profile.v3',
+  applications: 'trackmycv.applications.v3',
+  companies: 'trackmycv.companies.v3',
+  events: 'trackmycv.events.v3',
+  documents: 'trackmycv.documents.v3',
+  notes: 'trackmycv.notes.v3',
+  settings: 'trackmycv.settings.v3',
+  theme: 'trackmycv.theme.v3'
+};
+
+const statuses: Status[] = ['Saved', 'Applied', 'In progress', 'Interview', 'Task / test', 'Offer', 'Rejected', 'No response', 'Ghosted', 'Archived'];
+const categories = ['.NET', 'C#', 'Cybersecurity', 'IAM', 'SOC', 'DevOps', 'React', 'Full-stack', 'Backend', 'Frontend', 'Data / AI', 'Support IT', 'Other'];
+const levels = ['Internship', 'Intern', 'Trainee', 'Working Student', 'Junior', 'Junior-friendly', 'Mid', 'Senior'];
+const workModes: WorkMode[] = ['Remote', 'Hybrid', 'On-site'];
+const sources = ['LinkedIn', 'Just Join IT', 'No Fluff Jobs', 'Pracuj.pl', 'Company website', 'Company career page', 'Referral', 'Direct referral', 'Recruiter message', 'Other'];
+const eventTypes = ['HR interview', 'Technical interview', 'Recruitment task', 'Online test', 'Follow-up reminder', 'Application deadline', 'Company research', 'CV update reminder'];
+const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 'Banking', 'Cybersecurity', 'Other'];
+const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Job offer', 'Task description', 'Recruiter email', 'Certificate', 'Other'];
+
+type ViteImportMeta = ImportMeta & {
+  env?: {
+    BASE_URL?: string;
+  };
+};
+
+const publicAsset = (path: string) => {
+  const baseUrl = ((import.meta as ViteImportMeta).env?.BASE_URL ?? '/').replace(/\/?$/, '/');
+  return `${baseUrl}${path.replace(/^\/+/, '')}`;
+};
+
+const initialProfile: Profile = {
+  name: 'User',
+  email: 'user@example.com',
+  title: 'Software Engineering / Security Intern',
+  location: 'Remote / Poland',
+  workMode: 'Hybrid'
+};
+
+const profileFromAuthUser = (user: AuthUser): Profile => ({
+  ...initialProfile,
+  name: user.displayName || user.email.split('@')[0],
+  email: user.email
+});
+
+const initialSettings: AppSettings = {
+  showMotivation: true,
+  animations: true,
+  density: 'Comfortable',
+  accent: 'Taupe',
+  notifications: {
+    interviews: true,
+    followUps: true,
+    deadlines: false,
+    weekly: true,
+    monthly: false,
+    reminderTime: '15 minutes before'
+  },
+  preferences: {
+    categories: ['.NET', 'Cybersecurity', 'IAM', 'DevOps'],
+    levels: ['Internship', 'Intern', 'Junior', 'Junior-friendly'],
+    locations: ['Remote', 'Warsaw', 'KrakĂłw'],
+    workModes: ['Hybrid', 'Remote'],
+    noResponseDays: 14,
+    ghostedDays: 30,
+    followUpDays: 7
+  }
+};
+
+const toListText = (value: string | string[] | null | undefined) => Array.isArray(value) ? value.join(', ') : value || '';
+
+const normalizeStatus = (status: string): Status => {
+  if (statuses.includes(status as Status)) return status as Status;
+  if (status === 'HR interview' || status === 'Technical interview') return 'Interview';
+  if (status === 'Confirmation received') return 'In progress';
+  if (status === 'Withdrawn') return 'Archived';
+  return 'Saved';
+};
+
+const normalizeWorkMode = (mode: string): WorkMode => workModes.includes(mode as WorkMode) ? mode as WorkMode : 'Remote';
+
+const normalizeDocumentType = (type: string): DocKind => documentTypes.includes(type as DocKind) ? type as DocKind : 'Other';
+
+const companyIdFor = (companyName: string) => richCompanies.find((company) => company.name === companyName)?.id;
+
+const splitTextList = (value: string) =>
+  value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const apiApplicationToUi = (application: ApiJobApplication): JobApplication => ({
+  id: application.id,
+  company: application.company,
+  companyId: application.companyId,
+  domain: safeDomain(application.company),
+  position: application.position,
+  category: application.category || 'Other',
+  level: application.level || 'Internship',
+  status: normalizeStatus(application.status),
+  dateApplied: application.dateApplied,
+  lastContact: application.lastContact === '-' ? '' : application.lastContact,
+  nextStep: application.nextStep,
+  location: application.location,
+  workMode: normalizeWorkMode(application.workMode),
+  source: application.source,
+  offerUrl: application.offerUrl,
+  requirements: toListText(application.requirements),
+  benefits: toListText(application.benefits),
+  notes: application.notes,
+  cv: application.cv
+});
+
+const apiDocumentToUi = (document: StoredDocument): DocumentItem => ({
+  id: document.id,
+  name: document.name,
+  type: normalizeDocumentType(document.type),
+  category: document.category || 'General',
+  updated: document.updated,
+  usedIn: document.usedIn ?? document.usedInApplicationsCount ?? 0,
+  size: document.size,
+  url: document.url || '',
+  language: document.language || undefined,
+  targetRole: document.targetRole || undefined,
+  fileName: document.fileName || undefined,
+  createdAt: document.createdAt,
+  updatedAt: document.updatedAt,
+  usedInApplicationsCount: document.usedInApplicationsCount ?? document.usedIn ?? 0,
+  assignedApplications: document.assignedApplications ?? [],
+  tags: document.tags ?? [],
+  status: document.status === 'Archived' ? 'Archived' : 'Active',
+  notes: document.notes || undefined,
+  successRate: document.successRate ?? 0,
+  lastUsedAt: document.lastUsedAt || undefined,
+  isDefault: document.isDefault ?? false
+});
+
+const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput => ({
+  companyId: application.companyId === undefined || application.companyId === null ? null : String(application.companyId),
+  company: application.company,
+  position: application.position,
+  category: application.category,
+  level: application.level,
+  status: application.status as ApiApplicationStatus,
+  dateApplied: application.dateApplied,
+  lastContact: application.lastContact,
+  nextStep: application.nextStep,
+  location: application.location,
+  workMode: application.workMode,
+  source: application.source,
+  requirements: splitTextList(application.requirements),
+  benefits: splitTextList(application.benefits),
+  notes: application.notes,
+  offerUrl: application.offerUrl,
+  cv: application.cv
+});
+
+const initialCompanies: Company[] = [
+  { id: 1, name: 'Northstar Labs', domain: '', industry: 'Technology', location: 'Remote', website: 'https://example.com/northstar', contact: 'careers@example.com', notes: 'Fictional demo company for portfolio presentation.' },
+  { id: 2, name: 'Riverstone Consulting', domain: '', industry: 'Consulting', location: 'Warsaw', website: 'https://example.com/riverstone', contact: 'recruitment@example.com', notes: 'Fictional consulting company with security roles.' },
+  { id: 3, name: 'BrightPath Digital', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/brightpath', contact: '', notes: 'Fictional company used for demo data.' },
+  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'KrakĂłw', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
+  { id: 5, name: 'Oak & Code', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/oak-code', contact: '', notes: 'Fictional software studio.' },
+  { id: 6, name: 'Lumen Security', domain: '', industry: 'Cybersecurity', location: 'Warsaw', website: 'https://example.com/lumen-security', contact: '', notes: 'Fictional cybersecurity company.' },
+  { id: 7, name: 'MapleWorks', domain: '', industry: 'E-commerce', location: 'Remote', website: 'https://example.com/mapleworks', contact: '', notes: 'Fictional product company.' }
+];
+
+const demoCompanyLogos: Record<string, { label: string; className: string }> = {
+  'Northstar Labs': {
+    label: 'N',
+    className: 'northstar'
+  },
+  'Riverstone Consulting': {
+    label: 'R',
+    className: 'riverstone'
+  },
+  'BrightPath Digital': {
+    label: 'B',
+    className: 'brightpath'
+  },
+  'Cloudberry Systems': {
+    label: 'C',
+    className: 'cloudberry'
+  },
+  'Oak & Code': {
+    label: 'O',
+    className: 'oakcode'
+  },
+  'Lumen Security': {
+    label: 'L',
+    className: 'lumen'
+  },
+  MapleWorks: {
+    label: 'M',
+    className: 'mapleworks'
+  }
+};
+
+const initialApplications: JobApplication[] = [
+  { id: 1, company: 'Northstar Labs', companyId: 1, domain: '', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/northstar/job-1', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Mentoring, training budget, flexible work', notes: 'Demo note: prepare technical topics before the interview.', cv: 'CV_NET_Intern_Demo.pdf' },
+  { id: 2, company: 'Riverstone Consulting', companyId: 2, domain: '', position: 'Cyber Security Analyst Intern', category: 'Cybersecurity', level: 'Internship', status: 'In progress', dateApplied: '2026-05-18', lastContact: '2026-05-20', nextStep: 'HR interview', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://example.com/riverstone/job-2', requirements: 'IAM basics, security awareness, English, documentation', benefits: 'Learning path, mentor support, workshops', notes: 'Demo note: prepare motivation and security basics.', cv: 'CV_Security_Demo.pdf' },
+  { id: 3, company: 'BrightPath Digital', companyId: 3, domain: '', position: 'IAM Intern', category: 'IAM', level: 'Intern', status: 'Applied', dateApplied: '2026-05-15', lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/brightpath/job-3', requirements: 'Identity lifecycle, MFA, access management', benefits: 'Remote work, office events, training', notes: 'Demo note: good match for IAM interests.', cv: 'CV_Security_Demo.pdf' },
+  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'KrakĂłw', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
+  { id: 5, company: 'Oak & Code', companyId: 5, domain: '', position: 'Junior Full-stack Developer', category: 'Full-stack', level: 'Junior', status: 'Rejected', dateApplied: '2026-05-05', lastContact: '2026-05-12', nextStep: 'Closed', location: 'Remote', workMode: 'Remote', source: 'Pracuj.pl', offerUrl: 'https://example.com/oak-code/job-5', requirements: 'C#, React, SQL, Git', benefits: 'Remote-first, workshops, team projects', notes: 'Demo note: add feedback and learning points here.', cv: 'CV_Fullstack_Demo.pdf' },
+  { id: 6, company: 'Lumen Security', companyId: 6, domain: '', position: 'Security Internship', category: 'Cybersecurity', level: 'Internship', status: 'Ghosted', dateApplied: '2026-05-02', lastContact: '', nextStep: 'Archive or follow-up', location: 'Warsaw', workMode: 'Hybrid', source: 'No Fluff Jobs', offerUrl: 'https://example.com/lumen-security/job-6', requirements: 'Security basics, cloud basics, communication', benefits: 'Mentoring, certifications, hybrid work', notes: 'Demo note: no response after 30 days.', cv: 'CV_Security_Demo.pdf' },
+  { id: 7, company: 'MapleWorks', companyId: 7, domain: '', position: 'Frontend Trainee', category: 'Frontend', level: 'Trainee', status: 'Offer', dateApplied: '2026-04-28', lastContact: '2026-05-07', nextStep: 'Decision', location: 'Remote', workMode: 'Remote', source: 'Direct referral', offerUrl: 'https://example.com/mapleworks/job-7', requirements: 'React, TypeScript, CSS, Git', benefits: 'Flexible work, product team, mentoring', notes: 'Demo note: strong frontend learning opportunity.', cv: 'CV_Frontend_Demo.pdf' }
+];
+
+const initialEvents: CalendarEvent[] = [
+  { id: 1, title: 'Technical interview', company: 'Northstar Labs', applicationId: 1, date: '2026-05-28', time: '10:00', type: 'Technical interview', location: 'Online', meetingLink: 'https://example.com/meeting', notes: 'Demo event: prepare technical questions.' },
+  { id: 2, title: 'HR interview', company: 'Riverstone Consulting', applicationId: 2, date: '2026-05-29', time: '14:00', type: 'HR interview', location: 'Online', meetingLink: 'https://example.com/meeting', notes: 'Demo event: prepare motivation and questions.' },
+  { id: 3, title: 'Follow-up', company: 'Cloudberry Systems', applicationId: 4, date: '2026-05-31', time: '09:00', type: 'Follow-up reminder', location: 'Email', meetingLink: '', notes: 'Demo event: send a short follow-up.' },
+  { id: 4, title: 'Online test', company: 'BrightPath Digital', applicationId: 3, date: '2026-06-02', time: '16:00', type: 'Online test', location: 'Online', meetingLink: '', notes: 'Demo event: complete online test.' }
+];
+
+const initialDocuments: DocumentItem[] = [
+  { id: 1, name: 'CV_NET_Intern_Demo.pdf', type: 'CV', category: '.NET', updated: '2026-05-18', usedIn: 5, size: '420 KB', url: '' },
+  { id: 2, name: 'CV_Security_Demo.pdf', type: 'CV', category: 'Cybersecurity', updated: '2026-05-19', usedIn: 4, size: '436 KB', url: '' },
+  { id: 3, name: 'CV_Fullstack_Demo.pdf', type: 'CV', category: 'Full-stack', updated: '2026-05-12', usedIn: 2, size: '448 KB', url: '' },
+  { id: 4, name: 'Cover_Letter_Demo.pdf', type: 'Cover letter', category: 'General', updated: '2026-05-18', usedIn: 1, size: '198 KB', url: '' },
+  { id: 5, name: 'Portfolio_Demo_Link', type: 'Portfolio', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://example.com/portfolio' },
+  { id: 6, name: 'GitHub_Demo_Profile', type: 'GitHub', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://github.com/example-user' }
+];
+
+const initialNotes: NoteItem[] = [
+  { id: 1, title: 'HR interview preparation', company: 'Riverstone Consulting', application: 'Cyber Security Analyst Intern', tag: 'Interview preparation', updated: '2026-05-21', body: 'Demo note: prepare a short introduction, motivation, project examples and questions to the recruiter.', checklist: [{ id: 1, text: 'Prepare short intro', done: true }, { id: 2, text: 'Revise role requirements', done: false }, { id: 3, text: 'Prepare questions to recruiter', done: false }] },
+  { id: 2, title: 'Security topics to revise', company: 'BrightPath Digital', application: 'IAM Intern', tag: 'Technical questions', updated: '2026-05-20', body: 'Demo note: revise authentication, authorization, MFA, identity lifecycle and access management basics.', checklist: [{ id: 1, text: 'Authentication vs authorization', done: false }, { id: 2, text: 'MFA basics', done: false }] },
+  { id: 3, title: '.NET technical questions', company: 'Northstar Labs', application: '.NET Developer Intern', tag: 'Technical questions', updated: '2026-05-22', body: 'Demo note: review OOP, dependency injection, async/await, REST endpoints and database basics.', checklist: [{ id: 1, text: 'Dependency injection', done: true }, { id: 2, text: 'async/await', done: false }, { id: 3, text: 'REST API basics', done: false }] }
+];
+
+const richInitialCompanies: Company[] = richCompanies.map((company) => ({
+  id: company.id,
+  name: company.name,
+  domain: company.website,
+  industry: company.industry,
+  location: company.location,
+  website: company.website.startsWith('http') ? company.website : `https://${company.website}`,
+  contact: '',
+  notes: company.notes
+}));
+
+const richInitialApplications: JobApplication[] = richApplications.map((application) => ({
+  id: Number(application.id),
+  company: application.company,
+  companyId: companyIdFor(application.company),
+  domain: '',
+  position: application.position,
+  category: application.category,
+  level: application.level,
+  status: normalizeStatus(application.status),
+  dateApplied: application.dateApplied,
+  lastContact: application.lastContact === '-' ? '' : application.lastContact,
+  nextStep: application.nextStep,
+  location: application.location,
+  workMode: normalizeWorkMode(application.workMode),
+  source: application.source,
+  offerUrl: application.offerUrl,
+  requirements: toListText(application.requirements),
+  benefits: toListText(application.benefits),
+  notes: application.notes,
+  cv: application.cv
+}));
+
+const richInitialEvents: CalendarEvent[] = richCalendarEvents.map((event) => ({
+  id: event.id,
+  title: event.title,
+  company: event.company,
+  applicationId: typeof event.applicationId === 'number' ? event.applicationId : Number(event.applicationId),
+  date: event.date,
+  time: event.time,
+  type: event.type,
+  location: event.channel,
+  meetingLink: event.channel === 'Online' ? 'https://example.com/meeting' : '',
+  notes: `${event.notes}${event.status === 'done' ? ' Status: done.' : ''}`
+}));
+
+const richInitialDocuments: DocumentItem[] = richDocuments.map((document) => ({
+  id: document.id,
+  name: document.name,
+  type: document.type as DocKind,
+  category: document.category,
+  updated: document.updatedAt || document.updated,
+  usedIn: document.usedInApplicationsCount ?? document.usedIn,
+  size: document.size,
+  url: document.url || '',
+  language: document.language,
+  targetRole: document.targetRole,
+  fileName: document.fileName,
+  createdAt: document.createdAt,
+  updatedAt: document.updatedAt,
+  usedInApplicationsCount: document.usedInApplicationsCount,
+  assignedApplications: document.assignedApplications?.map((id) => Number(id)),
+  tags: document.tags,
+  status: document.status,
+  notes: document.notes,
+  successRate: document.successRate,
+  lastUsedAt: document.lastUsedAt,
+  isDefault: document.isDefault
+}));
+
+const richInitialNotes: NoteItem[] = richNotes.map((note) => ({
+  id: note.id,
+  title: note.title,
+  company: note.company,
+  application: note.application,
+  tag: note.type || note.tag,
+  tags: note.tags,
+  type: note.type,
+  updated: note.lastEdited || note.updated,
+  lastEdited: note.lastEdited,
+  preview: note.preview,
+  body: note.body,
+  pinned: note.pinned,
+  favorite: note.favorite,
+  checklist: (note.checklist ?? []).map((item, index) => ({ id: index + 1, text: item.label, done: item.done }))
+}));
+
+const inspirationCards = [
+  { title: 'Stay consistent', text: 'Small steps every day lead to big changes.', image: publicAsset('assets/bed-coffe.jpg') },
+  { title: 'Slow progress counts', text: 'One thoughtful application is still progress.', image: publicAsset('assets/cofee-photo2.webp') },
+  { title: 'Keep it soft', text: 'You do not need chaos to move forward.', image: publicAsset('assets/candle-vanilla.jpg') },
+  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up â€” all count.', image: publicAsset('assets/croissant-bow.jpg') },
+  { title: 'Protect your energy', text: 'Not every rejection says something about you.', image: publicAsset('assets/cat-bed.jpg') },
+  { title: 'One clean step', text: 'Today can be only one application. That is enough.', image: publicAsset('assets/cozy-home.jpg') },
+  { title: 'Stay curious', text: 'Every offer teaches you what to learn next.', image: publicAsset('assets/desk-photo2.jpg') },
+  { title: 'Reset gently', text: 'A quiet break can make the next step clearer.', image: publicAsset('assets/coffee-metal.jpg') },
+  { title: 'No rush, still moving', text: 'Consistency is calmer than pressure.', image: publicAsset('assets/pancake.jpg') },
+  { title: 'Focus on fit', text: 'The right process should feel possible, not impossible.', image: publicAsset('assets/work2.webp') },
+  { title: 'Cozy focus', text: 'A clear space helps a clear next step.', image: publicAsset('assets/work3.webp') },
+  { title: 'Gentle discipline', text: 'You can be ambitious without rushing yourself.', image: publicAsset('assets/cat.jpg') },
+  { title: 'Make it manageable', text: 'Break the search into small warm rituals.', image: publicAsset('assets/cofee-photo.webp') },
+  { title: 'Warm reset', text: 'Rest is part of staying consistent.', image: publicAsset('assets/cozy-home.jpg') },
+  { title: 'Soft confidence', text: 'Your path can be calm and still serious.', image: publicAsset('assets/work1.jpg') }
+];
+
+const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'applications', label: 'Applications', icon: BriefcaseBusiness, badge: 10 },
+  { id: 'applications', label: 'Applications', icon: BriefcaseBusiness },
   { id: 'companies', label: 'Companies', icon: Building2 },
   { id: 'statistics', label: 'Statistics', icon: BarChart3 },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays, badge: 3 },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'notes', label: 'Notes', icon: StickyNote }
 ];
 
-const statusClass = (status: string) =>
-  status
-    .toLowerCase()
-    .replaceAll(' ', '-')
-    .replaceAll('/', '')
-    .replaceAll('—', '')
-    .replaceAll('received', 'received');
+const pageLabels: Record<Page, { title: string; subtitle: string }> = {
+  dashboard: { title: 'Dashboard', subtitle: 'Hereâ€™s an overview of your recruitment progress.' },
+  applications: { title: 'Applications', subtitle: 'Manage your job applications and recruitment stages.' },
+  companies: { title: 'Companies', subtitle: 'Track companies, previous applications and recruitment history.' },
+  statistics: { title: 'Statistics', subtitle: 'Analyze your application progress and discover what works best.' },
+  calendar: { title: 'Calendar', subtitle: 'Plan interviews, follow-ups and recruitment tasks.' },
+  documents: { title: 'Documents', subtitle: 'Manage CV versions, cover letters and application files.' },
+  notes: { title: 'Notes', subtitle: 'Keep recruitment notes, interview questions and company research in one place.' }
+};
+
+function readStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorage<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function formatDate(value: string) {
+  if (!value) return 'â€”';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function toIsoDate(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(12, 0, 0, 0);
+  return copy.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfWeek(value: string | Date) {
+  const date = typeof value === 'string' ? toDate(value) : new Date(value);
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  date.setHours(12, 0, 0, 0);
+  return date;
+}
+
+function formatWeekRange(start: Date) {
+  const end = addDays(start, 6);
+  const formatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
+  return `${formatter.format(start)} â€“ ${formatter.format(end)}`;
+}
+
+function formatWeekday(date: Date) {
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(date);
+}
+
+function startOfMonth(value: string | Date) {
+  const date = typeof value === 'string' ? toDate(value) : new Date(value);
+  date.setDate(1);
+  date.setHours(12, 0, 0, 0);
+  return date;
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  next.setDate(1);
+  next.setHours(12, 0, 0, 0);
+  return next;
+}
+
+function formatMonthYear(date: Date) {
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(date);
+}
+
+function getMonthCells(monthDate: Date) {
+  const monthStart = startOfMonth(monthDate);
+  const firstGridDay = startOfWeek(monthStart);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = addDays(firstGridDay, index);
+    return {
+      date,
+      iso: toIsoDate(date),
+      day: date.getDate(),
+      isCurrentMonth: date.getMonth() === monthStart.getMonth()
+    };
+  });
+}
+
+function makeId() {
+  return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+function getInitials(name: string) {
+  return name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+function safeDomain(company: string, domain?: string) {
+  if (domain?.trim()) return domain.replace(/^https?:\/\//, '').replace(/\/.*/, '');
+  return `${company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+}
+
+function getStatusClass(status: string) {
+  return status.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '').replace(/[^a-z-]/g, '');
+}
+
+function pickInspiration() {
+  return inspirationCards[Math.floor(Math.random() * inspirationCards.length)];
+}
+
+function topRows(values: string[]) {
+  const counts = values.reduce<Record<string, number>>((acc, value) => {
+    const key = value || 'Other';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => [label, String(value)] as [string, string]);
+}
+
+function uniqueOptions(...lists: string[][]) {
+  return Array.from(new Set(lists.flat().filter(Boolean)));
+}
+
+function calculateStats(applications: JobApplication[]) {
+  const total = applications.length;
+  const active = applications.filter((app) => ['Applied', 'In progress', 'Interview', 'Task / test'].includes(app.status)).length;
+  const interviews = applications.filter((app) => ['Interview', 'Offer'].includes(app.status)).length;
+  const positive = applications.filter((app) => ['Interview', 'Task / test', 'Offer', 'In progress'].includes(app.status)).length;
+  const response = applications.filter((app) => !['Saved', 'Applied', 'No response', 'Ghosted', 'Archived'].includes(app.status)).length;
+  const responseRate = total ? Math.round((response / total) * 100) : 0;
+  const successRate = total ? Math.round((positive / total) * 100) : 0;
+  return { total, active, interviews, positive, responseRate, successRate };
+}
+
+function companyStats(company: Company, applications: JobApplication[]) {
+  const related = applications.filter((app) => app.company === company.name || app.companyId === company.id);
+  const responses = related.filter((app) => !['Saved', 'Applied', 'No response', 'Ghosted', 'Archived'].includes(app.status)).length;
+  return {
+    count: related.length,
+    responseRate: related.length ? Math.round((responses / related.length) * 100) : 0,
+    lastStatus: related[0]?.status || 'Saved',
+    lastDate: related[0]?.dateApplied || ''
+  };
+}
+
+function exportCsv(applications: JobApplication[], setToast: (value: string) => void) {
+  const header = ['Company', 'Position', 'Category', 'Level', 'Status', 'Date applied', 'Last contact', 'Next step', 'Location', 'Work mode', 'Source', 'Offer URL'];
+  const rows = applications.map((app) => [app.company, app.position, app.category, app.level, app.status, app.dateApplied, app.lastContact, app.nextStep, app.location, app.workMode, app.source, app.offerUrl]);
+  const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'trackmycv-applications.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+  setToast('CSV exported.');
+}
+
+function downloadJson(filename: string, data: unknown, setToast: (value: string) => void) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+  setToast('Backup downloaded.');
+}
+
+function CompanyLogo({
+  name,
+  domain,
+  large = false
+}: {
+  name: string;
+  domain?: string;
+  large?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const demoLogo = demoCompanyLogos[name];
+  const cleanDomain = domain?.trim();
+
+  if (demoLogo) {
+    return (
+      <span
+        className={`company-logo demo-company-logo ${demoLogo.className} ${large ? 'large' : ''}`}
+        aria-label={`${name} logo`}
+      >
+        <span>{demoLogo.label}</span>
+      </span>
+    );
+  }
+
+  if (cleanDomain && !failed) {
+    const resolvedDomain = safeDomain(name, cleanDomain);
+
+    return (
+      <span className={`company-logo ${large ? 'large' : ''}`} aria-label={`${name} logo`}>
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${resolvedDomain}&sz=64`}
+          alt=""
+          onError={() => setFailed(true)}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className={`company-logo demo-company-logo fallback ${large ? 'large' : ''}`} aria-label={`${name} logo`}>
+      <span>{getInitials(name)}</span>
+    </span>
+  );
+}
 
 function Logo() {
   return (
     <div className="brand">
-      <div className="brand-icon" aria-hidden="true">
-        <Folder size={24} strokeWidth={1.8} />
-        <Search className="brand-search" size={15} strokeWidth={2} />
+      <div className="brand-icon logo-image-shell" aria-hidden="true">
+        <img src={publicAsset('logo/logo-removebg.png')} alt="" className="brand-logo-img" />
       </div>
-      <div>
-        <div className="brand-name">ApplyFlow</div>
-        <div className="brand-subtitle">Job Tracker</div>
-      </div>
+      <div><div className="brand-name">TrackMyCV</div><div className="brand-subtitle">Job tracker</div></div>
     </div>
   );
 }
 
-function Sidebar({ currentPage, onPageChange }: { currentPage: Page; onPageChange: (page: Page) => void }) {
+function CustomSelect({ label, value, options, onChange, className = '' }: { label?: string; value: string; options: string[]; onChange: (value: string) => void; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function close(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    }
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, []);
   return (
-    <aside className="sidebar">
+    <div className={`custom-select ${className}`} ref={ref}>
+      <button type="button" className={`select-trigger ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)}>
+        {label ? <span>{label}</span> : null}<strong>{value}</strong><ChevronDown size={15} />
+      </button>
+      {open ? (
+        <div className="select-menu custom-scroll">
+          {options.map((option) => (
+            <button key={option} type="button" className={option === value ? 'selected' : ''} onClick={() => { onChange(option); setOpen(false); }}>
+              <span>{option}</span>{option === value ? <Check size={15} /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TextField({ label, value, onChange, placeholder = '', type = 'text' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
+  return <label className="form-field"><span>{label}</span><input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function TextAreaField({ label, value, onChange, placeholder = '' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
+  return <label className="form-field full-field"><span>{label}</span><textarea value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function LoginPage({ onLogin, onRegister }: { onLogin: (input: LoginInput) => Promise<void>; onRegister: (input: RegisterInput) => Promise<void> }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [displayName, setDisplayName] = useState('User');
+  const [email, setEmail] = useState('user@example.com');
+  const [password, setPassword] = useState('local1234');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!email.includes('@') || password.length < 8) {
+      setError('Enter a valid email and a password with at least 8 characters.');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      if (mode === 'register') {
+        await onRegister({ email, password, displayName });
+      } else {
+        await onLogin({ email, password });
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Could not sign in.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  return (
+    <main className="login-page">
+      <section className="login-card">
+        <Logo />
+        <div className="login-copy"><span className="eyebrow">Local workspace</span><h1>Track applications without chaos.</h1><p>Applications are connected to your local ASP.NET Core API. Supporting modules keep workspace data locally until their backend endpoints are added.</p></div>
+        <form className="login-form" onSubmit={submit}>
+          <div className="segmented-row auth-mode-switch">
+            <button className={mode === 'login' ? 'selected' : ''} type="button" onClick={() => setMode('login')}>Log in</button>
+            <button className={mode === 'register' ? 'selected' : ''} type="button" onClick={() => setMode('register')}>Register</button>
+          </div>
+          {mode === 'register' ? <label>Name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label> : null}
+          <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+          {error ? <p className="form-error">{error}</p> : null}
+          <button className="primary-button full" type="submit" disabled={submitting}>{submitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Log in'}</button>
+          <small>{mode === 'register' ? 'Your account is created with email and password.' : 'Use the email and password created for this local API.'}</small>
+        </form>
+      </section>
+      <aside className="login-visual"><img src={publicAsset('assets/work2.webp')} alt="Soft work setup" /><div className="visual-card"><CheckCircle2 size={18} /> Soft productivity dashboard</div></aside>
+    </main>
+  );
+}
+
+function Sidebar({ page, setPage, applications, settings }: { page: Page; setPage: (page: Page) => void; applications: JobApplication[]; settings: AppSettings }) {
+  const [inspiration, setInspiration] = useState(() => pickInspiration());
+  const activeCount = applications.filter((app) => !['Rejected', 'Ghosted', 'Archived'].includes(app.status)).length;
+  const upcomingCount = applications.filter((app) => ['Interview', 'Task / test'].includes(app.status)).length;
+  useEffect(() => {
+    const interval = window.setInterval(() => setInspiration(pickInspiration()), 45000);
+    return () => window.clearInterval(interval);
+  }, []);
+  return (
+    <aside className="sidebar custom-scroll">
       <Logo />
       <nav className="nav-list" aria-label="Main navigation">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = item.id === currentPage;
-          return (
-            <button
-              className={`nav-item ${isActive ? 'active' : ''}`}
-              key={item.id}
-              onClick={() => onPageChange(item.id)}
-              type="button"
-            >
-              <Icon size={18} strokeWidth={1.8} />
-              <span>{item.label}</span>
-              {item.badge ? <span className="nav-badge">{item.badge}</span> : null}
-            </button>
-          );
+          const badge = item.id === 'applications' ? activeCount : item.id === 'calendar' ? upcomingCount : 0;
+          return <button key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} type="button" onClick={() => setPage(item.id)}><Icon size={18} /><span>{item.label}</span>{badge ? <span className="nav-badge">{badge}</span> : null}</button>;
         })}
       </nav>
-      <div className="sidebar-card">
-        <div className="desk-card-image">
-          <div className="desk-card-laptop" />
-          <div className="desk-card-cup" />
-          <div className="desk-card-vase" />
+      {settings.showMotivation ? (
+        <div className="sidebar-card inspiration-card">
+          <div className="inspiration-image"><img src={inspiration.image} alt="Soft cozy inspiration" /></div>
+          <h3>{inspiration.title}</h3>
+          <p>{inspiration.text}</p>
+          <button className="inspiration-action" type="button" onClick={() => setInspiration(pickInspiration())} aria-label="Show another thought"><Heart size={18} /><span>New thought</span></button>
         </div>
-        <h3>Stay consistent</h3>
-        <p>Small steps every day lead to big changes.</p>
-        <Heart size={18} strokeWidth={1.7} />
-      </div>
+      ) : null}
     </aside>
   );
 }
 
-function Topbar({
-  title,
-  subtitle,
-  theme,
-  setTheme,
-  onOpenSettings
-}: {
-  title: string;
-  subtitle: string;
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
-  onOpenSettings: () => void;
-}) {
-  const [openProfile, setOpenProfile] = useState(false);
-
-  const openCustomization = () => {
-    setOpenProfile(false);
-    onOpenSettings();
-  };
-
+function Topbar({ page, profile, theme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
+  const [open, setOpen] = useState(false);
+  const isDashboard = page === 'dashboard';
+  const firstName = profile.name.split(' ')[0] || 'User';
+  const pageMeta = pageLabels[page];
+  const title = isDashboard ? `Good morning, ${firstName}` : pageMeta.title;
+  const subtitle = isDashboard ? "Here's an overview of your recruitment progress." : pageMeta.subtitle;
+  function openSettings(tab: ProfileTab) {
+    setOpen(false);
+    onOpenSettings(tab);
+  }
   return (
     <header className="topbar">
-      <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
+      <div className="topbar-title"><h1>{title}</h1><p>{subtitle}</p></div>
       <div className="topbar-actions">
-        <button className="icon-button" type="button" aria-label="Search">
-          <Search size={19} />
-        </button>
-        <button className="icon-button with-dot" type="button" aria-label="Notifications">
-          <Bell size={19} />
-        </button>
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Toggle theme"
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        >
-          {theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}
-        </button>
+        <button className="icon-button" type="button" aria-label="Search" onClick={() => setPage('applications')}><Search size={19} /></button>
+        <button className="icon-button with-dot" type="button" aria-label="Notifications" onClick={() => openSettings('notifications')}><Bell size={19} /></button>
+        <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button>
         <div className="profile-wrap">
-          <button className={`profile-button ${openProfile ? 'open' : ''}`} type="button" onClick={() => setOpenProfile((value) => !value)}>
-            <span className="avatar-soft">
-              <User size={18} />
-            </span>
-            <span>Kasia</span>
-            <ChevronDown size={16} className={openProfile ? 'rotated' : ''} />
-          </button>
-          {openProfile ? (
-            <div className="profile-menu">
-              <div className="profile-menu-header">
-                <strong>Kasia Wiśniewska</strong>
-                <span>kasia@example.com</span>
-              </div>
-              <button type="button" onClick={openCustomization}>
-                <User size={17} /> Profile
-              </button>
-              <button type="button" onClick={openCustomization}>
-                <Palette size={17} /> Appearance
-              </button>
-              <button type="button" onClick={openCustomization}>
-                <Bell size={17} /> Notifications
-              </button>
-              <button type="button" onClick={openCustomization}>
-                <SlidersHorizontal size={17} /> Preferences
-              </button>
-              <button type="button" onClick={openCustomization}>
-                <Download size={17} /> Data & export
-              </button>
-              <button type="button" className="danger-link">
-                <LogOut size={17} /> Log out
-              </button>
-            </div>
-          ) : null}
+          <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><span className="avatar-soft"><User size={18} /></span><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
+          {open ? <div className="profile-menu"><div className="profile-menu-header"><strong>{profile.name}</strong><span>{profile.email}</span></div><button type="button" onClick={() => openSettings('profile')}><User size={17} /> Profile</button><button type="button" onClick={() => openSettings('appearance')}><Palette size={17} /> Appearance</button><button type="button" onClick={() => openSettings('notifications')}><Bell size={17} /> Notifications</button><button type="button" onClick={() => openSettings('preferences')}><SlidersHorizontal size={17} /> Preferences</button><button type="button" onClick={() => openSettings('data')}><Download size={17} /> Data & export</button><button type="button" className="danger-link" onClick={onLogout}><LogOut size={17} /> Log out</button></div> : null}
         </div>
-        <button className="primary-button" type="button">
-          <Plus size={18} /> Add application
-        </button>
-        <button className="secondary-button" type="button">
-          <Filter size={18} /> Filter
-        </button>
+        <button className="primary-button" type="button" onClick={onOpenApplication}><Plus size={18} /> Add application</button>
+        <button className="secondary-button" type="button" onClick={() => setPage('applications')}><Filter size={18} /> Filter</button>
       </div>
     </header>
   );
 }
 
-function MetricCard({ label, value, hint, tone }: { label: string; value: string | number; hint: string; tone?: string }) {
-  return (
-    <div className="metric-card">
-      <span>{label}</span>
-      <strong className={tone}>{value}</strong>
-      <small>{hint}</small>
-    </div>
-  );
+function PageHeader({ page }: { page: Page }) {
+  const meta = pageLabels[page];
+  return <header className="page-header"><div><h1>{meta.title}</h1><p>{meta.subtitle}</p></div></header>;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  return <span className={`status-badge status-${statusClass(status)}`}>{status}</span>;
+function MetricCard({ label, value, hint, tone = '' }: { label: string; value: string | number; hint: string; tone?: string }) {
+  return <div className="metric-card"><span>{label}</span><strong className={tone}>{value}</strong><small>{hint}</small></div>;
+}
+
+function StatusBadge({ status }: { status: Status }) {
+  return <span className={`status-badge status-${getStatusClass(status)}`}>{status}</span>;
 }
 
 function CategoryPill({ category }: { category: string }) {
   return <span className="category-pill">{category}</span>;
 }
 
-function ApplicationSummary() {
-  const summary = [
-    ['Applied', 6, 'summary-applied'],
-    ['In progress', 3, 'summary-progress'],
-    ['Interview', 2, 'summary-interview'],
-    ['Rejected', 4, 'summary-rejected'],
-    ['No response', 2, 'summary-no-response'],
-    ['Ghosted', 1, 'summary-ghosted'],
-    ['Offer', 1, 'summary-offer']
-  ] as const;
+function DashboardPage({ applications, events, setPage }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void }) {
+  const stats = calculateStats(applications);
+  const latest = [...applications].sort((a, b) => b.dateApplied.localeCompare(a.dateApplied)).slice(0, 5);
+  return (
+    <div className="page-grid dashboard-grid">
+      <main className="main-column">
+        <div className="metrics-grid"><MetricCard label="Total applied" value={stats.total} hint="all time" /><MetricCard label="Active" value={stats.active} hint="in progress" tone="blue-text" /><MetricCard label="Interviews" value={stats.interviews} hint="positive stages" tone="rose-text" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from all applications" tone="green-text" /></div>
+        <section className="panel-card recent-panel"><div className="card-header"><div><h2>Recent applications</h2><p>5 most recent entries</p></div><button className="text-button" type="button" onClick={() => setPage('applications')}>View all <ChevronDown className="chevron-right" size={16} /></button></div><ApplicationsTable applications={latest} compact /></section>
+        <div className="small-card-grid"><MiniListCard icon={Building2} title="Top companies" rows={topRows(applications.map((app) => app.company))} /><MiniListCard icon={BriefcaseBusiness} title="Top categories" rows={topRows(applications.map((app) => app.category))} /><MiniListCard icon={Globe} title="Sources" rows={topRows(applications.map((app) => app.source))} /></div>
+      </main>
+      <aside className="right-column"><ApplicationSummary applications={applications} /><SuccessRateCard applications={applications} /><UpcomingCard events={events} onOpenCalendar={() => setPage('calendar')} /></aside>
+    </div>
+  );
+}
+
+function MiniListCard({ icon: Icon, title, rows }: { icon: typeof Building2; title: string; rows: [string, string][] }) {
+  return <section className="panel-card mini-list-card"><div className="mini-title"><Icon size={17} /><h2>{title}</h2></div>{rows.map(([label, value]) => <div className="mini-row" key={label}><span>{label}</span><strong>{value}</strong></div>)}<button className="mini-link" type="button">View all</button></section>;
+}
+
+function ApplicationSummary({ applications }: { applications: JobApplication[] }) {
+  const visibleStatuses: Status[] = ['Applied', 'In progress', 'Interview', 'Offer', 'Rejected', 'No response', 'Ghosted'];
+  const rows = visibleStatuses
+    .map((status) => [status, applications.filter((app) => app.status === status).length] as [Status, number])
+    .filter(([, count]) => count > 0);
+  const total = applications.length;
+  const colors: Record<string, string> = {
+    Applied: '#c89561',
+    'In progress': '#7f9eb6',
+    Interview: '#cf8060',
+    Offer: '#7ea86f',
+    Rejected: '#c36d70',
+    'No response': '#9b9890',
+    Ghosted: '#aaa184',
+    Saved: '#cbbba5',
+    'Task / test': '#b68a61',
+    Archived: '#8b837a'
+  };
+
+  let cursor = 0;
+  const gradient = rows.length
+    ? `conic-gradient(${rows.map(([status, count]) => {
+        const start = cursor;
+        const end = cursor + (count / Math.max(total, 1)) * 100;
+        cursor = end;
+        return `${colors[status]} ${start}% ${end}%`;
+      }).join(', ')})`
+    : 'conic-gradient(var(--surface-3) 0% 100%)';
 
   return (
     <section className="panel-card summary-card">
-      <div className="card-header compact">
-        <div>
-          <h2>Application summary</h2>
-          <p>19 total applications</p>
-        </div>
-      </div>
-      <div className="donut-wrap">
-        <div className="donut-chart">
-          <div>
-            <strong>19</strong>
-            <span>applications</span>
+      <h2>Application summary</h2>
+      <p>{total} total applications</p>
+      <div className="summary-content">
+        <div className="donut-visual" aria-hidden="true" style={{ background: gradient }}>
+          <div className="donut-hole">
+            <strong>{total}</strong>
+            <span>apps</span>
           </div>
         </div>
-        <div className="summary-list">
-          {summary.map(([label, count, color]) => (
-            <div className="summary-row" key={label}>
-              <span className={`summary-dot ${color}`} />
-              <span>{label}</span>
+        <div className="legend-list">
+          {rows.map(([status, count]) => (
+            <div key={status} className="legend-item">
+              <span className="legend-dot" style={{ background: colors[status] }} />
+              <span className="legend-label">{status}</span>
               <strong>{count}</strong>
             </div>
           ))}
@@ -270,40 +1014,49 @@ function ApplicationSummary() {
   );
 }
 
-function SuccessRateCard() {
+function SuccessRateCard({ applications }: { applications: JobApplication[] }) {
+  const stats = calculateStats(applications);
   return (
     <section className="panel-card success-card">
       <h2>Success rate</h2>
-      <p>Interviews secured</p>
+      <p>Positive recruitment stages</p>
       <div className="success-content">
-        <strong>33%</strong>
-        <span className="positive-trend"><TrendingUp size={15} /> +15%</span>
+        <strong>{stats.successRate}%</strong>
+        <span className="positive-trend"><Sparkles size={15} /> +15%</span>
       </div>
-      <p>8 positive responses from 24 applications</p>
-      <div className="line-chart" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
+      <p>{stats.positive} positive responses from {stats.total} applications</p>
+      <svg className="success-sparkline" viewBox="0 0 260 72" aria-hidden="true" preserveAspectRatio="none">
+        <path className="sparkline-fill" d="M0 60 C28 42 44 62 70 44 C98 25 118 58 148 38 C177 18 196 56 225 29 C240 14 251 24 260 18 L260 72 L0 72 Z" />
+        <path className="sparkline-line" d="M0 60 C28 42 44 62 70 44 C98 25 118 58 148 38 C177 18 196 56 225 29 C240 14 251 24 260 18" />
+      </svg>
     </section>
   );
 }
 
-type RecentApplicationsTableProps = {
+function UpcomingCard({ events, onOpenCalendar }: { events: CalendarEvent[]; onOpenCalendar: () => void }) {
+  const upcoming = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).slice(0, 3);
+  return <section className="panel-card upcoming-card"><div className="mini-title"><CalendarDays size={17} /><h2>Upcoming</h2></div>{upcoming.map((event) => <div className="event-row" key={event.id}><span className="event-icon"><CalendarDays size={15} /></span><div><strong>{event.title} â€” {event.company}</strong><small>{formatDate(event.date)}, {event.time}</small></div></div>)}<button className="mini-link with-arrow" type="button" onClick={onOpenCalendar}>View calendar <ChevronDown className="chevron-right" size={16} /></button></section>;
+}
+
+function ApplicationsTable({
+  applications,
+  compact = false,
+  selectedId,
+  onSelect,
+  onStatusChange,
+  onDelete,
+  onEdit
+}: {
+  applications: JobApplication[];
   compact?: boolean;
-  rows?: JobApplication[];
+  selectedId?: EntityId;
   onSelect?: (application: JobApplication) => void;
+  onStatusChange?: (id: EntityId, status: Status) => void;
+  onDelete?: (id: EntityId) => void;
   onEdit?: (application: JobApplication) => void;
-  onDelete?: (application: JobApplication) => void;
-};
-
-function RecentApplicationsTable({ compact = true, rows: providedRows, onSelect, onEdit, onDelete }: RecentApplicationsTableProps) {
-  const rows = providedRows ?? (compact ? applications.slice(0, 5) : applications);
-
+}) {
   return (
-    <div className="table-wrap">
+    <div className="table-wrap custom-scroll">
       <table className={`applications-table ${compact ? 'compact-table' : ''}`}>
         <thead>
           <tr>
@@ -315,15 +1068,20 @@ function RecentApplicationsTable({ compact = true, rows: providedRows, onSelect,
             {!compact ? <th>Work mode</th> : null}
             {!compact ? <th>Last contact</th> : null}
             <th>Next step</th>
-            {!compact ? <th></th> : null}
+            {!compact ? <th aria-label="Actions" /> : null}
           </tr>
         </thead>
+
         <tbody>
-          {rows.map((app) => (
-            <tr key={app.id} onClick={() => onSelect?.(app)}>
+          {applications.map((app) => (
+            <tr
+              key={app.id}
+              className={selectedId === app.id ? 'selected-row' : ''}
+              onClick={() => onSelect?.(app)}
+            >
               <td>
                 <div className="company-cell">
-                  <span className="company-logo">{app.company[0] || '?'}</span>
+                  <CompanyLogo name={app.company} domain={app.domain} />
                   <div>
                     <strong>{app.company}</strong>
                     {!compact ? (
@@ -334,58 +1092,85 @@ function RecentApplicationsTable({ compact = true, rows: providedRows, onSelect,
                   </div>
                 </div>
               </td>
+
               <td>
                 <div className="position-cell">
                   <strong>{app.position}</strong>
                   {!compact ? <small>{app.level}</small> : null}
                 </div>
               </td>
+
               {!compact ? (
                 <td>
                   <CategoryPill category={app.category} />
                 </td>
               ) : null}
+
               <td>
-                <StatusBadge status={app.status} />
+                {onStatusChange && !compact ? (
+                  <select
+                    className={`status-table-select status-${getStatusClass(app.status)}`}
+                    value={app.status}
+                    aria-label={`Change status for ${app.company}`}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => onStatusChange(app.id, event.target.value as Status)}
+                  >
+                    {statuses.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <StatusBadge status={app.status} />
+                )}
               </td>
-              <td>{app.dateApplied}</td>
+
+              <td>{formatDate(app.dateApplied)}</td>
+
               {!compact ? <td>{app.workMode}</td> : null}
-              {!compact ? <td>{app.lastContact}</td> : null}
-              <td>{app.nextStep}</td>
+              {!compact ? <td>{formatDate(app.lastContact)}</td> : null}
+
+              <td className="next-step-cell">{app.nextStep}</td>
+
               {!compact ? (
                 <td className="row-actions">
-                  <div className="document-actions">
-                    {onEdit ? (
-                      <button
-                        className="ghost-icon"
-                        type="button"
-                        aria-label="Edit application"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onEdit(app);
-                        }}
-                      >
-                        <Pencil size={17} />
-                      </button>
-                    ) : null}
-                    {onDelete ? (
-                      <button
-                        className="ghost-icon danger"
-                        type="button"
-                        aria-label="Delete application"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onDelete(app);
-                        }}
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    ) : null}
-                    {!onEdit && !onDelete ? (
-                      <button className="ghost-icon" type="button" aria-label="Open menu">
-                        <MoreHorizontal size={18} />
-                      </button>
-                    ) : null}
+                  <div className="row-actions-inner">
+                    <button
+                      className="ghost-icon"
+                      type="button"
+                      aria-label="Edit"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onEdit?.(app);
+                      }}
+                    >
+                      <Pencil size={17} />
+                    </button>
+
+                    <button
+                      className="ghost-icon"
+                      type="button"
+                      aria-label="Open offer"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (app.offerUrl) window.open(app.offerUrl, '_blank');
+                      }}
+                    >
+                      <ExternalLink size={17} />
+                    </button>
+
+                    <button
+                      className="ghost-icon danger"
+                      type="button"
+                      aria-label="Delete"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete?.(app.id);
+                      }}
+                    >
+                      <Trash2 size={17} />
+                    </button>
                   </div>
                 </td>
               ) : null}
@@ -393,993 +1178,1739 @@ function RecentApplicationsTable({ compact = true, rows: providedRows, onSelect,
           ))}
         </tbody>
       </table>
+
+      {!applications.length ? (
+        <div className="empty-state">
+          <Folder size={28} />
+          <strong>No results</strong>
+          <span>Try changing filters or add a new application.</span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function DashboardPage() {
-  return (
-    <div className="page-grid dashboard-grid">
-      <main className="main-column">
-        <div className="metrics-grid">
-          <MetricCard label="Total applied" value="24" hint="all time" />
-          <MetricCard label="Active" value="5" hint="in progress" tone="blue-text" />
-          <MetricCard label="Interviews" value="2" hint="upcoming" tone="rose-text" />
-          <MetricCard label="Response rate" value="76%" hint="above avg" tone="green-text" />
-        </div>
-        <section className="panel-card recent-panel">
-          <div className="card-header">
-            <div>
-              <h2>Recent applications</h2>
-              <p>5 most recent entries</p>
-            </div>
-            <button className="text-button" type="button">
-              View all <ChevronDown className="chevron-right" size={16} />
-            </button>
-          </div>
-          <RecentApplicationsTable />
-        </section>
-        <div className="small-card-grid">
-          <MiniListCard icon={Building2} title="Top companies" rows={[['Microsoft', '2'], ['Deloitte', '2'], ['EY', '1'], ['Netguru', '1'], ['Allegro', '1']]} />
-          <MiniListCard icon={BriefcaseBusiness} title="Top positions" rows={[[ '.NET Developer', '5'], ['Cyber Security Analyst', '4'], ['DevOps Engineer', '3'], ['IAM Intern', '2'], ['Full Stack Developer', '2']]} />
-          <MiniListCard icon={Globe} title="Sources" rows={[['Just Join IT', '8'], ['LinkedIn', '6'], ['Pracuj.pl', '5'], ['Company page', '3'], ['Other', '2']]} />
-        </div>
-      </main>
-      <aside className="right-column">
-        <ApplicationSummary />
-        <SuccessRateCard />
-        <UpcomingCard />
-      </aside>
-    </div>
-  );
-}
+function ApplicationsPage({
+  applications,
+  onOpenApplication,
+  onOpenEditApplication,
+  onStatusChange,
+  onDelete,
+  selectedApplication,
+  setSelectedApplication,
+  onExport,
+  categoryOptions,
+  levelOptions
+}: {
+  applications: JobApplication[];
+  onOpenApplication: () => void;
+  onOpenEditApplication: (app: JobApplication) => void;
+  onStatusChange: (id: EntityId, status: Status) => void;
+  onDelete: (id: EntityId) => void;
+  selectedApplication: JobApplication | null;
+  setSelectedApplication: (application: JobApplication | null) => void;
+  onExport: () => void;
+  categoryOptions: string[];
+  levelOptions: string[];
+}) {
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('All');
+  const [category, setCategory] = useState('All');
+  const [level, setLevel] = useState('All');
+  const [location, setLocation] = useState('All');
+  const [mode, setMode] = useState('All');
+  const [source, setSource] = useState('All');
+  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
+  const [previewApplication, setPreviewApplication] = useState<JobApplication | null>(selectedApplication);
 
-function MiniListCard({ icon: Icon, title, rows }: { icon: typeof Building2; title: string; rows: [string, string][] }) {
-  return (
-    <section className="panel-card mini-list-card">
-      <div className="mini-title">
-        <Icon size={17} />
-        <h2>{title}</h2>
-      </div>
-      {rows.map(([label, value]) => (
-        <div className="mini-row" key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      ))}
-      <button className="mini-link" type="button">View all</button>
-    </section>
+  const locations = useMemo(
+    () => ['All', ...Array.from(new Set(applications.map((app) => app.location))).filter(Boolean)],
+    [applications]
   );
-}
 
-function UpcomingCard() {
-  return (
-    <section className="panel-card upcoming-card">
-      <div className="mini-title">
-        <CalendarDays size={17} />
-        <h2>Upcoming</h2>
-      </div>
-      {upcomingEvents.slice(0, 3).map((event) => (
-        <div className="event-row" key={event.id}>
-          <span className="event-icon"><CalendarDays size={15} /></span>
-          <div>
-            <strong>{event.title} — {event.company}</strong>
-            <small>{event.date}, {event.time}</small>
-          </div>
-        </div>
-      ))}
-      <button className="mini-link with-arrow" type="button">View calendar <ChevronDown className="chevron-right" size={16} /></button>
-    </section>
+  const filtered = useMemo(
+    () =>
+      applications.filter((app) => {
+        const search = `${app.company} ${app.position} ${app.category} ${app.source} ${app.location}`.toLowerCase();
+
+        return (
+          search.includes(query.toLowerCase()) &&
+          (status === 'All' || app.status === status) &&
+          (category === 'All' || app.category === category) &&
+          (level === 'All' || app.level === level) &&
+          (location === 'All' || app.location === location) &&
+          (mode === 'All' || app.workMode === mode) &&
+          (source === 'All' || app.source === source)
+        );
+      }),
+    [applications, query, status, category, level, location, mode, source]
   );
-}
-
-function ApplicationsPage() {
-  const {
-    applications: apiApplications,
-    loading,
-    saving,
-    error,
-    loadApplications,
-    createApplication,
-    updateApplication,
-    deleteApplication
-  } = useApplications();
-  const [selectedApplicationId, setSelectedApplicationId] = useState<ApplicationId | null>(null);
-  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
-  const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (apiApplications.length === 0) {
-      setSelectedApplicationId(null);
-      return;
+    if (previewApplication && !applications.some((app) => app.id === previewApplication.id)) {
+      setPreviewApplication(null);
+      setSelectedApplication(null);
     }
+  }, [applications, previewApplication, setSelectedApplication]);
 
-    if (!apiApplications.some((application) => application.id === selectedApplicationId)) {
-      setSelectedApplicationId(apiApplications[0].id);
-    }
-  }, [apiApplications, selectedApplicationId]);
+  const hasFilters =
+    query ||
+    status !== 'All' ||
+    category !== 'All' ||
+    level !== 'All' ||
+    location !== 'All' ||
+    mode !== 'All' ||
+    source !== 'All';
 
-  const selectedApplication = apiApplications.find((application) => application.id === selectedApplicationId) ?? apiApplications[0] ?? null;
+  function openPreview(application: JobApplication) {
+    setSelectedApplication(application);
+    setPreviewApplication(application);
+  }
 
-  const openCreateModal = () => {
-    setFormError(null);
-    setEditingApplication(null);
-    setModalMode('create');
-  };
-
-  const openEditModal = (application: JobApplication) => {
-    setFormError(null);
-    setEditingApplication(application);
-    setModalMode('edit');
-  };
-
-  const closeModal = () => {
-    setFormError(null);
-    setEditingApplication(null);
-    setModalMode(null);
-  };
-
-  const handleSubmit = async (application: ApplicationUpsertInput) => {
-    try {
-      if (modalMode === 'create') {
-        const created = await createApplication(application);
-        setSelectedApplicationId(created.id);
-      } else if (editingApplication) {
-        const updated = await updateApplication(editingApplication.id, application);
-        setSelectedApplicationId(updated.id);
-      }
-
-      closeModal();
-    } catch (submitError) {
-      setFormError(submitError instanceof Error ? submitError.message : 'Could not save application.');
-    }
-  };
-
-  const handleDelete = async (application: JobApplication) => {
-    const confirmed = window.confirm(`Delete application for ${application.company}?`);
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await deleteApplication(application.id);
-    } catch (deleteError) {
-      window.alert(deleteError instanceof Error ? deleteError.message : 'Could not delete application.');
-    }
-  };
+  function clearFilters() {
+    setQuery('');
+    setStatus('All');
+    setCategory('All');
+    setLevel('All');
+    setLocation('All');
+    setMode('All');
+    setSource('All');
+  }
 
   return (
     <section className="page-section">
-      <PageTitle title="Applications" subtitle="Manage your job applications and recruitment stages." />
       <div className="toolbar">
         <div className="search-field wide">
           <Search size={18} />
-          <input placeholder="Search company, position..." />
-        </div>
-        {['Status', 'Category', 'Location', 'Work mode', 'Source', 'Date applied'].map((filter) => (
-          <button className="chip-button" type="button" key={filter}>{filter} <ChevronDown size={15} /></button>
-        ))}
-        <button className="secondary-button" type="button"><Download size={17} /> Export</button>
-        <button className="primary-button" type="button" onClick={openCreateModal}><Plus size={17} /> Add application</button>
-      </div>
-      <section className="panel-card applications-panel">
-        {loading ? (
-          <ApplicationsStateMessage title="Loading applications" text="Fetching applications from the API." />
-        ) : error && apiApplications.length === 0 ? (
-          <ApplicationsStateMessage title="Could not load applications" text={error} actionLabel="Try again" onAction={loadApplications} />
-        ) : apiApplications.length === 0 ? (
-          <ApplicationsStateMessage title="No applications yet" text="Add your first application to start tracking the process." actionLabel="Add application" onAction={openCreateModal} />
-        ) : (
-          <RecentApplicationsTable
-            compact={false}
-            rows={apiApplications}
-            onSelect={(application) => setSelectedApplicationId(application.id)}
-            onEdit={openEditModal}
-            onDelete={handleDelete}
+          <input
+            placeholder="Search company, position..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
           />
-        )}
-      </section>
-      <section className="panel-card details-panel">
-        {selectedApplication ? (
-          <ApplicationDetails application={selectedApplication} onEdit={openEditModal} />
-        ) : (
-          <ApplicationsStateMessage title="No application selected" text="Select or add an application to see the details." />
-        )}
-      </section>
-      {modalMode ? (
-        <ApplicationFormModal
-          mode={modalMode}
-          application={editingApplication}
-          saving={saving}
-          error={formError}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
+        </div>
+
+        <CustomSelect label="Status" value={status} options={['All', ...statuses]} onChange={setStatus} />
+        <CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} />
+        <CustomSelect label="Level" value={level} options={['All', ...levelOptions]} onChange={setLevel} />
+        <CustomSelect label="Location" value={location} options={locations} onChange={setLocation} />
+        <CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} />
+        <CustomSelect label="Source" value={source} options={['All', ...sources]} onChange={setSource} />
+
+        <div className="view-switch" aria-label="Applications view mode">
+          <button
+            className={viewMode === 'list' ? 'selected' : ''}
+            type="button"
+            onClick={() => setViewMode('list')}
+            aria-pressed={viewMode === 'list'}
+          >
+            <ListIcon size={16} /> List
+          </button>
+          <button
+            className={viewMode === 'table' ? 'selected' : ''}
+            type="button"
+            onClick={() => setViewMode('table')}
+            aria-pressed={viewMode === 'table'}
+          >
+            <Table2 size={16} /> Table
+          </button>
+        </div>
+
+        <button className="secondary-button" type="button" onClick={onExport}>
+          <Download size={17} /> Export
+        </button>
+
+        {hasFilters ? (
+          <button className="secondary-button" type="button" onClick={clearFilters}>
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      {viewMode === 'list' ? (
+        <DesktopApplicationsList
+          applications={filtered}
+          onSelect={openPreview}
+          onStatusChange={onStatusChange}
+          onDelete={onDelete}
+          onEdit={onOpenEditApplication}
+        />
+      ) : (
+        <section className="panel-card applications-panel">
+          <ApplicationsTable
+            applications={filtered}
+            onSelect={openPreview}
+            onStatusChange={onStatusChange}
+            onDelete={onDelete}
+            onEdit={onOpenEditApplication}
+          />
+        </section>
+      )}
+
+      {previewApplication ? (
+        <ApplicationDetailsModal
+          application={previewApplication}
+          onClose={() => setPreviewApplication(null)}
+          onEdit={() => {
+            setPreviewApplication(null);
+            onOpenEditApplication(previewApplication);
+          }}
         />
       ) : null}
     </section>
   );
 }
 
-function ApplicationsStateMessage({
-  title,
-  text,
-  actionLabel,
-  onAction
+
+function DesktopApplicationsList({
+  applications,
+  onSelect,
+  onStatusChange,
+  onDelete,
+  onEdit
 }: {
-  title: string;
-  text: string;
-  actionLabel?: string;
-  onAction?: () => void;
+  applications: JobApplication[];
+  onSelect: (application: JobApplication) => void;
+  onStatusChange: (id: EntityId, status: Status) => void;
+  onDelete: (id: EntityId) => void;
+  onEdit: (application: JobApplication) => void;
 }) {
   return (
-    <div className="modal-content">
-      <div className="mini-title">
-        <BriefcaseBusiness size={18} />
-        <h2>{title}</h2>
-      </div>
-      <p>{text}</p>
-      {actionLabel && onAction ? (
-        <button className="secondary-button" type="button" onClick={onAction}>
-          {actionLabel}
-        </button>
+    <section className="desktop-applications-list" aria-label="Applications list">
+      {applications.map((app) => (
+        <article className="desktop-application-card" key={app.id} onClick={() => onSelect(app)}>
+          <div className="desktop-application-main">
+            <CompanyLogo name={app.company} domain={app.domain} large />
+            <div className="desktop-application-copy">
+              <div className="desktop-application-title-row">
+                <div>
+                  <h2>{app.position}</h2>
+                  <p>{app.company}</p>
+                </div>
+                <StatusBadge status={app.status} />
+              </div>
+
+              <div className="desktop-application-meta">
+                <span><MapPin size={14} /> {app.location}</span>
+                <span><Monitor size={14} /> {app.workMode}</span>
+                <span><Tag size={14} /> {app.category}</span>
+                <span><BriefcaseBusiness size={14} /> {app.level}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="desktop-application-side" onClick={(event) => event.stopPropagation()}>
+            <div className="desktop-application-dates">
+              <span>Applied <strong>{formatDate(app.dateApplied)}</strong></span>
+              <span>Last contact <strong>{formatDate(app.lastContact)}</strong></span>
+            </div>
+
+            <div className="desktop-next-step">
+              <span>Next step</span>
+              <strong>{app.nextStep || 'Waiting'}</strong>
+            </div>
+
+            <div className="desktop-application-status">
+              <CustomSelect
+                value={app.status}
+                options={statuses}
+                onChange={(value) => onStatusChange(app.id, value as Status)}
+              />
+            </div>
+
+            <div className="desktop-application-actions">
+              <button
+                className="ghost-icon"
+                type="button"
+                aria-label="Edit application"
+                onClick={() => onEdit(app)}
+              >
+                <Pencil size={17} />
+              </button>
+              <button
+                className="ghost-icon"
+                type="button"
+                aria-label="Open offer"
+                onClick={() => app.offerUrl && window.open(app.offerUrl, '_blank')}
+              >
+                <ExternalLink size={17} />
+              </button>
+              <button
+                className="ghost-icon danger"
+                type="button"
+                aria-label="Delete application"
+                onClick={() => onDelete(app.id)}
+              >
+                <Trash2 size={17} />
+              </button>
+            </div>
+          </div>
+        </article>
+      ))}
+
+      {!applications.length ? (
+        <div className="empty-state panel-card">
+          <Folder size={28} />
+          <strong>No results</strong>
+          <span>Try changing filters or add a new application.</span>
+        </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
-function ApplicationDetails({ application, onEdit }: { application: JobApplication; onEdit?: (application: JobApplication) => void }) {
-  const openOffer = () => {
-    if (application.offerUrl) {
-      window.open(application.offerUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
-
-  return (
-    <div className="details-grid">
-      <div>
-        <div className="details-heading">
-          <span className="company-logo large">{application.company[0] || '?'}</span>
-          <div>
-            <h2>{application.company}</h2>
-            <p>{application.position}</p>
-          </div>
-          <StatusBadge status={application.status} />
-        </div>
-        <div className="details-actions">
-          <button className="secondary-button" type="button" onClick={openOffer}><ExternalLink size={17} /> Open offer</button>
-          <button className="secondary-button" type="button" onClick={() => onEdit?.(application)}><Pencil size={17} /> Edit</button>
-        </div>
-      </div>
-      <div className="details-lists">
-        <InfoList title="Requirements" items={application.requirements} />
-        <InfoList title="Benefits" items={application.benefits} />
-        <InfoList title="Details" items={[application.location, application.workMode, application.source, application.cv]} />
-      </div>
-      <div className="timeline-card">
-        <h3>Recruitment timeline</h3>
-        {['Saved offer', 'CV sent', 'Confirmation received', 'Interview scheduled'].map((item, index) => (
-          <div className="timeline-row" key={item}>
-            <span />
-            <div>
-              <strong>{item}</strong>
-              <small>{index === 0 ? '18 May 2026' : index === 1 ? '20 May 2026' : index === 2 ? '21 May 2026' : '22 May 2026'}</small>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function ApplicationDetails({ application, onEdit }: { application: JobApplication; onEdit: () => void }) {
+  return <div className="details-grid"><div><div className="details-heading"><CompanyLogo name={application.company} domain={application.domain} large /><div><h2>{application.company}</h2><p>{application.position}</p></div><StatusBadge status={application.status} /></div><div className="details-actions"><button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Open offer</button><button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button></div></div><div className="details-lists"><InfoList title="Requirements" text={application.requirements} /><InfoList title="Benefits" text={application.benefits} /><InfoList title="Details" text={`${application.location}, ${application.workMode}, ${application.source}, ${application.cv}`} /></div><div className="timeline-card"><h3>Recruitment timeline</h3>{['Saved offer', 'CV sent', application.lastContact ? 'Company response' : 'Waiting', application.nextStep].map((item, index) => <div className="timeline-row" key={`${item}-${index}`}><span /><div><strong>{item}</strong><small>{index === 0 ? formatDate(application.dateApplied) : index === 1 ? formatDate(application.dateApplied) : index === 2 ? formatDate(application.lastContact) : 'Next step'}</small></div></div>)}</div></div>;
 }
 
-type ApplicationFormState = {
-  companyId: string | null;
-  company: string;
-  position: string;
-  category: string;
-  level: string;
-  status: ApplicationStatus;
-  dateApplied: string;
-  lastContact: string;
-  nextStep: string;
-  location: string;
-  workMode: WorkMode;
-  source: string;
-  requirements: string;
-  benefits: string;
-  notes: string;
-  offerUrl: string;
-  cv: string;
-};
 
-const todayInputValue = () => new Date().toISOString().slice(0, 10);
-
-const emptyApplicationForm = (): ApplicationFormState => ({
-  companyId: null,
-  company: '',
-  position: '',
-  category: '',
-  level: '',
-  status: 'Saved',
-  dateApplied: todayInputValue(),
-  lastContact: '',
-  nextStep: '',
-  location: '',
-  workMode: 'Remote',
-  source: '',
-  requirements: '',
-  benefits: '',
-  notes: '',
-  offerUrl: '',
-  cv: ''
-});
-
-const applicationToFormState = (application: JobApplication | null): ApplicationFormState => {
-  if (!application) {
-    return emptyApplicationForm();
-  }
-
-  return {
-    companyId: application.companyId ?? null,
-    company: application.company,
-    position: application.position,
-    category: application.category,
-    level: application.level,
-    status: application.status,
-    dateApplied: toDateInputValue(application.dateApplied),
-    lastContact: toDateInputValue(application.lastContact),
-    nextStep: application.nextStep,
-    location: application.location,
-    workMode: application.workMode,
-    source: application.source,
-    requirements: application.requirements.join(', '),
-    benefits: application.benefits.join(', '),
-    notes: application.notes,
-    offerUrl: application.offerUrl,
-    cv: application.cv
-  };
-};
-
-const splitFormList = (value: string) =>
-  value
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const formStateToApplication = (form: ApplicationFormState): ApplicationUpsertInput => ({
-  companyId: form.companyId,
-  company: form.company.trim(),
-  position: form.position.trim(),
-  category: form.category.trim(),
-  level: form.level.trim(),
-  status: form.status,
-  dateApplied: form.dateApplied,
-  lastContact: form.lastContact,
-  nextStep: form.nextStep.trim(),
-  location: form.location.trim(),
-  workMode: form.workMode,
-  source: form.source.trim(),
-  requirements: splitFormList(form.requirements),
-  benefits: splitFormList(form.benefits),
-  notes: form.notes.trim(),
-  offerUrl: form.offerUrl.trim(),
-  cv: form.cv.trim()
-});
-
-function ApplicationFormModal({
-  mode,
+function ApplicationDetailsModal({
   application,
-  saving,
-  error,
   onClose,
-  onSubmit
+  onEdit
 }: {
-  mode: 'create' | 'edit';
-  application: JobApplication | null;
-  saving: boolean;
-  error: string | null;
+  application: JobApplication;
   onClose: () => void;
-  onSubmit: (application: ApplicationUpsertInput) => Promise<void>;
+  onEdit: () => void;
 }) {
-  const [form, setForm] = useState<ApplicationFormState>(() => applicationToFormState(application));
-  const title = mode === 'create' ? 'Add application' : 'Edit application';
-
-  const updateField = <T extends keyof ApplicationFormState>(field: T, value: ApplicationFormState[T]) => {
-    setForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    void onSubmit(formStateToApplication(form));
-  };
-
   return (
-    <div className="modal-backdrop">
-      <form className="settings-modal" role="dialog" aria-modal="true" aria-label={title} onSubmit={handleSubmit}>
-        <header className="modal-header">
-          <div>
-            <h2>{title}</h2>
-            <p>{mode === 'create' ? 'Create a new tracked application.' : 'Update application details and status.'}</p>
-          </div>
-          <button className="close-button" type="button" onClick={onClose} aria-label="Close application form">
-            <X size={20} />
+    <BaseModal
+      title="Application details"
+      subtitle={`${application.company} Â· ${application.position}`}
+      onClose={onClose}
+    >
+      <div className="application-details-modal custom-scroll">
+        <ApplicationDetails application={application} onEdit={onEdit} />
+
+        {application.notes ? (
+          <section className="application-modal-note">
+            <h3>Notes</h3>
+            <p>{application.notes}</p>
+          </section>
+        ) : null}
+
+        <footer className="modal-footer inner">
+          <button className="secondary-button" type="button" onClick={onClose}>
+            Close
           </button>
-        </header>
-        <main className="modal-content custom-scroll">
-          {error ? (
-            <div className="setting-group">
-              <span className="setting-label">Error</span>
-              <p>{error}</p>
-            </div>
-          ) : null}
-          <div className="form-grid">
-            <ApplicationFormInput label="Company" value={form.company} onChange={(value) => updateField('company', value)} required />
-            <ApplicationFormInput label="Position" value={form.position} onChange={(value) => updateField('position', value)} required />
-            <ApplicationFormInput label="Category" value={form.category} onChange={(value) => updateField('category', value)} />
-            <ApplicationFormInput label="Level" value={form.level} onChange={(value) => updateField('level', value)} />
-            <ApplicationFormInput label="Date applied" type="date" value={form.dateApplied} onChange={(value) => updateField('dateApplied', value)} required />
-            <ApplicationFormInput label="Last contact" type="date" value={form.lastContact} onChange={(value) => updateField('lastContact', value)} />
-            <ApplicationFormInput label="Next step" value={form.nextStep} onChange={(value) => updateField('nextStep', value)} />
-            <ApplicationFormInput label="Location" value={form.location} onChange={(value) => updateField('location', value)} />
-            <ApplicationFormInput label="Source" value={form.source} onChange={(value) => updateField('source', value)} />
-            <ApplicationFormInput label="CV" value={form.cv} onChange={(value) => updateField('cv', value)} />
-            <ApplicationFormInput label="Offer URL" value={form.offerUrl} onChange={(value) => updateField('offerUrl', value)} />
-            <ApplicationFormInput label="Notes" value={form.notes} onChange={(value) => updateField('notes', value)} />
-            <ApplicationFormInput label="Requirements" value={form.requirements} onChange={(value) => updateField('requirements', value)} />
-            <ApplicationFormInput label="Benefits" value={form.benefits} onChange={(value) => updateField('benefits', value)} />
-          </div>
-          <SelectionTokenGroup
-            title="Status"
-            tokens={applicationStatusOptions}
-            selected={form.status}
-            onSelect={(status) => updateField('status', status)}
-          />
-          <SelectionTokenGroup
-            title="Work mode"
-            tokens={workModeOptions}
-            selected={form.workMode}
-            onSelect={(workMode) => updateField('workMode', workMode)}
-          />
-        </main>
-        <footer className="modal-footer">
-          <button className="secondary-button" type="button" onClick={onClose}>Cancel</button>
-          <button className="primary-button" type="submit" disabled={saving}>
-            <CheckCircle2 size={17} /> {saving ? 'Saving...' : 'Save application'}
+
+          <button className="primary-button" type="button" onClick={onEdit}>
+            <Pencil size={17} /> Edit application
           </button>
         </footer>
-      </form>
-    </div>
-  );
-}
-
-function ApplicationFormInput({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  required = false
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="form-field">
-      <span>{label}</span>
-      <input type={type} value={value} required={required} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function SelectionTokenGroup<T extends string>({
-  title,
-  tokens,
-  selected,
-  onSelect
-}: {
-  title: string;
-  tokens: T[];
-  selected: T;
-  onSelect: (token: T) => void;
-}) {
-  return (
-    <div className="setting-group">
-      <span className="setting-label">{title}</span>
-      <div className="token-row">
-        {tokens.map((token) => (
-          <button className={selected === token ? 'selected' : ''} type="button" key={token} onClick={() => onSelect(token)}>
-            {token}
-          </button>
-        ))}
       </div>
-    </div>
+    </BaseModal>
   );
 }
 
-function InfoList({ title, items }: { title: string; items: string[] }) {
-  const visibleItems = items.filter(Boolean);
-
-  return (
-    <div className="info-list">
-      <h3>{title}</h3>
-      <div>
-        {visibleItems.length > 0 ? visibleItems.map((item, index) => <span key={`${item}-${index}`}>{item}</span>) : <span>-</span>}
-      </div>
-    </div>
-  );
+function InfoList({ title, text }: { title: string; text: string }) {
+  const items = text ? text.split(',').map((item) => item.trim()).filter(Boolean) : ['No data yet'];
+  return <div className="info-list"><h3>{title}</h3><div>{items.map((item) => <span key={item}>{item}</span>)}</div></div>;
 }
 
-function CompaniesPage() {
+function CompaniesPage({ companies, applications, setCompanies, setToast }: { companies: Company[]; applications: JobApplication[]; setCompanies: (companies: Company[]) => void; setToast: (value: string) => void }) {
+  const [query, setQuery] = useState('');
+  const [industry, setIndustry] = useState('All');
+  const [location, setLocation] = useState('All');
+  const [modal, setModal] = useState<Company | null>(null);
+  const locations = ['All', ...Array.from(new Set(companies.map((company) => company.location))).filter(Boolean)];
+  const filtered = companies.filter((company) => `${company.name} ${company.industry} ${company.location}`.toLowerCase().includes(query.toLowerCase()) && (industry === 'All' || company.industry === industry) && (location === 'All' || company.location === location));
+  function save(company: Company) {
+    if (companies.some((item) => item.id === company.id)) setCompanies(companies.map((item) => item.id === company.id ? company : item));
+    else setCompanies([company, ...companies]);
+    setModal(null);
+    setToast('Company saved.');
+  }
+  function remove(id: number) {
+    setCompanies(companies.filter((company) => company.id !== id));
+    setToast('Company removed.');
+  }
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search companies..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Industry" value={industry} options={['All', ...industries]} onChange={setIndustry} /><CustomSelect label="Location" value={location} options={locations} onChange={setLocation} /><button className="primary-button" type="button" onClick={() => setModal({ id: 0, name: '', domain: '', industry: 'Technology', location: 'Warsaw', website: '', contact: '', notes: '' })}><Plus size={17} /> Add company</button></div><div className="company-grid">{filtered.map((company) => { const stats = companyStats(company, applications); return <article className="company-card panel-card" key={company.id}><div className="company-card-top"><CompanyLogo name={company.name} domain={company.domain} large /><div><h2>{company.name}</h2><p>{company.industry}</p></div><div className="company-actions"><button className="ghost-icon" type="button" onClick={() => setModal(company)}><Pencil size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(company.id)}><Trash2 size={17} /></button></div></div><div className="company-meta"><span><MapPin size={15} /> {company.location}</span><span><Globe size={15} /> {company.website.replace(/^https?:\/\//, '')}</span></div><p className="company-note">{company.notes || 'No notes yet.'}</p><div className="company-stats"><div><strong>{stats.count}</strong><span>applications</span></div><div><strong>{stats.responseRate}%</strong><span>response</span></div></div><div className="company-footer"><StatusBadge status={stats.lastStatus as Status} /><span>{formatDate(stats.lastDate)}</span></div></article>; })}</div>{modal ? <CompanyModal company={modal} onClose={() => setModal(null)} onSave={save} /> : null}</section>;
+}
+
+function CompanyModal({ company, onClose, onSave }: { company: Company; onClose: () => void; onSave: (company: Company) => void }) {
+  const [form, setForm] = useState(company);
+  function set<K extends keyof Company>(key: K, value: Company[K]) { setForm((current) => ({ ...current, [key]: value })); }
+  function submit(event: FormEvent) { event.preventDefault(); onSave({ ...form, id: form.id || makeId(), domain: safeDomain(form.name, form.domain), website: form.website || `https://${safeDomain(form.name, form.domain)}` }); }
+  return <BaseModal title={form.id ? 'Edit company' : 'Add company'} subtitle="Save company details for recruitment history." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Company name" value={form.name} onChange={(v) => set('name', v)} placeholder="e.g. Sii" /><TextField label="Domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="e.g. sii.pl" /><div className="form-field"><span>Industry</span><CustomSelect value={form.industry} options={industries} onChange={(v) => set('industry', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><TextField label="Website" value={form.website} onChange={(v) => set('website', v)} /><TextField label="Contact" value={form.contact} onChange={(v) => set('contact', v)} /></div><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} /><ModalFooter onClose={onClose} submitLabel="Save company" /></form></BaseModal>;
+}
+
+function StatisticsPage({ applications, categoryOptions }: { applications: JobApplication[]; categoryOptions: string[] }) {
+  const [range, setRange] = useState('All time');
+  const [category, setCategory] = useState('All');
+  const [mode, setMode] = useState('All');
+  const scoped = applications.filter((app) => (category === 'All' || app.category === category) && (mode === 'All' || app.workMode === mode));
+  const stats = calculateStats(scoped);
+  return <section className="page-section"><div className="toolbar compact-toolbar"><CustomSelect label="Range" value={range} options={['Last 7 days', 'Last 30 days', 'This month', 'All time']} onChange={setRange} /><CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} /><CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} /></div><div className="stats-metrics-grid"><MetricCard label="Total applications" value={stats.total} hint={range} /><MetricCard label="Active processes" value={stats.active} hint="currently open" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from selected" tone="green-text" /><MetricCard label="Interview rate" value={`${stats.successRate}%`} hint="positive stages" tone="blue-text" /><MetricCard label="Ghosted" value={scoped.filter((app) => app.status === 'Ghosted').length} hint="to archive" /><MetricCard label="Avg response time" value="6d" hint="first contact" /></div><div className="stats-grid"><section className="panel-card chart-panel wide-chart"><div className="mini-title"><BarChart3 size={18} /><h2>Applications by category</h2></div><BarList rows={topRows(scoped.map((app) => app.category))} /></section><ApplicationSummary applications={scoped} /><section className="panel-card chart-panel"><div className="mini-title"><Sparkles size={18} /><h2>Applications by level</h2></div><BarList rows={topRows(scoped.map((app) => app.level))} /></section><MiniListCard icon={Globe} title="Best sources" rows={topRows(scoped.map((app) => app.source))} /></div></section>;
+}
+
+function BarList({ rows }: { rows: [string, string][] }) {
+  const max = Math.max(...rows.map(([, value]) => Number(value)), 1);
+  return <div className="bar-chart-list">{rows.map(([label, value]) => <div className="bar-row" key={label}><span>{label}</span><div><span style={{ width: `${(Number(value) / max) * 100}%` }} /></div><strong>{value}</strong></div>)}</div>;
+}
+
+function CalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
+  const [view, setView] = useState<CalendarView>('Month');
+  const [modal, setModal] = useState<CalendarEvent | null>(null);
+  const sorted = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
+  const [monthDate, setMonthDate] = useState(() => startOfMonth(today()));
+  const monthCells = getMonthCells(monthDate);
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  function save(event: CalendarEvent) {
+    if (events.some((item) => item.id === event.id)) setEvents(events.map((item) => item.id === event.id ? event : item));
+    else setEvents([event, ...events]);
+    setModal(null);
+    setToast('Calendar event saved.');
+  }
+  function remove(id: number) { setEvents(events.filter((event) => event.id !== id)); setToast('Calendar event removed.'); }
+  function newEvent(date = today(), time = '10:00') {
+    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date, time, type: 'HR interview', location: 'Online', meetingLink: '', notes: '' });
+  }
   return (
     <section className="page-section">
-      <PageTitle title="Companies" subtitle="Track companies, previous applications and recruitment history." />
-      <div className="toolbar">
-        <div className="search-field wide"><Search size={18} /><input placeholder="Search companies..." /></div>
-        <button className="chip-button" type="button">Industry <ChevronDown size={15} /></button>
-        <button className="chip-button" type="button">Location <ChevronDown size={15} /></button>
-        <button className="chip-button" type="button">Response history <ChevronDown size={15} /></button>
-        <button className="primary-button" type="button"><Plus size={17} /> Add company</button>
-      </div>
-      <div className="company-grid">
-        {companies.map((company) => (
-          <article className="company-card panel-card" key={company.id}>
-            <div className="company-card-top">
-              <span className="company-logo large">{company.name[0]}</span>
-              <div>
-                <h2>{company.name}</h2>
-                <p>{company.industry}</p>
-              </div>
-              <button className="ghost-icon" type="button"><MoreHorizontal size={18} /></button>
-            </div>
-            <div className="company-meta">
-              <span><MapPin size={15} /> {company.location}</span>
-              <span><Globe size={15} /> {company.website}</span>
-            </div>
-            <div className="company-stats">
-              <div><strong>{company.applications}</strong><span>applications</span></div>
-              <div><strong>{company.responseRate}%</strong><span>response</span></div>
-            </div>
-            <div className="company-footer">
-              <StatusBadge status={company.lastStatus} />
-              <span>{company.lastApplication}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function StatisticsPage() {
-  const categories = [
-    ['.NET', 38],
-    ['Cybersecurity', 24],
-    ['IAM', 18],
-    ['DevOps', 14],
-    ['React', 11],
-    ['Full-stack', 9]
-  ] as const;
-
-  return (
-    <section className="page-section">
-      <PageTitle title="Statistics" subtitle="Analyze your application progress and discover what works best." />
       <div className="toolbar compact-toolbar">
-        {['Last 7 days', 'Last 30 days', 'This month', 'All time'].map((range, index) => (
-          <button className={`chip-button ${index === 3 ? 'selected' : ''}`} type="button" key={range}>{range}</button>
-        ))}
-        <button className="chip-button" type="button">Category <ChevronDown size={15} /></button>
-        <button className="chip-button" type="button">Level <ChevronDown size={15} /></button>
-        <button className="chip-button" type="button">Source <ChevronDown size={15} /></button>
-      </div>
-      <div className="stats-metrics-grid">
-        <MetricCard label="Total applications" value="24" hint="all time" />
-        <MetricCard label="Active processes" value="5" hint="currently open" />
-        <MetricCard label="Response rate" value="76%" hint="above average" tone="green-text" />
-        <MetricCard label="Interview rate" value="33%" hint="8 positive responses" tone="blue-text" />
-        <MetricCard label="Ghosted rate" value="12%" hint="3 applications" />
-        <MetricCard label="Avg response time" value="6d" hint="first contact" />
-      </div>
-      <div className="stats-grid">
-        <section className="panel-card chart-panel wide-chart">
-          <div className="mini-title"><BarChart3 size={18} /><h2>Applications by category</h2></div>
-          <div className="bar-chart-list">
-            {categories.map(([label, value]) => (
-              <div className="bar-row" key={label}>
-                <span>{label}</span>
-                <div><span style={{ width: `${value * 2}%` }} /></div>
-                <strong>{value}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
-        <ApplicationSummary />
-        <section className="panel-card chart-panel">
-          <div className="mini-title"><TrendingUp size={18} /><h2>Applications over time</h2></div>
-          <div className="soft-line-chart"><span /><span /><span /><span /><span /><span /></div>
-        </section>
-        <MiniListCard icon={Target} title="Most common requirements" rows={[['C#', '18'], ['SQL', '15'], ['Git', '14'], ['Azure', '9'], ['Active Directory', '7']]} />
-      </div>
-    </section>
-  );
-}
-
-function CalendarPage() {
-  const days = Array.from({ length: 35 }, (_, index) => index + 1);
-  return (
-    <section className="page-section">
-      <PageTitle title="Calendar" subtitle="Plan interviews, follow-ups and recruitment tasks." />
-      <div className="toolbar compact-toolbar">
-        {['Month', 'Week', 'List'].map((item, index) => <button className={`chip-button ${index === 0 ? 'selected' : ''}`} key={item}>{item}</button>)}
-        <button className="primary-button" type="button"><Plus size={17} /> Add event</button>
+        <div className="segmented-inline">{(['Month', 'Week', 'List'] as CalendarView[]).map((item) => <button type="button" className={view === item ? 'selected' : ''} key={item} onClick={() => setView(item)}>{item}</button>)}</div>
+        <button className="primary-button" type="button" onClick={() => newEvent()}><Plus size={17} /> Add event</button>
       </div>
       <div className="calendar-layout">
-        <section className="panel-card calendar-card">
-          <div className="calendar-header-row">
-            <h2>May 2026</h2>
-            <div><button className="ghost-icon">‹</button><button className="ghost-icon">›</button></div>
-          </div>
-          <div className="calendar-grid-head">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}
-          </div>
-          <div className="calendar-grid-days">
-            {days.map((day) => (
-              <div className={`calendar-day ${[10, 20, 22, 28, 29, 31].includes(day) ? 'has-event' : ''}`} key={day}>
-                <span>{day}</span>
-                {day === 28 ? <small>Technical</small> : null}
-                {day === 29 ? <small>HR interview</small> : null}
-                {day === 31 ? <small>Follow-up</small> : null}
+        {view === 'Month' ? (
+          <section className="panel-card calendar-card">
+            <div className="calendar-header-row">
+              <div><h2>{formatMonthYear(monthDate)}</h2><p>Monthly overview</p></div>
+              <div className="calendar-nav-controls">
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))} aria-label="Previous month">â€ą</button>
+                <button className="secondary-button today-button" type="button" onClick={() => setMonthDate(startOfMonth(today()))}>Today</button>
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))} aria-label="Next month">â€ş</button>
               </div>
-            ))}
-          </div>
-        </section>
-        <section className="panel-card event-panel">
-          <div className="mini-title"><CalendarDays size={18} /><h2>Upcoming events</h2></div>
-          {upcomingEvents.map((event) => (
-            <div className="event-card" key={event.id}>
-              <span className="event-icon"><Clock size={16} /></span>
-              <div>
-                <strong>{event.title}</strong>
-                <p>{event.company}</p>
-                <small>{event.date}, {event.time}</small>
-              </div>
-              {event.type.includes('interview') ? <Video size={16} /> : <Mail size={16} />}
             </div>
-          ))}
-        </section>
+            <div className="calendar-grid-head">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}</div>
+            <div className="calendar-grid-days">{monthCells.map((cell) => { const dayEvents = sorted.filter((event) => event.date === cell.iso); return <button className={`calendar-day ${dayEvents.length ? 'has-event' : ''} ${!cell.isCurrentMonth ? 'muted-day' : ''}`} type="button" key={cell.iso} onClick={() => dayEvents[0] ? setModal(dayEvents[0]) : newEvent(cell.iso)}><span>{cell.day}</span>{dayEvents.slice(0, 2).map((event) => <small key={event.id}>{event.title}</small>)}</button>; })}</div>
+          </section>
+        ) : view === 'Week' ? (
+          <section className="panel-card calendar-card week-calendar">
+            <div className="calendar-header-row">
+              <div><h2>Week view</h2><p>{formatWeekRange(weekStart)}</p></div>
+              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">â€ą</button><button className="secondary-button today-button" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">â€ş</button></div>
+            </div>
+            <div className="week-grid custom-scroll">
+              {weekDays.map((day) => {
+                const iso = toIsoDate(day);
+                const dayEvents = sorted.filter((event) => event.date === iso);
+                return (
+                  <div className="week-day-column" key={iso}>
+                    <button className="week-day-header" type="button" onClick={() => newEvent(iso)}>
+                      <span>{formatWeekday(day)}</span>
+                      <strong>{day.getDate()}</strong>
+                    </button>
+                    <div className="week-events">
+                      {dayEvents.map((event) => <button className="week-event-block" key={event.id} type="button" onClick={() => setModal(event)}><span>{event.time}</span><strong>{event.title}</strong><small>{event.company}</small></button>)}
+                      {!dayEvents.length ? <button className="week-empty-slot" type="button" onClick={() => newEvent(iso)}>Add event</button> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : (
+          <section className="panel-card calendar-card list-calendar">
+            <h2>All events</h2>
+            {sorted.map((event) => <EventCard key={event.id} event={event} onEdit={() => setModal(event)} onDelete={() => remove(event.id)} />)}
+          </section>
+        )}
+        <section className="panel-card event-panel"><div className="mini-title"><CalendarDays size={18} /><h2>Upcoming events</h2></div>{sorted.slice(0, 5).map((event) => <EventCard key={event.id} event={event} compact onEdit={() => setModal(event)} onDelete={() => remove(event.id)} />)}</section>
       </div>
+      {modal ? <EventModal event={modal} applications={applications} onClose={() => setModal(null)} onSave={save} /> : null}
     </section>
   );
 }
 
-function DocumentsPage() {
+function EventCard({ event, onEdit, onDelete, compact = false }: { event: CalendarEvent; onEdit: () => void; onDelete: () => void; compact?: boolean }) {
+  return <div className={`event-card ${compact ? 'compact-event' : ''}`}><span className="event-icon"><Clock size={16} /></span><div><strong>{event.title}</strong><p>{event.company}</p><small>{formatDate(event.date)}, {event.time} Â· {event.location}</small></div><div className="event-card-actions"><button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button><button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button></div>{event.type.includes('interview') ? <Video size={16} /> : <Mail size={16} />}</div>;
+}
+
+function EventModal({ event, applications, onClose, onSave }: { event: CalendarEvent; applications: JobApplication[]; onClose: () => void; onSave: (event: CalendarEvent) => void }) {
+  const [form, setForm] = useState(event);
+  function set<K extends keyof CalendarEvent>(key: K, value: CalendarEvent[K]) { setForm((current) => ({ ...current, [key]: value })); }
+  function submit(e: FormEvent) { e.preventDefault(); onSave({ ...form, id: form.id || makeId() }); }
+  return <BaseModal title={form.id ? 'Edit event' : 'Add event'} subtitle="Plan interviews, follow-ups and recruitment tasks." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Event title" value={form.title} onChange={(v) => set('title', v)} placeholder="e.g. HR interview" /><div className="form-field"><span>Company</span><CustomSelect value={form.company || 'General'} options={['General', ...Array.from(new Set(applications.map((app) => app.company)))]} onChange={(v) => set('company', v)} /></div><div className="form-field"><span>Type</span><CustomSelect value={form.type} options={eventTypes} onChange={(v) => set('type', v)} /></div><TextField label="Date" type="date" value={form.date} onChange={(v) => set('date', v)} /><TextField label="Time" type="time" value={form.time} onChange={(v) => set('time', v)} /><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><TextField label="Meeting link" value={form.meetingLink} onChange={(v) => set('meetingLink', v)} /></div><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} /><ModalFooter onClose={onClose} submitLabel="Save event" /></form></BaseModal>;
+}
+
+function LegacyDocumentsPage({ documents, setDocuments, onExport, setToast }: { documents: DocumentItem[]; setDocuments: (docs: DocumentItem[]) => void; onExport: () => void; setToast: (value: string) => void }) {
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState('All');
+  const [linkModal, setLinkModal] = useState(false);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const filtered = documents.filter((doc) => `${doc.name} ${doc.type} ${doc.category}`.toLowerCase().includes(query.toLowerCase()) && (type === 'All' || doc.type === type));
+  function upload(files: FileList | null) {
+    if (!files?.[0]) return;
+    const file = files[0];
+    const next: DocumentItem = { id: makeId(), name: file.name, type: file.name.toLowerCase().includes('cv') ? 'CV' : 'Other', category: 'General', updated: today(), usedIn: 0, size: `${Math.max(1, Math.round(file.size / 1024))} KB`, url: '' };
+    setDocuments([next, ...documents]);
+    setToast('Document added to demo.');
+  }
+  function addLink(doc: DocumentItem) { setDocuments([doc, ...documents]); setLinkModal(false); setToast('Link saved.'); }
+  function remove(id: EntityId) { setDocuments(documents.filter((doc) => doc.id !== id)); setToast('Document removed.'); }
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} /><button className="secondary-button" type="button" onClick={() => fileInput.current?.click()}><Upload size={17} /> Upload</button><input ref={fileInput} type="file" hidden onChange={(e) => upload(e.target.files)} /><button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button></div><div className="document-grid">{filtered.map((doc) => <article className="panel-card document-card" key={doc.id}><div className="document-icon"><FileText size={24} /></div><div><h2>{doc.name}</h2><p>{doc.type} Â· {doc.category}</p></div><div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.size}</span></div><div className="document-actions"><button className="ghost-icon" type="button" onClick={() => doc.url && window.open(doc.url, '_blank')}><Eye size={17} /></button><button className="ghost-icon" type="button" onClick={() => setToast('Preview/download is mocked for local files.')}><Download size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(doc.id)}><Trash2 size={17} /></button></div></article>)}</div><section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span><span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span></section>{linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}</section>;
+}
+
+type DocumentsPageProps = {
+  documents: DocumentItem[];
+  applications: JobApplication[];
+  setDocuments: (docs: DocumentItem[]) => void;
+  onExport: () => void;
+  setToast: (value: string) => void;
+  loading?: boolean;
+  error?: string | null;
+  onRefresh?: () => void;
+  onUploadDocument?: (file: File) => Promise<void>;
+  onCreateDocumentLink?: (doc: DocumentItem) => Promise<void>;
+  onDeleteDocument?: (id: EntityId) => Promise<void>;
+  onArchiveDocument?: (id: EntityId) => Promise<void>;
+  onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
+};
+
+function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onDownloadDocument }: DocumentsPageProps) {
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState('All');
+  const [linkModal, setLinkModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const filtered = documents.filter((doc) => `${doc.name} ${doc.type} ${doc.category} ${doc.tags?.join(' ') ?? ''}`.toLowerCase().includes(query.toLowerCase()) && (type === 'All' || doc.type === type));
+
+  useEffect(() => {
+    if (!selectedDocument) return;
+    setSelectedDocument(documents.find((doc) => doc.id === selectedDocument.id) ?? null);
+  }, [documents, selectedDocument?.id]);
+
+  async function upload(files: FileList | null) {
+    if (!files?.[0]) return;
+    const file = files[0];
+    try {
+      if (onUploadDocument) {
+        await onUploadDocument(file);
+      } else {
+        const next: DocumentItem = { id: makeId(), name: file.name, type: file.name.toLowerCase().includes('cv') ? 'CV' : 'Other', category: 'General', updated: today(), usedIn: 0, size: `${Math.max(1, Math.round(file.size / 1024))} KB`, url: '', status: 'Active', tags: [] };
+        setDocuments([next, ...documents]);
+      }
+      setToast('Document added.');
+    } catch (requestError) {
+      setToast(requestError instanceof Error ? requestError.message : 'Document could not be uploaded.');
+    } finally {
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+  async function addLink(doc: DocumentItem) {
+    try {
+      if (onCreateDocumentLink) {
+        await onCreateDocumentLink(doc);
+      } else {
+        setDocuments([{ ...doc, status: 'Active', tags: ['Link'] }, ...documents]);
+      }
+      setLinkModal(false);
+      setToast('Link saved.');
+    } catch (requestError) {
+      setToast(requestError instanceof Error ? requestError.message : 'Link could not be saved.');
+    }
+  }
+  async function remove(id: EntityId) {
+    try {
+      if (onDeleteDocument) {
+        await onDeleteDocument(id);
+      } else {
+        setDocuments(documents.filter((doc) => doc.id !== id));
+      }
+      setSelectedDocument(null);
+      setToast('Document removed.');
+    } catch (requestError) {
+      setToast(requestError instanceof Error ? requestError.message : 'Document could not be removed.');
+    }
+  }
+  async function archive(id: EntityId) {
+    try {
+      if (onArchiveDocument) {
+        await onArchiveDocument(id);
+      } else {
+        setDocuments(documents.map((doc) => doc.id === id ? { ...doc, status: 'Archived' } : doc));
+        setSelectedDocument((doc) => doc?.id === id ? { ...doc, status: 'Archived' } : doc);
+      }
+      setToast('Document archived.');
+    } catch (requestError) {
+      setToast(requestError instanceof Error ? requestError.message : 'Document could not be archived.');
+    }
+  }
+  async function download(doc: DocumentItem) {
+    try {
+      if (doc.url && !doc.fileName) {
+        window.open(doc.url, '_blank');
+        return;
+      }
+      if (onDownloadDocument) {
+        await onDownloadDocument(doc);
+      }
+      setToast(`Download started: ${doc.fileName || doc.name}`);
+    } catch (requestError) {
+      setToast(requestError instanceof Error ? requestError.message : 'Document could not be downloaded.');
+    }
+  }
+  async function copyLink(doc: DocumentItem) {
+    if (!doc.url) { setToast('This document has no link to copy.'); return; }
+    await navigator.clipboard?.writeText(doc.url);
+    setToast('Document link copied.');
+  }
   return (
     <section className="page-section">
-      <PageTitle title="Documents" subtitle="Manage CV versions, cover letters and application files." />
       <div className="toolbar">
-        <div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." /></div>
-        <button className="secondary-button" type="button"><Upload size={17} /> Upload document</button>
-        <button className="secondary-button" type="button"><Link size={17} /> Add link</button>
-        <button className="chip-button" type="button">Type <ChevronDown size={15} /></button>
+        <div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+        <CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} />
+        <button className="secondary-button" type="button" onClick={() => fileInput.current?.click()} disabled={loading}><Upload size={17} /> Upload</button>
+        <input ref={fileInput} type="file" hidden onChange={(event) => void upload(event.target.files)} />
+        <button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button>
+        <button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button>
       </div>
-      <div className="document-grid">
-        {documents.map((doc) => (
-          <article className="panel-card document-card" key={doc.id}>
+      {loading ? (
+        <div className="panel-card empty-state"><FileText size={28} /><strong>Loading documents</strong><span>Connecting to the backend API.</span></div>
+      ) : error ? (
+        <div className="panel-card empty-state"><FileText size={28} /><strong>Documents API unavailable</strong><span>{error}</span>{onRefresh ? <button className="secondary-button" type="button" onClick={onRefresh}>Refresh</button> : null}</div>
+      ) : filtered.length ? (
+        <div className="document-grid">
+        {filtered.map((doc) => (
+          <article className="panel-card document-card" key={doc.id} onClick={() => setSelectedDocument(doc)}>
             <div className="document-icon"><FileText size={24} /></div>
-            <div>
-              <h2>{doc.name}</h2>
-              <p>{doc.type} · {doc.category}</p>
-            </div>
-            <div className="document-meta">
-              <span>Updated {doc.updated}</span>
-              <span>Used in {doc.usedIn} applications</span>
-              <span>{doc.size}</span>
-            </div>
+            <div><h2>{doc.name}</h2><p>{doc.type} · {doc.category}</p></div>
+            <div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.status || 'Active'}</span><span>{doc.size}</span></div>
             <div className="document-actions">
-              <button className="ghost-icon" type="button"><Eye size={17} /></button>
-              <button className="ghost-icon" type="button"><Download size={17} /></button>
-              <button className="ghost-icon" type="button"><Pencil size={17} /></button>
-              <button className="ghost-icon danger" type="button"><Trash2 size={17} /></button>
+              <button className="ghost-icon" type="button" aria-label="Preview document" onClick={(event) => { event.stopPropagation(); setSelectedDocument(doc); }}><Eye size={17} /></button>
+              <button className="ghost-icon" type="button" aria-label="Download document" onClick={(event) => { event.stopPropagation(); void download(doc); }}><Download size={17} /></button>
+              <button className="ghost-icon danger" type="button" aria-label="Delete document" onClick={(event) => { event.stopPropagation(); void remove(doc.id); }}><Trash2 size={17} /></button>
             </div>
           </article>
         ))}
-      </div>
-      <section className="panel-card insight-strip">
-        <Sparkles size={18} />
-        <span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span>
-        <span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span>
-      </section>
+        </div>
+      ) : (
+        <div className="panel-card empty-state"><FileText size={28} /><strong>No documents yet</strong><span>Upload your CV or add a portfolio link.</span></div>
+      )}
+      <section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_Demo.pdf</strong></span><span>Best response rate: <strong>CV_Fullstack_Demo.pdf</strong></span></section>
+      {selectedDocument ? <DocumentDetailsModal document={selectedDocument} applications={applications} onClose={() => setSelectedDocument(null)} onDownload={download} onCopyLink={copyLink} onArchive={archive} onDelete={remove} /> : null}
+      {linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}
     </section>
   );
 }
 
-function NotesPage() {
-  const [selectedNote, setSelectedNote] = useState(notes[0]);
+function DocumentDetailsModal({ document, applications, onClose, onDownload, onCopyLink, onArchive, onDelete }: { document: DocumentItem; applications: JobApplication[]; onClose: () => void; onDownload: (doc: DocumentItem) => void; onCopyLink: (doc: DocumentItem) => void; onArchive: (id: EntityId) => void; onDelete: (id: EntityId) => void }) {
+  const assignedApplications = applications.filter((application) => document.assignedApplications?.includes(application.id));
+  const isLink = Boolean(document.url);
+  return (
+    <BaseModal title={document.name} subtitle={`${document.type} details and preview`} onClose={onClose}>
+      <div className="document-details-modal custom-scroll">
+        <section className="document-preview-card">
+          {isLink ? (
+            <div className="url-preview"><LinkIcon size={28} /><strong>{document.url}</strong><span>{document.notes || 'Saved URL preview.'}</span></div>
+          ) : (
+            <div className="pdf-preview"><span>{document.fileName || document.name}</span><i /><i /><i /><i /><strong>Preview available locally</strong></div>
+          )}
+        </section>
+        <section className="document-detail-grid">
+          <InfoList title="Metadata" text={[document.type, document.category, document.language, document.targetRole, document.status || 'Active', document.size].filter(Boolean).join(', ')} />
+          <InfoList title="Usage" text={`Used in ${document.usedInApplicationsCount ?? document.usedIn} applications. Success rate: ${document.successRate ?? 0}%. Last used: ${document.lastUsedAt || '-'}.`} />
+          <InfoList title="Tags" text={(document.tags?.length ? document.tags : ['No tags']).join(', ')} />
+          <InfoList title="Notes" text={document.notes || 'No notes yet.'} />
+        </section>
+        <section className="assigned-applications panel-card">
+          <div className="mini-title"><BriefcaseBusiness size={18} /><h2>Assigned applications</h2></div>
+          {assignedApplications.length ? assignedApplications.map((application) => (
+            <div className="assigned-application-row" key={application.id}>
+              <div><strong>{application.company}</strong><span>{application.position}</span></div>
+              <StatusBadge status={application.status} />
+              <small>{formatDate(application.dateApplied)}</small>
+            </div>
+          )) : <p>No assigned applications yet.</p>}
+        </section>
+        <footer className="modal-footer inner">
+          {isLink ? <button className="secondary-button" type="button" onClick={() => window.open(document.url, '_blank')}><ExternalLink size={17} /> Open link</button> : null}
+          <button className="secondary-button" type="button" onClick={() => onCopyLink(document)}><LinkIcon size={17} /> Copy link</button>
+          <button className="secondary-button" type="button" onClick={() => onDownload(document)}><Download size={17} /> Download</button>
+          <button className="secondary-button" type="button" onClick={() => onArchive(document.id)}>Archive</button>
+          <button className="secondary-button danger-action" type="button" onClick={() => onDelete(document.id)}><Trash2 size={17} /> Delete</button>
+        </footer>
+      </div>
+    </BaseModal>
+  );
+}
+
+function DocumentLinkModal({ onClose, onSave }: { onClose: () => void; onSave: (doc: DocumentItem) => void }) {
+  const [name, setName] = useState('Portfolio link');
+  const [url, setUrl] = useState('https://');
+  const [type, setType] = useState<DocKind>('Portfolio');
+  function submit(e: FormEvent) { e.preventDefault(); onSave({ id: makeId(), name, type, category: 'General', updated: today(), usedIn: 0, size: 'URL', url }); }
+  return <BaseModal title="Add link" subtitle="Save portfolio, GitHub, LinkedIn or another resource." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Name" value={name} onChange={setName} /><TextField label="URL" value={url} onChange={setUrl} /><div className="form-field"><span>Type</span><CustomSelect value={type} options={documentTypes} onChange={(v) => setType(v as DocKind)} /></div></div><ModalFooter onClose={onClose} submitLabel="Save link" /></form></BaseModal>;
+}
+
+function LegacyNotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes: (notes: NoteItem[]) => void; setToast: (value: string) => void }) {
+  const [selectedId, setSelectedId] = useState(notes[0]?.id || 0);
+  const selected = notes.find((note) => note.id === selectedId) || notes[0];
+  function patchNote(patch: Partial<NoteItem>) { if (!selected) return; setNotes(notes.map((note) => note.id === selected.id ? { ...note, ...patch, updated: today() } : note)); }
+  function addNote() { const note: NoteItem = { id: makeId(), title: 'New recruitment note', company: 'General', application: 'General', tag: 'Application notes', updated: today(), body: 'Start writing here.', checklist: [{ id: makeId(), text: 'First checklist item', done: false }] }; setNotes([note, ...notes]); setSelectedId(note.id); setToast('Note added.'); }
+  function deleteNote(id: number) { const next = notes.filter((note) => note.id !== id); setNotes(next); setSelectedId(next[0]?.id || 0); setToast('Note deleted.'); }
+  function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selected.checklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
+  function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selected.checklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
+  function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selected.checklist.filter((item) => item.id !== id) }); }
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." /></div><button className="primary-button" type="button" onClick={addNote}><Plus size={17} /> Add note</button></div><div className="notes-layout"><aside className="notes-list panel-card custom-scroll">{notes.map((note) => <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}><strong>{note.title}</strong><span>{note.company} Â· {note.tag}</span><small>{formatDate(note.updated)}</small></button>)}</aside>{selected ? <section className="panel-card note-editor"><div className="note-editor-head"><TextField label="Title" value={selected.title} onChange={(v) => patchNote({ title: v })} /><button className="ghost-icon danger" type="button" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button></div><div className="form-grid"><TextField label="Company" value={selected.company} onChange={(v) => patchNote({ company: v })} /><TextField label="Application" value={selected.application} onChange={(v) => patchNote({ application: v })} /><TextField label="Tag" value={selected.tag} onChange={(v) => patchNote({ tag: v })} /></div><label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value })} /></label><div className="checklist-panel"><div className="checklist-header"><h3>Checklist</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>{selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}</div><div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this mockup.</div></section> : <section className="panel-card empty-state"><StickyNote size={28} /><strong>No note selected</strong><span>Add a note to start writing.</span></section>}</div></section>;
+}
+
+function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes: (notes: NoteItem[]) => void; setToast: (value: string) => void }) {
+  const [selectedId, setSelectedId] = useState(notes[0]?.id || 0);
+  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const noteTypes = Array.from(new Set(notes.map((note) => note.type || note.tag).filter(Boolean)));
+  const filteredNotes = notes
+    .filter((note) => {
+      const haystack = `${note.title} ${note.company} ${note.application} ${note.tag} ${note.type ?? ''} ${note.tags?.join(' ') ?? ''} ${note.body}`.toLowerCase();
+      return haystack.includes(query.toLowerCase()) && (typeFilter === 'All' || (note.type || note.tag) === typeFilter);
+    })
+    .sort((first, second) => Number(Boolean(second.pinned)) - Number(Boolean(first.pinned)) || second.updated.localeCompare(first.updated));
+  const selected = notes.find((note) => note.id === selectedId) || filteredNotes[0] || notes[0];
+  function patchNote(patch: Partial<NoteItem>) {
+    if (!selected) return;
+    setNotes(notes.map((note) => note.id === selected.id ? { ...note, ...patch, updated: today(), lastEdited: today() } : note));
+  }
+  function addNote() {
+    const note: NoteItem = { id: makeId(), title: 'New recruitment note', company: 'General', application: 'General', tag: 'General', type: 'General', tags: ['General'], updated: today(), lastEdited: today(), preview: 'Start writing here.', body: 'Start writing here.', pinned: false, favorite: false, checklist: [{ id: makeId(), text: 'First checklist item', done: false }] };
+    setNotes([note, ...notes]);
+    setSelectedId(note.id);
+    setToast('Note added.');
+  }
+  function duplicateNote(note: NoteItem) {
+    const copy = { ...note, id: makeId(), title: `${note.title} copy`, pinned: false, updated: today(), lastEdited: today() };
+    setNotes([copy, ...notes]);
+    setSelectedId(copy.id);
+    setToast('Note duplicated.');
+  }
+  function deleteNote(id: number) {
+    const next = notes.filter((note) => note.id !== id);
+    setNotes(next);
+    setSelectedId(next[0]?.id || 0);
+    setToast('Note deleted.');
+  }
+  function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selected.checklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
+  function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selected.checklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
+  function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selected.checklist.filter((item) => item.id !== id) }); }
+  const doneCount = selected?.checklist.filter((item) => item.done).length ?? 0;
+  const totalCount = selected?.checklist.length ?? 0;
   return (
     <section className="page-section">
-      <PageTitle title="Notes" subtitle="Keep recruitment notes, interview questions and company research in one place." />
       <div className="toolbar">
-        <div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." /></div>
-        <button className="chip-button" type="button">Company <ChevronDown size={15} /></button>
-        <button className="chip-button" type="button">Tag <ChevronDown size={15} /></button>
-        <button className="primary-button" type="button"><Plus size={17} /> Add note</button>
+        <div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+        <CustomSelect label="Type" value={typeFilter} options={['All', ...noteTypes]} onChange={setTypeFilter} />
+        <button className="primary-button" type="button" onClick={addNote}><Plus size={17} /> Add note</button>
       </div>
       <div className="notes-layout">
-        <aside className="panel-card notes-list">
-          {notes.map((note) => (
-            <button key={note.id} className={`note-preview ${selectedNote.id === note.id ? 'active' : ''}`} type="button" onClick={() => setSelectedNote(note)}>
-              <span><StickyNote size={17} /></span>
-              <div>
-                <strong>{note.title}</strong>
-                <small>{note.preview}</small>
-              </div>
+        <aside className="notes-list panel-card custom-scroll">
+          {filteredNotes.map((note) => (
+            <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}>
+              <strong>{note.pinned ? 'Pinned · ' : ''}{note.title}</strong>
+              <span>{note.company} · {note.type || note.tag}</span>
+              <small>{formatDate(note.lastEdited || note.updated)}</small>
             </button>
           ))}
+          {!filteredNotes.length ? <div className="empty-state inline-empty"><StickyNote size={24} /><strong>No matching notes</strong><span>Clear search or change the filter.</span></div> : null}
         </aside>
-        <section className="panel-card note-editor">
-          <div className="note-editor-header">
-            <div>
-              <h2>{selectedNote.title}</h2>
-              <p>{selectedNote.company} · {selectedNote.application}</p>
+        {selected ? (
+          <section className="panel-card note-editor">
+            <div className="note-editor-head">
+              <TextField label="Title" value={selected.title} onChange={(value) => patchNote({ title: value })} />
+              <div className="document-actions">
+                <button className="ghost-icon" type="button" aria-label="Toggle pinned note" onClick={() => patchNote({ pinned: !selected.pinned })}><Tag size={18} /></button>
+                <button className="ghost-icon" type="button" aria-label="Toggle favorite note" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={18} /></button>
+                <button className="ghost-icon" type="button" aria-label="Duplicate note" onClick={() => duplicateNote(selected)}><MoreHorizontal size={18} /></button>
+                <button className="ghost-icon danger" type="button" aria-label="Delete note" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button>
+              </div>
             </div>
-            <div className="note-tags"><Tag size={15} /> {selectedNote.tag}</div>
-          </div>
-          <textarea value={selectedNote.body} onChange={(event) => setSelectedNote({ ...selectedNote, body: event.target.value })} />
-          <div className="note-checklist">
-            <h3><CheckSquare size={17} /> Checklist</h3>
-            {['Prepare examples', 'Review company page', 'Write follow-up'].map((item) => (
-              <label key={item}><input type="checkbox" /> {item}</label>
-            ))}
-          </div>
-          <div className="note-footer">
-            <span>Last updated: {selectedNote.updated}</span>
-            <button className="primary-button" type="button">Save note</button>
-          </div>
-        </section>
+            <div className="form-grid">
+              <TextField label="Company" value={selected.company} onChange={(value) => patchNote({ company: value })} />
+              <TextField label="Application" value={selected.application} onChange={(value) => patchNote({ application: value })} />
+              <TextField label="Type" value={selected.type || selected.tag} onChange={(value) => patchNote({ type: value, tag: value })} />
+              <TextField label="Tags" value={(selected.tags ?? [selected.tag]).join(', ')} onChange={(value) => patchNote({ tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) })} />
+            </div>
+            <label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value, preview: event.target.value.slice(0, 120) })} /></label>
+            <div className="checklist-panel">
+              <div className="checklist-header"><h3>Checklist ({doneCount}/{totalCount})</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>
+              {selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}
+            </div>
+            <div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this workspace.</div>
+          </section>
+        ) : <section className="panel-card empty-state"><StickyNote size={28} /><strong>No note selected</strong><span>Add a note to start writing.</span></section>}
       </div>
     </section>
   );
 }
 
-function PageTitle({ title, subtitle }: { title: string; subtitle: string }) {
+function BaseModal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
+  return <div className="modal-backdrop"><section className="add-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>{title}</h2><p>{subtitle}</p></div><button className="close-button" type="button" onClick={onClose}><X size={20} /></button></header>{children}</section></div>;
+}
+
+function ModalFooter({ onClose, submitLabel }: { onClose: () => void; submitLabel: string }) {
+  return <footer className="modal-footer inner"><button className="secondary-button" type="button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit"><CheckCircle2 size={17} /> {submitLabel}</button></footer>;
+}
+
+function ApplicationModal({ application, companies, documents, categoryOptions, levelOptions, onClose, onSave }: { application?: JobApplication; companies: Company[]; documents: DocumentItem[]; categoryOptions: string[]; levelOptions: string[]; onClose: () => void; onSave: (app: JobApplication) => void }) {
+  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: documents.find((doc) => doc.type === 'CV')?.name || 'CV_NET_Intern_Demo.pdf' });
+  function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [key]: value })); }
+  function chooseCompany(name: string) { const company = companies.find((item) => item.name === name); setForm((current) => ({ ...current, company: name, companyId: company?.id, domain: company?.domain || safeDomain(name), offerUrl: current.offerUrl || company?.website || '' })); }
+  function submit(event: FormEvent) { event.preventDefault(); onSave({ ...form, id: application?.id || makeId(), domain: safeDomain(form.company, form.domain) }); }
+  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="e.g. Sii" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="e.g. sii.pl" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder="e.g. .NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>CV version</span><CustomSelect value={form.cv} options={documents.filter((doc) => doc.type === 'CV').map((doc) => doc.name).concat(['Other'])} onChange={(v) => set('cv', v)} /></div></div><TextAreaField label="Requirements" value={form.requirements} onChange={(v) => set('requirements', v)} placeholder="C#, SQL, Git..." /><TextAreaField label="Benefits" value={form.benefits} onChange={(v) => set('benefits', v)} placeholder="Hybrid work, mentoring..." /><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} placeholder="What should you remember?" /><ModalFooter onClose={onClose} submitLabel={application ? 'Save changes' : 'Save application'} /></form></BaseModal>;
+}
+
+function ProfileCustomizationModal({ profile, setProfile, settings, setSettings, activeTab, setActiveTab, theme, setTheme, onClose, onExport, onBackup, onReset }: { profile: Profile; setProfile: (profile: Profile) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void; activeTab: ProfileTab; setActiveTab: (tab: ProfileTab) => void; theme: Theme; setTheme: (theme: Theme) => void; onClose: () => void; onExport: () => void; onBackup: () => void; onReset: () => void }) {
+  const [draftProfile, setDraftProfile] = useState(profile);
+  const [draftSettings, setDraftSettings] = useState(settings);
+  const [draftTheme, setDraftTheme] = useState(theme);
+  const tabs: { id: ProfileTab; label: string; icon: typeof User }[] = [{ id: 'profile', label: 'Profile', icon: User }, { id: 'appearance', label: 'Appearance', icon: Palette }, { id: 'notifications', label: 'Notifications', icon: Bell }, { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal }, { id: 'data', label: 'Data', icon: Database }];
+  function save() {
+    setProfile(draftProfile);
+    setSettings(draftSettings);
+    setTheme(draftTheme);
+    onClose();
+  }
+  return <div className="modal-backdrop"><section className="settings-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>Profile & customization</h2><p>Manage your profile, preferences and app settings.</p></div><button className="close-button" type="button" onClick={onClose}><X size={20} /></button></header><div className="settings-body"><aside className="settings-tabs">{tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => setActiveTab(tab.id)}><Icon size={17} /> {tab.label}</button>; })}</aside><main className="settings-content custom-scroll">{activeTab === 'profile' ? <ProfileTab profile={draftProfile} setProfile={setDraftProfile} /> : null}{activeTab === 'appearance' ? <AppearanceTab theme={draftTheme} setTheme={setDraftTheme} settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'notifications' ? <NotificationsTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'preferences' ? <PreferencesTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'data' ? <DataTab onExport={onExport} onBackup={onBackup} onReset={onReset} /> : null}</main></div><footer className="modal-footer"><button className="secondary-button" type="button" onClick={onClose}>Cancel</button><button className="primary-button" type="button" onClick={save}><CheckCircle2 size={17} /> Save changes</button></footer></section></div>;
+}
+
+function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: (profile: Profile) => void }) {
+  const [avatarVariant, setAvatarVariant] = useState(0);
+  const avatarLabels = ['Neutral icon', 'Soft circle', 'Initials'];
+  return <div className="tab-content"><div className="profile-photo-row"><span className={`profile-photo avatar-variant-${avatarVariant}`}>{avatarVariant === 2 ? getInitials(profile.name) : <User size={31} />}</span><div><h3>Profile photo</h3><p>Avatar variant: {avatarLabels[avatarVariant]}.</p><button className="text-button strong" type="button" onClick={() => setAvatarVariant((avatarVariant + 1) % avatarLabels.length)}>Change avatar</button></div></div><div className="form-grid"><TextField label="Full name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} /><TextField label="Email address" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} /><TextField label="Job search title" value={profile.title} onChange={(v) => setProfile({ ...profile, title: v })} /><TextField label="Preferred location" value={profile.location} onChange={(v) => setProfile({ ...profile, location: v })} /><div className="form-field"><span>Preferred work mode</span><CustomSelect value={profile.workMode} options={workModes} onChange={(v) => setProfile({ ...profile, workMode: v as WorkMode })} /></div></div></div>;
+}
+
+function AppearanceTab({ theme, setTheme, settings, setSettings }: { theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
+  return <div className="tab-content"><div className="setting-group"><span className="setting-label">Theme</span><div className="segmented-row"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Sun size={16} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Moon size={16} /> Dark</button><button type="button" onClick={() => setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}><Monitor size={16} /> System</button></div></div><div className="setting-group"><span className="setting-label">Accent color</span><div className="color-row">{(['Taupe', 'Champagne', 'Dusty rose', 'Soft brown', 'Beige'] as AppSettings['accent'][]).map((color) => <button className={`color-dot ${settings.accent === color ? 'selected' : ''} ${color.toLowerCase().replaceAll(' ', '-')}`} type="button" key={color} onClick={() => setSettings({ ...settings, accent: color })}><span />{color}</button>)}</div></div><div className="setting-group"><span className="setting-label">Layout density</span><div className="segmented-row"><button className={settings.density === 'Comfortable' ? 'selected' : ''} type="button" onClick={() => setSettings({ ...settings, density: 'Comfortable' })}>Comfortable</button><button className={settings.density === 'Compact' ? 'selected' : ''} type="button" onClick={() => setSettings({ ...settings, density: 'Compact' })}>Compact</button></div></div><ToggleRow title="Show motivational card in sidebar" text="Display cozy inspiration card at the bottom of the sidebar." checked={settings.showMotivation} onChange={(value) => setSettings({ ...settings, showMotivation: value })} /><ToggleRow title="Enable subtle animations" text="Smooth transitions for cards, modals and page changes." checked={settings.animations} onChange={(value) => setSettings({ ...settings, animations: value })} /></div>;
+}
+
+function ToggleRow({ title, text, checked, onChange }: { title: string; text: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return <div className="toggle-row"><div><strong>{title}</strong><span>{text}</span></div><button className={`toggle ${checked ? 'on' : ''}`} type="button" onClick={() => onChange(!checked)}><span /></button></div>;
+}
+
+function NotificationsTab({ settings, setSettings }: { settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
+  const n = settings.notifications;
+  function patch(patchValue: Partial<AppSettings['notifications']>) { setSettings({ ...settings, notifications: { ...n, ...patchValue } }); }
+  return <div className="tab-content narrow-settings"><ToggleRow title="Interview reminders" text="Remind me 24h and 1h before each interview." checked={n.interviews} onChange={(value) => patch({ interviews: value })} /><ToggleRow title="Follow-up reminders" text="Remind me to follow up after no response." checked={n.followUps} onChange={(value) => patch({ followUps: value })} /><ToggleRow title="Application deadlines" text="Alerts for deadlines set on offers." checked={n.deadlines} onChange={(value) => patch({ deadlines: value })} /><ToggleRow title="Weekly recruitment summary" text="Every Monday overview of the past week." checked={n.weekly} onChange={(value) => patch({ weekly: value })} /><ToggleRow title="Monthly statistics report" text="First of each month recruitment statistics." checked={n.monthly} onChange={(value) => patch({ monthly: value })} /><div className="form-field slim"><span>Default reminder time</span><CustomSelect value={n.reminderTime} options={['15 minutes before', '1 hour before', '1 day before']} onChange={(value) => patch({ reminderTime: value })} /></div></div>;
+}
+
+function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
+  const prefs = settings.preferences;
+  const [newCategory, setNewCategory] = useState('');
+  const [newLevel, setNewLevel] = useState('');
+  const [newLocation, setNewLocation] = useState('');
+  function patch(patchValue: Partial<AppSettings['preferences']>) { setSettings({ ...settings, preferences: { ...prefs, ...patchValue } }); }
+  function toggleString(key: 'categories' | 'levels' | 'locations', value: string) { const current = prefs[key]; patch({ [key]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value] } as Partial<AppSettings['preferences']>); }
+  function toggleMode(mode: WorkMode) { patch({ workModes: prefs.workModes.includes(mode) ? prefs.workModes.filter((item) => item !== mode) : [...prefs.workModes, mode] }); }
+  function addCustom(key: 'categories' | 'levels' | 'locations', value: string, clear: (value: string) => void) {
+    const clean = value.trim();
+    if (!clean) return;
+    const current = prefs[key];
+    if (!current.includes(clean)) patch({ [key]: [...current, clean] } as Partial<AppSettings['preferences']>);
+    clear('');
+  }
+  const categoryItems = uniqueOptions(categories, prefs.categories);
+  const levelItems = uniqueOptions(levels, prefs.levels);
+  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'KrakĂłw', 'WrocĹ‚aw', 'GdaĹ„sk'], prefs.locations);
+  return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><TextField label="Mark as no response after" value={String(prefs.noResponseDays)} onChange={(v) => patch({ noResponseDays: Number(v) || 0 })} /><TextField label="Mark as ghosted after" value={String(prefs.ghostedDays)} onChange={(v) => patch({ ghostedDays: Number(v) || 0 })} /><TextField label="Suggest follow-up after" value={String(prefs.followUpDays)} onChange={(v) => patch({ followUpDays: Number(v) || 0 })} /></div></div>;
+}
+
+function PreferenceGroup({ title, items, selected, onToggle, addValue, setAddValue, onAdd, addPlaceholder }: { title: string; items: string[]; selected: string[]; onToggle: (item: string) => void; addValue?: string; setAddValue?: (value: string) => void; onAdd?: () => void; addPlaceholder?: string }) {
+  return <div className="preference-group"><span className="setting-label">{title}</span><div className="preference-pills">{items.map((item) => <button key={item} className={selected.includes(item) ? 'selected' : ''} type="button" onClick={() => onToggle(item)}>{item}</button>)}</div>{setAddValue && onAdd ? <div className="add-custom-row"><input value={addValue || ''} placeholder={addPlaceholder || 'Add custom'} onChange={(event) => setAddValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); onAdd(); } }} /><button className="secondary-button small" type="button" onClick={onAdd}><Plus size={15} /> Add</button></div> : null}</div>;
+}
+
+function DataTab({ onExport, onBackup, onReset }: { onExport: () => void; onBackup: () => void; onReset: () => void }) {
+  return <div className="data-actions"><button className="data-action" type="button" onClick={() => alert('Import CSV will be connected to backend later.')}><span className="blue"><Upload size={20} /></span><div><strong>Import CSV</strong><p>Planned import flow for application data.</p></div></button><button className="data-action" type="button" onClick={onExport}><span className="green"><Download size={20} /></span><div><strong>Export CSV</strong><p>Download all applications as a CSV file.</p></div></button><button className="data-action" type="button" onClick={onBackup}><span className="beige"><Database size={20} /></span><div><strong>Backup data</strong><p>Save a complete JSON backup of local workspace data.</p></div></button><button className="data-action" type="button" onClick={onReset}><span className="danger"><Trash2 size={20} /></span><div><strong>Reset local data</strong><p>Restore local documents, notes and preferences.</p></div></button></div>;
+}
+
+function Toast({ message }: { message: string }) {
+  return <div className="toast"><CheckCircle2 size={17} /> {message}</div>;
+}
+
+function useIsMobile(breakpoint = 900) {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= breakpoint;
+  });
+
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+type MobileLayoutProps = {
+  shellClass: string;
+  page: Page;
+  setPage: (page: Page) => void;
+  profile: Profile;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  settings: AppSettings;
+  applications: JobApplication[];
+  companies: Company[];
+  events: CalendarEvent[];
+  documents: DocumentItem[];
+  notes: NoteItem[];
+  setCompanies: (companies: Company[]) => void;
+  setEvents: (events: CalendarEvent[]) => void;
+  setDocuments: (documents: DocumentItem[]) => void;
+  setNotes: (notes: NoteItem[]) => void;
+  setToast: (value: string) => void;
+  onOpenApplication: () => void;
+  onOpenEditApplication: (application: JobApplication) => void;
+  onStatusChange: (id: EntityId, status: Status) => void;
+  onDeleteApplication: (id: EntityId) => void;
+  onOpenSettings: (tab?: ProfileTab) => void;
+  onLogout: () => void;
+  onExport: () => void;
+  documentsLoading?: boolean;
+  documentsError?: string | null;
+  onRefreshDocuments?: () => void;
+  onUploadDocument?: (file: File) => Promise<void>;
+  onCreateDocumentLink?: (doc: DocumentItem) => Promise<void>;
+  onDeleteDocument?: (id: EntityId) => Promise<void>;
+  onArchiveDocument?: (id: EntityId) => Promise<void>;
+  onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
+  categoryOptions: string[];
+  levelOptions: string[];
+  children?: React.ReactNode;
+};
+
+function MobileLayout({
+  shellClass,
+  page,
+  setPage,
+  profile,
+  theme,
+  setTheme,
+  settings,
+  applications,
+  companies,
+  events,
+  documents,
+  notes,
+  setCompanies,
+  setEvents,
+  setDocuments,
+  setNotes,
+  setToast,
+  onOpenApplication,
+  onOpenEditApplication,
+  onStatusChange,
+  onDeleteApplication,
+  onOpenSettings,
+  onLogout,
+  onExport,
+  documentsLoading,
+  documentsError,
+  onRefreshDocuments,
+  onUploadDocument,
+  onCreateDocumentLink,
+  onDeleteDocument,
+  onArchiveDocument,
+  onDownloadDocument,
+  categoryOptions,
+  levelOptions,
+  children
+}: MobileLayoutProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  function openAddApplication() {
+    setPage('applications');
+    onOpenApplication();
+  }
+
   return (
-    <div className="page-title">
-      <h2>{title}</h2>
-      <p>{subtitle}</p>
+    <div className={`${shellClass} mobile-app-shell`}>
+      <MobileHeader
+        page={page}
+        profile={profile}
+        theme={theme}
+        setTheme={setTheme}
+        onOpenSettings={onOpenSettings}
+      />
+
+      <main className="mobile-content custom-scroll">
+        {page === 'dashboard' ? (
+          <MobileDashboardPage
+            applications={applications}
+            events={events}
+            setPage={setPage}
+            onOpenEditApplication={onOpenEditApplication}
+          />
+        ) : null}
+
+        {page === 'applications' ? (
+          <MobileApplicationsPage
+            applications={applications}
+            onOpenApplication={openAddApplication}
+            onOpenEditApplication={onOpenEditApplication}
+            onStatusChange={onStatusChange}
+            onDelete={onDeleteApplication}
+            onExport={onExport}
+            categoryOptions={categoryOptions}
+            levelOptions={levelOptions}
+          />
+        ) : null}
+
+        {page === 'calendar' ? (
+          <MobileCalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} />
+        ) : null}
+
+        {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
+        {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
+        {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
+        {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onDownloadDocument={onDownloadDocument} /> : null}
+      </main>
+
+      <FloatingActionButton onClick={openAddApplication} label="Add application" />
+      <MobileBottomNav page={page} setPage={setPage} onMore={() => setMoreOpen(true)} />
+
+      {moreOpen ? (
+        <MobileMoreMenu
+          page={page}
+          setPage={setPage}
+          onClose={() => setMoreOpen(false)}
+          onOpenSettings={onOpenSettings}
+          onLogout={onLogout}
+          onExport={onExport}
+          theme={theme}
+          setTheme={setTheme}
+          settings={settings}
+        />
+      ) : null}
+
+      {children}
     </div>
   );
 }
 
-function ProfileCustomizationModal({ onClose }: { onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'notifications' | 'preferences' | 'data'>('profile');
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
-    { id: 'data', label: 'Data', icon: Database }
-  ] as const;
+function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
+  const meta = pageLabels[page];
+  const firstName = profile.name.split(' ')[0] || 'User';
 
   return (
-    <div className="modal-backdrop">
-      <section className="settings-modal" role="dialog" aria-modal="true" aria-label="Profile and customization">
-        <header className="modal-header">
-          <div>
-            <h2>Profile & customization</h2>
-            <p>Manage your profile, preferences and app settings.</p>
-          </div>
-          <button className="close-button" type="button" onClick={onClose} aria-label="Close settings">
-            <X size={20} />
+    <header className="mobile-header">
+      <div className="mobile-header-top">
+        <Logo />
+        <div className="mobile-header-actions">
+          <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
-        </header>
-        <div className="modal-body">
-          <aside className="modal-tabs">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  className={activeTab === tab.id ? 'active' : ''}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  <Icon size={17} /> {tab.label}
-                </button>
-              );
-            })}
-          </aside>
-          <main className="modal-content custom-scroll">
-            {activeTab === 'profile' ? <ProfileTab /> : null}
-            {activeTab === 'appearance' ? <AppearanceTab /> : null}
-            {activeTab === 'notifications' ? <NotificationsTab /> : null}
-            {activeTab === 'preferences' ? <PreferencesTab /> : null}
-            {activeTab === 'data' ? <DataTab /> : null}
-          </main>
-        </div>
-        <footer className="modal-footer">
-          <button className="secondary-button" type="button" onClick={onClose}>Cancel</button>
-          <button className="primary-button" type="button" onClick={onClose}><CheckCircle2 size={17} /> Save changes</button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <label className="form-field">
-      <span>{label}</span>
-      <input defaultValue={value} />
-    </label>
-  );
-}
-
-function ProfileTab() {
-  return (
-    <div className="tab-content">
-      <div className="profile-photo-row">
-        <span className="profile-photo"><User size={31} /></span>
-        <div>
-          <h3>Profile photo</h3>
-          <p>Upload a photo or leave the default avatar.</p>
-          <button className="text-button strong" type="button">Change avatar</button>
+          <button className="mobile-avatar-button" type="button" onClick={() => onOpenSettings('profile')} aria-label="Open profile">
+            <span>{getInitials(firstName)}</span>
+          </button>
         </div>
       </div>
-      <div className="form-grid">
-        <Field label="Full name" value="Kasia Wiśniewska" />
-        <Field label="Email address" value="kasia@example.com" />
-        <Field label="Job search title" value="Junior .NET / Cybersecurity Intern" />
-        <Field label="Preferred location" value="Warsaw, Poland" />
-        <Field label="Preferred work mode" value="Hybrid" />
+      <div className="mobile-page-title">
+        <span>{firstName}'s job tracker</span>
+        <h1>{page === 'dashboard' ? `Good morning, ${firstName}` : meta.title}</h1>
+        <p>{page === 'dashboard' ? 'Your next recruitment steps in one calm view.' : meta.subtitle}</p>
       </div>
-    </div>
+    </header>
   );
 }
 
-function AppearanceTab() {
-  return (
-    <div className="tab-content">
-      <div className="setting-group">
-        <span className="setting-label">Theme</span>
-        <div className="segmented-row">
-          <button className="selected" type="button"><Sun size={16} /> Light</button>
-          <button type="button"><Moon size={16} /> Dark</button>
-          <button type="button"><Monitor size={16} /> System</button>
-        </div>
-      </div>
-      <div className="setting-group">
-        <span className="setting-label">Accent color</span>
-        <div className="color-row">
-          {['Taupe', 'Champagne', 'Dusty rose', 'Soft brown', 'Beige'].map((color) => <button className={`color-dot ${color.toLowerCase().replaceAll(' ', '-')}`} type="button" key={color}><span />{color}</button>)}
-        </div>
-      </div>
-      <div className="setting-group">
-        <span className="setting-label">Layout density</span>
-        <div className="segmented-row"><button className="selected" type="button">Comfortable</button><button type="button">Compact</button></div>
-      </div>
-      <ToggleRow title="Show motivational card in sidebar" text="Display desk inspiration card at the bottom of the sidebar." checked />
-      <ToggleRow title="Enable subtle animations" text="Smooth transitions for cards, modals and page changes." checked />
-    </div>
-  );
-}
+function MobileBottomNav({ page, setPage, onMore }: { page: Page; setPage: (page: Page) => void; onMore: () => void }) {
+  const primaryItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
+    { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { id: 'applications', label: 'Apps', icon: BriefcaseBusiness },
+    { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+    { id: 'notes', label: 'Notes', icon: StickyNote }
+  ];
+  const moreActive = !primaryItems.some((item) => item.id === page);
 
-function ToggleRow({ title, text, checked }: { title: string; text: string; checked?: boolean }) {
   return (
-    <div className="toggle-row">
-      <div>
-        <strong>{title}</strong>
-        <p>{text}</p>
-      </div>
-      <label className="switch"><input type="checkbox" defaultChecked={checked} /><span /></label>
-    </div>
-  );
-}
-
-function NotificationsTab() {
-  return (
-    <div className="tab-content">
-      <ToggleRow title="Interview reminders" text="Remind me 24h and 1h before each interview." checked />
-      <ToggleRow title="Follow-up reminders" text="Remind me to follow up after no response." checked />
-      <ToggleRow title="Application deadlines" text="Alerts for deadlines set on offers." />
-      <ToggleRow title="Weekly recruitment summary" text="Every Monday — overview of the past week." checked />
-      <ToggleRow title="Monthly statistics report" text="First of each month — your recruitment statistics." />
-      <Field label="Default reminder time" value="15 minutes before" />
-    </div>
-  );
-}
-
-function PreferencesTab() {
-  const categories = ['.NET', 'C#', 'Cybersecurity', 'IAM', 'SOC', 'DevOps', 'React', 'Full-stack', 'Backend', 'Frontend', 'Data / AI'];
-  const levels = ['Internship', 'Trainee', 'Working Student', 'Junior', 'Junior-friendly', 'Mid', 'Senior'];
-  const statuses = ['Saved', 'Applied', 'In progress', 'HR interview', 'Technical interview', 'Task / test', 'Offer', 'Rejected', 'No response', 'Ghosted', 'Withdrawn', 'Archived'];
-  return (
-    <div className="tab-content">
-      <TokenGroup title="Preferred categories" tokens={categories} selected={['.NET', 'C#', 'Cybersecurity', 'IAM', 'DevOps']} />
-      <TokenGroup title="Preferred job levels" tokens={levels} selected={['Internship', 'Junior', 'Junior-friendly']} />
-      <div className="rules-grid">
-        <Field label="Mark as no response after" value="14 days" />
-        <Field label="Mark as ghosted after" value="30 days" />
-        <Field label="Suggest follow-up after" value="7 days" />
-      </div>
-      <TokenGroup title="Application statuses" tokens={statuses} selected={['Applied', 'In progress', 'Interview', 'Offer', 'Rejected']} />
-    </div>
-  );
-}
-
-function TokenGroup({ title, tokens, selected }: { title: string; tokens: string[]; selected: string[] }) {
-  return (
-    <div className="setting-group">
-      <span className="setting-label">{title}</span>
-      <div className="token-row">
-        {tokens.map((token) => <button className={selected.includes(token) ? 'selected' : ''} type="button" key={token}>{token}</button>)}
-      </div>
-    </div>
-  );
-}
-
-function DataTab() {
-  const actions = [
-    { icon: Upload, title: 'Import CSV', text: 'Import applications from a CSV file.', tone: 'blue' },
-    { icon: Download, title: 'Export CSV', text: 'Download all applications as a CSV file.', tone: 'green' },
-    { icon: FileText, title: 'Export PDF report', text: 'Generate a full recruitment PDF report.', tone: 'beige' },
-    { icon: Database, title: 'Backup data', text: 'Save a complete backup of your data.', tone: 'green' },
-    { icon: Trash2, title: 'Delete all data', text: 'Permanently delete all applications and data. Cannot be undone.', tone: 'danger' }
-  ] as const;
-  return (
-    <div className="tab-content data-actions">
-      {actions.map((action) => {
-        const Icon = action.icon;
+    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+      {primaryItems.map((item) => {
+        const Icon = item.icon;
         return (
-          <button className="data-action" type="button" key={action.title}>
-            <span className={`data-icon ${action.tone}`}><Icon size={20} /></span>
-            <div>
-              <strong>{action.title}</strong>
-              <p>{action.text}</p>
-            </div>
+          <button key={item.id} type="button" className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>
+            <Icon size={19} />
+            <span>{item.label}</span>
           </button>
         );
       })}
+      <button type="button" className={moreActive ? 'active' : ''} onClick={onMore}>
+        <MoreHorizontal size={20} />
+        <span>More</span>
+      </button>
+    </nav>
+  );
+}
+
+function FloatingActionButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button className="mobile-fab" type="button" onClick={onClick} aria-label={label}>
+      <Plus size={22} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onExport, theme, setTheme, settings }: { page: Page; setPage: (page: Page) => void; onClose: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; onExport: () => void; theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings }) {
+  const items: { id: Page; label: string; icon: typeof Building2; description: string }[] = [
+    { id: 'companies', label: 'Companies', icon: Building2, description: 'Company history and contacts' },
+    { id: 'statistics', label: 'Statistics', icon: BarChart3, description: 'Progress and response rates' },
+    { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' }
+  ];
+
+  return (
+    <MobileBottomSheet title="More" subtitle="Secondary pages and app options." onClose={onClose}>
+      <div className="mobile-more-list">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button key={item.id} type="button" className={page === item.id ? 'active' : ''} onClick={() => { setPage(item.id); onClose(); }}>
+              <span className="mobile-more-icon"><Icon size={19} /></span>
+              <div>
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </div>
+            </button>
+          );
+        })}
+        <button type="button" onClick={() => { onOpenSettings('profile'); onClose(); }}>
+          <span className="mobile-more-icon"><User size={19} /></span>
+          <div><strong>Profile & settings</strong><small>Profile, notifications and preferences</small></div>
+        </button>
+        <button type="button" onClick={() => { onOpenSettings('appearance'); onClose(); }}>
+          <span className="mobile-more-icon"><Palette size={19} /></span>
+          <div><strong>Appearance</strong><small>{theme} Â· {settings.accent}</small></div>
+        </button>
+        <button type="button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+          <span className="mobile-more-icon">{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</span>
+          <div><strong>Switch theme</strong><small>Change between light and dark mode</small></div>
+        </button>
+        <button type="button" onClick={onExport}>
+          <span className="mobile-more-icon"><Download size={19} /></span>
+          <div><strong>Export CSV</strong><small>Download applications data</small></div>
+        </button>
+        <button type="button" className="danger" onClick={onLogout}>
+          <span className="mobile-more-icon"><LogOut size={19} /></span>
+          <div><strong>Log out</strong><small>Exit session</small></div>
+        </button>
+      </div>
+    </MobileBottomSheet>
+  );
+}
+
+function MobileBottomSheet({ title, subtitle, onClose, children, className = '' }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <div className="mobile-sheet-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className={`mobile-bottom-sheet ${className}`} role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="mobile-sheet-handle" aria-hidden="true" />
+        <header className="mobile-sheet-header">
+          <div>
+            <h2>{title}</h2>
+            {subtitle ? <p>{subtitle}</p> : null}
+          </div>
+          <button className="close-button" type="button" onClick={onClose} aria-label="Close"><X size={20} /></button>
+        </header>
+        <div className="mobile-sheet-body custom-scroll">{children}</div>
+      </section>
     </div>
   );
 }
 
-function App() {
-  const [page, setPage] = useState<Page>('dashboard');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const pageHeader = useMemo(() => {
-    if (page === 'dashboard') return { title: 'Good morning, Kasia', subtitle: 'Here’s an overview of your recruitment progress.' };
-    const labels: Record<Page, { title: string; subtitle: string }> = {
-      dashboard: { title: 'Good morning, Kasia', subtitle: 'Here’s an overview of your recruitment progress.' },
-      applications: { title: 'Applications', subtitle: 'Manage your job applications and recruitment stages.' },
-      companies: { title: 'Companies', subtitle: 'Track companies, previous applications and recruitment history.' },
-      statistics: { title: 'Statistics', subtitle: 'Analyze your application progress and discover what works best.' },
-      calendar: { title: 'Calendar', subtitle: 'Plan interviews, follow-ups and recruitment tasks.' },
-      documents: { title: 'Documents', subtitle: 'Manage CV versions, cover letters and application files.' },
-      notes: { title: 'Notes', subtitle: 'Keep recruitment notes, interview questions and company research in one place.' }
-    };
-    return labels[page];
-  }, [page]);
+function MobileDashboardPage({ applications, events, setPage, onOpenEditApplication }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; onOpenEditApplication: (app: JobApplication) => void }) {
+  const stats = calculateStats(applications);
+  const nextActions = applications
+    .filter((app) => ['Interview', 'Task / test', 'No response', 'Ghosted', 'In progress'].includes(app.status))
+    .slice(0, 4);
+  const recent = [...applications].sort((a, b) => b.dateApplied.localeCompare(a.dateApplied)).slice(0, 3);
+  const upcoming = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).slice(0, 3);
 
   return (
-    <div className={`app-shell ${theme === 'dark' ? 'dark' : ''}`}>
-      <Sidebar currentPage={page} onPageChange={setPage} />
-      <div className="workspace">
-        <Topbar title={pageHeader.title} subtitle={pageHeader.subtitle} theme={theme} setTheme={setTheme} onOpenSettings={() => setSettingsOpen(true)} />
-        <div className="content custom-scroll">
-          {page === 'dashboard' ? <DashboardPage /> : null}
-          {page === 'applications' ? <ApplicationsPage /> : null}
-          {page === 'companies' ? <CompaniesPage /> : null}
-          {page === 'statistics' ? <StatisticsPage /> : null}
-          {page === 'calendar' ? <CalendarPage /> : null}
-          {page === 'documents' ? <DocumentsPage /> : null}
-          {page === 'notes' ? <NotesPage /> : null}
+    <section className="mobile-dashboard">
+      <div className="mobile-metrics-row custom-scroll">
+        <MetricCard label="Total" value={stats.total} hint="applications" />
+        <MetricCard label="Active" value={stats.active} hint="open processes" tone="blue-text" />
+        <MetricCard label="Interviews" value={stats.interviews} hint="positive stages" tone="rose-text" />
+        <MetricCard label="Response" value={`${stats.responseRate}%`} hint="all time" tone="green-text" />
+      </div>
+
+      <section className="mobile-section-card">
+        <div className="mobile-section-head">
+          <div><h2>Next actions</h2><p>Things worth checking first.</p></div>
+          <button type="button" onClick={() => setPage('applications')}>All</button>
+        </div>
+        <div className="mobile-action-list">
+          {nextActions.map((app) => <MobileActionItem key={app.id} application={app} onClick={() => onOpenEditApplication(app)} />)}
+          {!nextActions.length ? <MobileEmptyState icon={CheckCircle2} title="Nothing urgent" text="No urgent recruitment steps for now." /> : null}
+        </div>
+      </section>
+
+      <section className="mobile-section-card">
+        <div className="mobile-section-head">
+          <div><h2>Recent applications</h2><p>Latest saved entries.</p></div>
+          <button type="button" onClick={() => setPage('applications')}>Open</button>
+        </div>
+        <div className="mobile-card-list compact">
+          {recent.map((app) => <MobileApplicationCard key={app.id} application={app} onOpen={() => onOpenEditApplication(app)} onEdit={() => onOpenEditApplication(app)} />)}
+        </div>
+      </section>
+
+      <section className="mobile-section-card">
+        <div className="mobile-section-head">
+          <div><h2>Agenda</h2><p>Upcoming recruitment events.</p></div>
+          <button type="button" onClick={() => setPage('calendar')}>Calendar</button>
+        </div>
+        <div className="mobile-agenda-list">
+          {upcoming.map((event) => <MobileAgendaItem key={event.id} event={event} />)}
+          {!upcoming.length ? <MobileEmptyState icon={CalendarDays} title="No events" text="Add interviews and reminders to your calendar." /> : null}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function MobileActionItem({ application, onClick }: { application: JobApplication; onClick: () => void }) {
+  return (
+    <button className="mobile-action-item" type="button" onClick={onClick}>
+      <CompanyLogo name={application.company} domain={application.domain} />
+      <div>
+        <strong>{application.nextStep || application.status}</strong>
+        <span>{application.company} Â· {application.position}</span>
+      </div>
+      <StatusBadge status={application.status} />
+    </button>
+  );
+}
+
+function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onStatusChange: (id: EntityId, status: Status) => void; onDelete: (id: EntityId) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('All');
+  const [category, setCategory] = useState('All');
+  const [level, setLevel] = useState('All');
+  const [location, setLocation] = useState('All');
+  const [mode, setMode] = useState('All');
+  const [source, setSource] = useState('All');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [details, setDetails] = useState<JobApplication | null>(null);
+
+  const locations = useMemo(() => ['All', ...Array.from(new Set(applications.map((app) => app.location))).filter(Boolean)], [applications]);
+  const filtered = useMemo(() => applications.filter((app) => {
+    const search = `${app.company} ${app.position} ${app.category} ${app.source} ${app.location}`.toLowerCase();
+    return search.includes(query.toLowerCase()) &&
+      (status === 'All' || app.status === status) &&
+      (category === 'All' || app.category === category) &&
+      (level === 'All' || app.level === level) &&
+      (location === 'All' || app.location === location) &&
+      (mode === 'All' || app.workMode === mode) &&
+      (source === 'All' || app.source === source);
+  }), [applications, query, status, category, level, location, mode, source]);
+
+  const activeFilters = [status, category, level, location, mode, source].filter((value) => value !== 'All');
+  const hasFilters = query || activeFilters.length > 0;
+
+  function clearFilters() {
+    setQuery('');
+    setStatus('All');
+    setCategory('All');
+    setLevel('All');
+    setLocation('All');
+    setMode('All');
+    setSource('All');
+  }
+
+  return (
+    <section className="mobile-applications-page">
+      <div className="mobile-search-row">
+        <label className="mobile-search-field">
+          <Search size={18} />
+          <input placeholder="Search applications..." value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <button className="mobile-filter-button" type="button" onClick={() => setFiltersOpen(true)}>
+          <SlidersHorizontal size={18} />
+          <span>Filters</span>
+          {activeFilters.length ? <strong>{activeFilters.length}</strong> : null}
+        </button>
+      </div>
+
+      <div className="mobile-filter-chips custom-scroll">
+        {activeFilters.map((filter) => <span key={filter}>{filter}</span>)}
+        {hasFilters ? <button type="button" onClick={clearFilters}>Clear</button> : null}
+      </div>
+
+      <div className="mobile-list-summary">
+        <div><strong>{filtered.length}</strong><span>{filtered.length === 1 ? 'application' : 'applications'}</span></div>
+        <div className="mobile-list-actions">
+          <button type="button" onClick={onExport}><Download size={16} /> Export</button>
+          <button type="button" onClick={onOpenApplication}><Plus size={16} /> Add</button>
         </div>
       </div>
-      {settingsOpen ? <ProfileCustomizationModal onClose={() => setSettingsOpen(false)} /> : null}
+
+      <div className="mobile-card-list">
+        {filtered.map((app) => (
+          <MobileApplicationCard
+            key={app.id}
+            application={app}
+            onOpen={() => setDetails(app)}
+            onEdit={() => onOpenEditApplication(app)}
+            onDelete={() => onDelete(app.id)}
+            onStatusChange={(nextStatus) => onStatusChange(app.id, nextStatus)}
+          />
+        ))}
+        {!filtered.length ? <MobileEmptyState icon={Folder} title="No results" text="Try changing filters or add a new application." /> : null}
+      </div>
+
+      {filtersOpen ? (
+        <MobileFiltersSheet
+          status={status}
+          setStatus={setStatus}
+          category={category}
+          setCategory={setCategory}
+          level={level}
+          setLevel={setLevel}
+          location={location}
+          setLocation={setLocation}
+          mode={mode}
+          setMode={setMode}
+          source={source}
+          setSource={setSource}
+          locations={locations}
+          categoryOptions={categoryOptions}
+          levelOptions={levelOptions}
+          onClose={() => setFiltersOpen(false)}
+          onClear={clearFilters}
+        />
+      ) : null}
+
+      {details ? (
+        <ApplicationDetailsSheet
+          application={details}
+          onClose={() => setDetails(null)}
+          onEdit={() => {
+            setDetails(null);
+            onOpenEditApplication(details);
+          }}
+          onDelete={() => {
+            onDelete(details.id);
+            setDetails(null);
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function MobileApplicationCard({ application, onOpen, onEdit, onDelete, onStatusChange }: { application: JobApplication; onOpen: () => void; onEdit: () => void; onDelete?: () => void; onStatusChange?: (status: Status) => void }) {
+  return (
+    <article className="mobile-application-card">
+      <button className="mobile-card-main" type="button" onClick={onOpen}>
+        <div className="mobile-card-topline">
+          <div className="mobile-card-company">
+            <CompanyLogo name={application.company} domain={application.domain} />
+            <div>
+              <strong>{application.company}</strong>
+              <span>{application.location} Â· {application.workMode}</span>
+            </div>
+          </div>
+          <StatusBadge status={application.status} />
+        </div>
+        <h2>{application.position}</h2>
+        <div className="mobile-card-meta">
+          <span>{application.category}</span>
+          <span>{application.level}</span>
+          <span>{formatDate(application.dateApplied)}</span>
+        </div>
+        <div className="mobile-next-step"><Clock size={15} /><span>Next: {application.nextStep || 'Waiting'}</span></div>
+      </button>
+      <div className="mobile-card-actions-row">
+        {onStatusChange ? (
+          <select value={application.status} onChange={(event) => onStatusChange(event.target.value as Status)} aria-label={`Change status for ${application.company}`}>
+            {statuses.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        ) : null}
+        <button type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={16} /> Open</button>
+        <button type="button" onClick={onEdit}><Pencil size={16} /> Edit</button>
+        {onDelete ? <button className="danger" type="button" onClick={onDelete}><Trash2 size={16} /></button> : null}
+      </div>
+    </article>
+  );
+}
+
+function MobileFiltersSheet({ status, setStatus, category, setCategory, level, setLevel, location, setLocation, mode, setMode, source, setSource, locations, categoryOptions, levelOptions, onClose, onClear }: { status: string; setStatus: (value: string) => void; category: string; setCategory: (value: string) => void; level: string; setLevel: (value: string) => void; location: string; setLocation: (value: string) => void; mode: string; setMode: (value: string) => void; source: string; setSource: (value: string) => void; locations: string[]; categoryOptions: string[]; levelOptions: string[]; onClose: () => void; onClear: () => void }) {
+  return (
+    <MobileBottomSheet title="Filters" subtitle="Narrow down your recruitment list." onClose={onClose} className="mobile-filters-sheet">
+      <div className="mobile-filter-grid">
+        <div className="form-field"><span>Status</span><CustomSelect value={status} options={['All', ...statuses]} onChange={setStatus} /></div>
+        <div className="form-field"><span>Category</span><CustomSelect value={category} options={['All', ...categoryOptions]} onChange={setCategory} /></div>
+        <div className="form-field"><span>Level</span><CustomSelect value={level} options={['All', ...levelOptions]} onChange={setLevel} /></div>
+        <div className="form-field"><span>Location</span><CustomSelect value={location} options={locations} onChange={setLocation} /></div>
+        <div className="form-field"><span>Work mode</span><CustomSelect value={mode} options={['All', ...workModes]} onChange={setMode} /></div>
+        <div className="form-field"><span>Source</span><CustomSelect value={source} options={['All', ...sources]} onChange={setSource} /></div>
+      </div>
+      <div className="mobile-sheet-actions">
+        <button className="secondary-button" type="button" onClick={onClear}>Clear</button>
+        <button className="primary-button" type="button" onClick={onClose}>Show results</button>
+      </div>
+    </MobileBottomSheet>
+  );
+}
+
+function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <MobileBottomSheet title="Application details" subtitle={`${application.company} Â· ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
+      <div className="mobile-detail-hero">
+        <CompanyLogo name={application.company} domain={application.domain} large />
+        <div>
+          <h2>{application.position}</h2>
+          <p>{application.company}</p>
+        </div>
+        <StatusBadge status={application.status} />
+      </div>
+
+      <div className="mobile-detail-grid">
+        <div><span>Date applied</span><strong>{formatDate(application.dateApplied)}</strong></div>
+        <div><span>Last contact</span><strong>{formatDate(application.lastContact)}</strong></div>
+        <div><span>Work mode</span><strong>{application.workMode}</strong></div>
+        <div><span>Source</span><strong>{application.source}</strong></div>
+      </div>
+
+      <div className="mobile-detail-section">
+        <h3>Next step</h3>
+        <p>{application.nextStep || 'Waiting'}</p>
+      </div>
+      <div className="mobile-detail-section">
+        <h3>Requirements</h3>
+        <p>{application.requirements || 'No requirements saved yet.'}</p>
+      </div>
+      <div className="mobile-detail-section">
+        <h3>Notes</h3>
+        <p>{application.notes || 'No notes saved yet.'}</p>
+      </div>
+
+      <div className="mobile-sheet-actions sticky-actions">
+        <button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Offer</button>
+        <button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button>
+        <button className="secondary-button danger-button" type="button" onClick={onDelete}><Trash2 size={17} /> Delete</button>
+      </div>
+    </MobileBottomSheet>
+  );
+}
+
+function MobileCalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
+  const [modal, setModal] = useState<CalendarEvent | null>(null);
+  const sorted = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  const grouped = sorted.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
+    acc[event.date] = acc[event.date] || [];
+    acc[event.date].push(event);
+    return acc;
+  }, {});
+
+  function save(event: CalendarEvent) {
+    if (events.some((item) => item.id === event.id)) setEvents(events.map((item) => item.id === event.id ? event : item));
+    else setEvents([event, ...events]);
+    setModal(null);
+    setToast('Calendar event saved.');
+  }
+
+  function remove(id: number) {
+    setEvents(events.filter((event) => event.id !== id));
+    setToast('Calendar event removed.');
+  }
+
+  function addEvent() {
+    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date: today(), time: '10:00', type: 'HR interview', location: 'Online', meetingLink: '', notes: '' });
+  }
+
+  return (
+    <section className="mobile-calendar-page">
+      <div className="mobile-list-summary">
+        <div><strong>{events.length}</strong><span>events</span></div>
+        <div className="mobile-list-actions"><button type="button" onClick={addEvent}><Plus size={16} /> Add event</button></div>
+      </div>
+      <div className="mobile-agenda-groups">
+        {Object.entries(grouped).map(([date, dayEvents]) => (
+          <section className="mobile-agenda-group" key={date}>
+            <h2>{formatDate(date)}</h2>
+            {dayEvents.map((event) => (
+              <div className="mobile-calendar-event" key={event.id}>
+                <button type="button" onClick={() => setModal(event)}>
+                  <span>{event.time}</span>
+                  <div><strong>{event.title}</strong><small>{event.company} Â· {event.location}</small></div>
+                </button>
+                <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
+                <button className="ghost-icon danger" type="button" onClick={() => remove(event.id)}><Trash2 size={16} /></button>
+              </div>
+            ))}
+          </section>
+        ))}
+        {!events.length ? <MobileEmptyState icon={CalendarDays} title="No events" text="Add interviews, tests and follow-up reminders." /> : null}
+      </div>
+      {modal ? <EventModal event={modal} applications={applications} onClose={() => setModal(null)} onSave={save} /> : null}
+    </section>
+  );
+}
+
+function MobileAgendaItem({ event }: { event: CalendarEvent }) {
+  return (
+    <div className="mobile-agenda-item">
+      <span>{event.time}</span>
+      <div>
+        <strong>{event.title}</strong>
+        <small>{formatDate(event.date)} Â· {event.company}</small>
+      </div>
+    </div>
+  );
+}
+
+function MobileEmptyState({ icon: Icon, title, text }: { icon: typeof Folder; title: string; text: string }) {
+  return (
+    <div className="mobile-empty-state">
+      <Icon size={26} />
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+
+function App() {
+  const [isLoggedIn, setLoggedIn] = useState(() => Boolean(getAuthToken()));
+  const [authLoading, setAuthLoading] = useState(() => Boolean(getAuthToken()));
+  const [profile, setProfile] = useState<Profile>(() => readStorage(STORAGE.profile, initialProfile));
+  const [settings, setSettings] = useState<AppSettings>(() => readStorage(STORAGE.settings, initialSettings));
+  const [applications, setApplications] = useState<JobApplication[]>(() => readStorage(STORAGE.applications, richInitialApplications));
+  const [companies, setCompanies] = useState<Company[]>(() => readStorage(STORAGE.companies, richInitialCompanies));
+  const [events, setEvents] = useState<CalendarEvent[]>(() => readStorage(STORAGE.events, richInitialEvents));
+  const [documents, setDocuments] = useState<DocumentItem[]>(() => readStorage(STORAGE.documents, richInitialDocuments));
+  const [notes, setNotes] = useState<NoteItem[]>(() => readStorage(STORAGE.notes, richInitialNotes));
+  const [theme, setTheme] = useState<Theme>(() => readStorage(STORAGE.theme, 'light'));
+  const [page, setPage] = useState<Page>('dashboard');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<ProfileTab>('profile');
+  const [editingApplication, setEditingApplication] = useState<JobApplication | null | undefined>(undefined);
+  const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+  const [toast, setToast] = useState('');
+  const applicationsApi = useApplications(isLoggedIn);
+  const documentsApiState = useDocuments(isLoggedIn);
+  const liveApplications = useMemo(
+    () => applicationsApi.applications.map(apiApplicationToUi),
+    [applicationsApi.applications]
+  );
+  const liveDocuments = useMemo(
+    () => documentsApiState.documents.map(apiDocumentToUi),
+    [documentsApiState.documents]
+  );
+
+  useEffect(() => writeStorage(STORAGE.profile, profile), [profile]);
+  useEffect(() => writeStorage(STORAGE.settings, settings), [settings]);
+  useEffect(() => writeStorage(STORAGE.applications, applications), [applications]);
+  useEffect(() => writeStorage(STORAGE.companies, companies), [companies]);
+  useEffect(() => writeStorage(STORAGE.events, events), [events]);
+  useEffect(() => writeStorage(STORAGE.documents, documents), [documents]);
+  useEffect(() => writeStorage(STORAGE.notes, notes), [notes]);
+  useEffect(() => writeStorage(STORAGE.theme, theme), [theme]);
+  useEffect(() => { if (!toast) return; const timeout = window.setTimeout(() => setToast(''), 2400); return () => window.clearTimeout(timeout); }, [toast]);
+
+  useEffect(() => {
+    if (!getAuthToken()) {
+      setAuthLoading(false);
+      return;
+    }
+
+    authApi.me()
+      .then((user) => {
+        const nextProfile = profileFromAuthUser(user);
+        setProfile(nextProfile);
+        writeStorage(STORAGE.profile, nextProfile);
+        setLoggedIn(true);
+      })
+      .catch(() => {
+        clearAuthToken();
+        setLoggedIn(false);
+      })
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  async function login(input: LoginInput) {
+    const response = await authApi.login(input);
+    const nextProfile = profileFromAuthUser(response.user);
+    setProfile(nextProfile);
+    writeStorage(STORAGE.profile, nextProfile);
+    setLoggedIn(true);
+  }
+
+  async function register(input: RegisterInput) {
+    const response = await authApi.register(input);
+    const nextProfile = profileFromAuthUser(response.user);
+    setProfile(nextProfile);
+    writeStorage(STORAGE.profile, nextProfile);
+    setLoggedIn(true);
+  }
+
+  async function logout() {
+    await authApi.logout();
+    setLoggedIn(false);
+    setSelectedApplication(null);
+    setEditingApplication(undefined);
+  }
+  function openSettings(tab: ProfileTab = 'profile') { setSettingsTab(tab); setSettingsOpen(true); }
+  async function saveApplication(app: JobApplication) {
+    try {
+      const payload = uiApplicationToApi(app);
+      const saved = editingApplication ? await applicationsApi.updateApplication(editingApplication.id, payload) : await applicationsApi.createApplication(payload);
+      setSelectedApplication(apiApplicationToUi(saved));
+      setEditingApplication(undefined);
+      setPage('applications');
+      setToast(editingApplication ? 'Application updated.' : 'Application added.');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Application could not be saved.');
+    }
+  }
+  async function updateStatus(id: EntityId, status: Status) {
+    const application = liveApplications.find((app) => app.id === id);
+    if (!application) return;
+    try {
+      const updated = await applicationsApi.updateApplication(id, uiApplicationToApi({ ...application, status, lastContact: application.lastContact || today() }));
+      setSelectedApplication(apiApplicationToUi(updated));
+      setToast('Status updated.');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Status could not be updated.');
+    }
+  }
+  async function deleteApplication(id: EntityId) {
+    try {
+      await applicationsApi.deleteApplication(id);
+      if (selectedApplication?.id === id) setSelectedApplication(null);
+      setToast('Application removed.');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Application could not be removed.');
+    }
+  }
+  async function uploadDocument(file: File) {
+    await documentsApiState.uploadDocument(file);
+  }
+  async function createDocumentLink(doc: DocumentItem) {
+    await documentsApiState.createLink({
+      name: doc.name,
+      url: doc.url,
+      type: doc.type,
+      category: doc.category,
+      notes: doc.notes,
+      tags: doc.tags?.length ? doc.tags : ['Link']
+    });
+  }
+  async function archiveDocument(id: EntityId) {
+    await documentsApiState.archiveDocument(id);
+  }
+  async function deleteDocument(id: EntityId) {
+    await documentsApiState.deleteDocument(id);
+  }
+  async function downloadDocument(doc: DocumentItem) {
+    const storedDocument = documentsApiState.documents.find((document) => document.id === doc.id);
+
+    if (!storedDocument) {
+      throw new Error('Document is no longer available.');
+    }
+
+    await documentsApiState.downloadDocument(storedDocument);
+  }
+  function resetDemo() { if (!confirm('Reset local documents, notes, settings and profile?')) return; setCompanies(richInitialCompanies); setEvents(richInitialEvents); setDocuments(richInitialDocuments); setNotes(richInitialNotes); setSettings(initialSettings); setProfile(initialProfile); setToast('Local data reset.'); }
+  function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications: liveApplications, companies, events, documents: liveDocuments, notes }, setToast); }
+  const shellClass = `app-shell ${theme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
+  const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
+  const levelOptions = uniqueOptions(levels, settings.preferences.levels);
+
+  const isMobile = useIsMobile();
+
+  if (authLoading) {
+    return (
+      <main className="login-page">
+        <section className="login-card">
+          <Logo />
+          <div className="empty-state"><BriefcaseBusiness size={28} /><strong>Checking session</strong><span>Connecting to the local API.</span></div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!isLoggedIn) return <LoginPage onLogin={login} onRegister={register} />;
+
+  const commonOverlays = (
+    <>
+      {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onExport={() => exportCsv(liveApplications, setToast)} onBackup={backup} onReset={resetDemo} /> : null}
+      {editingApplication !== undefined ? <ApplicationModal application={editingApplication || undefined} companies={companies} documents={liveDocuments} categoryOptions={categoryOptions} levelOptions={levelOptions} onClose={() => setEditingApplication(undefined)} onSave={saveApplication} /> : null}
+      {toast ? <Toast message={toast} /> : null}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileLayout
+        shellClass={shellClass}
+        page={page}
+        setPage={setPage}
+        profile={profile}
+        theme={theme}
+        setTheme={setTheme}
+        settings={settings}
+        applications={liveApplications}
+        companies={companies}
+        events={events}
+        documents={liveDocuments}
+        notes={notes}
+        setCompanies={setCompanies}
+        setEvents={setEvents}
+        setDocuments={setDocuments}
+        setNotes={setNotes}
+        setToast={setToast}
+        onOpenApplication={() => setEditingApplication(null)}
+        onOpenEditApplication={(app) => setEditingApplication(app)}
+        onStatusChange={updateStatus}
+        onDeleteApplication={deleteApplication}
+        onOpenSettings={openSettings}
+        onLogout={logout}
+        onExport={() => exportCsv(liveApplications, setToast)}
+        documentsLoading={documentsApiState.loading}
+        documentsError={documentsApiState.error}
+        onRefreshDocuments={documentsApiState.loadDocuments}
+        onUploadDocument={uploadDocument}
+        onCreateDocumentLink={createDocumentLink}
+        onDeleteDocument={deleteDocument}
+        onArchiveDocument={archiveDocument}
+        onDownloadDocument={downloadDocument}
+        categoryOptions={categoryOptions}
+        levelOptions={levelOptions}
+      >
+        {commonOverlays}
+      </MobileLayout>
+    );
+  }
+
+  return (
+    <div className={shellClass}>
+      <Sidebar page={page} setPage={setPage} applications={liveApplications} settings={settings} />
+      <div className="workspace">
+        <Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => { setPage('applications'); setEditingApplication(null); }} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} />
+        <div className="content custom-scroll">
+          {page === 'dashboard' ? <DashboardPage applications={liveApplications} events={events} setPage={setPage} /> : null}
+          {page === 'applications' ? (
+            applicationsApi.loading ? (
+              <section className="page-section"><div className="panel-card empty-state"><BriefcaseBusiness size={28} /><strong>Loading applications</strong><span>Connecting to the backend API.</span></div></section>
+            ) : applicationsApi.error ? (
+              <section className="page-section"><div className="panel-card empty-state"><BriefcaseBusiness size={28} /><strong>Applications API unavailable</strong><span>{applicationsApi.error}</span><button className="secondary-button" type="button" onClick={applicationsApi.loadApplications}>Refresh</button></div></section>
+            ) : (
+              <ApplicationsPage applications={liveApplications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(liveApplications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} />
+            )
+          ) : null}
+          {page === 'companies' ? <CompaniesPage companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
+          {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
+          {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} /> : null}
+          {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onDownloadDocument={downloadDocument} /> : null}
+          {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
+        </div>
+      </div>
+      {commonOverlays}
     </div>
   );
 }

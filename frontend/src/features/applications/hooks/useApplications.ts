@@ -10,13 +10,20 @@ const getErrorMessage = (error: unknown) => {
   return 'Something went wrong while loading applications.';
 };
 
-export function useApplications() {
+export function useApplications(enabled = true) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadApplications = useCallback(async () => {
+    if (!enabled) {
+      setApplications([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -25,14 +32,17 @@ export function useApplications() {
       setApplications(data);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
+      setApplications([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    void loadApplications();
-  }, [loadApplications]);
+    if (enabled) {
+      void loadApplications();
+    }
+  }, [enabled, loadApplications]);
 
   const createApplication = useCallback(async (application: ApplicationUpsertInput) => {
     setSaving(true);

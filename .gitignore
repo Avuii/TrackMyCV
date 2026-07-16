@@ -79,3 +79,6 @@ dist/
 # Local env files
 .env
 .env.local
+
+# Local uploaded documents
+App_Data/

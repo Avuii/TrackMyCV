@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using TrackMyCV.Api.Auth;
 using TrackMyCV.Application.Applications.DTOs;
 using TrackMyCV.Application.Applications.Interfaces;
 using TrackMyCV.Domain.Entities;
@@ -19,8 +20,14 @@ public class JobApplicationsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<JobApplicationDto>>> GetAll()
     {
-        var applications = await _repository.GetAllAsync();
+        var userId = HttpContext.GetCurrentUserId();
 
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var applications = await _repository.GetAllAsync(userId.Value);
         var result = applications.Select(MapToDto).ToList();
 
         return Ok(result);
@@ -29,7 +36,14 @@ public class JobApplicationsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<JobApplicationDto>> GetById(Guid id)
     {
-        var application = await _repository.GetByIdAsync(id);
+        var userId = HttpContext.GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var application = await _repository.GetByIdAsync(id, userId.Value);
 
         if (application is null)
         {
@@ -42,8 +56,16 @@ public class JobApplicationsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<JobApplicationDto>> Create(CreateJobApplicationDto dto)
     {
+        var userId = HttpContext.GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
         var application = new JobApplication
         {
+            AppUserId = userId.Value,
             CompanyId = dto.CompanyId,
             CompanyName = dto.CompanyName,
             Position = dto.Position,
@@ -71,7 +93,14 @@ public class JobApplicationsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, UpdateJobApplicationDto dto)
     {
-        var application = await _repository.GetByIdAsync(id);
+        var userId = HttpContext.GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var application = await _repository.GetByIdAsync(id, userId.Value);
 
         if (application is null)
         {
@@ -104,7 +133,14 @@ public class JobApplicationsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var application = await _repository.GetByIdAsync(id);
+        var userId = HttpContext.GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var application = await _repository.GetByIdAsync(id, userId.Value);
 
         if (application is null)
         {

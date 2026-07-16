@@ -8,9 +8,9 @@ namespace TrackMyCV.Application.Applications.Interfaces;
 
 public interface IJobApplicationRepository
 {
-    Task<List<JobApplication>> GetAllAsync();
+    Task<List<JobApplication>> GetAllAsync(Guid userId);
 
-    Task<JobApplication?> GetByIdAsync(Guid id);
+    Task<JobApplication?> GetByIdAsync(Guid id, Guid userId);
 
     Task<JobApplication> CreateAsync(JobApplication application);
 

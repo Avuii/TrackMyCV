@@ -216,7 +216,7 @@ const initialSettings: AppSettings = {
   preferences: {
     categories: ['.NET', 'Cybersecurity', 'IAM', 'DevOps'],
     levels: ['Internship', 'Intern', 'Junior', 'Junior-friendly'],
-    locations: ['Remote', 'Warsaw', 'Kraków'],
+    locations: ['Remote', 'Warsaw', 'KrakĂłw'],
     workModes: ['Hybrid', 'Remote'],
     noResponseDays: 14,
     ghostedDays: 30,
@@ -228,7 +228,7 @@ const initialCompanies: Company[] = [
   { id: 1, name: 'Northstar Labs', domain: '', industry: 'Technology', location: 'Remote', website: 'https://example.com/northstar', contact: 'careers@example.com', notes: 'Fictional demo company for portfolio presentation.' },
   { id: 2, name: 'Riverstone Consulting', domain: '', industry: 'Consulting', location: 'Warsaw', website: 'https://example.com/riverstone', contact: 'recruitment@example.com', notes: 'Fictional consulting company with security roles.' },
   { id: 3, name: 'BrightPath Digital', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/brightpath', contact: '', notes: 'Fictional company used for demo data.' },
-  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'Kraków', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
+  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'KrakĂłw', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
   { id: 5, name: 'Oak & Code', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/oak-code', contact: '', notes: 'Fictional software studio.' },
   { id: 6, name: 'Lumen Security', domain: '', industry: 'Cybersecurity', location: 'Warsaw', website: 'https://example.com/lumen-security', contact: '', notes: 'Fictional cybersecurity company.' },
   { id: 7, name: 'MapleWorks', domain: '', industry: 'E-commerce', location: 'Remote', website: 'https://example.com/mapleworks', contact: '', notes: 'Fictional product company.' }
@@ -269,7 +269,7 @@ const initialApplications: JobApplication[] = [
   { id: 1, company: 'Northstar Labs', companyId: 1, domain: '', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/northstar/job-1', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Mentoring, training budget, flexible work', notes: 'Demo note: prepare technical topics before the interview.', cv: 'CV_NET_Intern_Demo.pdf' },
   { id: 2, company: 'Riverstone Consulting', companyId: 2, domain: '', position: 'Cyber Security Analyst Intern', category: 'Cybersecurity', level: 'Internship', status: 'In progress', dateApplied: '2026-05-18', lastContact: '2026-05-20', nextStep: 'HR interview', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://example.com/riverstone/job-2', requirements: 'IAM basics, security awareness, English, documentation', benefits: 'Learning path, mentor support, workshops', notes: 'Demo note: prepare motivation and security basics.', cv: 'CV_Security_Demo.pdf' },
   { id: 3, company: 'BrightPath Digital', companyId: 3, domain: '', position: 'IAM Intern', category: 'IAM', level: 'Intern', status: 'Applied', dateApplied: '2026-05-15', lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/brightpath/job-3', requirements: 'Identity lifecycle, MFA, access management', benefits: 'Remote work, office events, training', notes: 'Demo note: good match for IAM interests.', cv: 'CV_Security_Demo.pdf' },
-  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'Kraków', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
+  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'KrakĂłw', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
   { id: 5, company: 'Oak & Code', companyId: 5, domain: '', position: 'Junior Full-stack Developer', category: 'Full-stack', level: 'Junior', status: 'Rejected', dateApplied: '2026-05-05', lastContact: '2026-05-12', nextStep: 'Closed', location: 'Remote', workMode: 'Remote', source: 'Pracuj.pl', offerUrl: 'https://example.com/oak-code/job-5', requirements: 'C#, React, SQL, Git', benefits: 'Remote-first, workshops, team projects', notes: 'Demo note: add feedback and learning points here.', cv: 'CV_Fullstack_Demo.pdf' },
   { id: 6, company: 'Lumen Security', companyId: 6, domain: '', position: 'Security Internship', category: 'Cybersecurity', level: 'Internship', status: 'Ghosted', dateApplied: '2026-05-02', lastContact: '', nextStep: 'Archive or follow-up', location: 'Warsaw', workMode: 'Hybrid', source: 'No Fluff Jobs', offerUrl: 'https://example.com/lumen-security/job-6', requirements: 'Security basics, cloud basics, communication', benefits: 'Mentoring, certifications, hybrid work', notes: 'Demo note: no response after 30 days.', cv: 'CV_Security_Demo.pdf' },
   { id: 7, company: 'MapleWorks', companyId: 7, domain: '', position: 'Frontend Trainee', category: 'Frontend', level: 'Trainee', status: 'Offer', dateApplied: '2026-04-28', lastContact: '2026-05-07', nextStep: 'Decision', location: 'Remote', workMode: 'Remote', source: 'Direct referral', offerUrl: 'https://example.com/mapleworks/job-7', requirements: 'React, TypeScript, CSS, Git', benefits: 'Flexible work, product team, mentoring', notes: 'Demo note: strong frontend learning opportunity.', cv: 'CV_Frontend_Demo.pdf' }
@@ -301,7 +301,7 @@ const inspirationCards = [
   { title: 'Stay consistent', text: 'Small steps every day lead to big changes.', image: publicAsset('assets/bed-coffe.jpg') },
   { title: 'Slow progress counts', text: 'One thoughtful application is still progress.', image: publicAsset('assets/cofee-photo2.webp') },
   { title: 'Keep it soft', text: 'You do not need chaos to move forward.', image: publicAsset('assets/candle-vanilla.jpg') },
-  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up — all count.', image: publicAsset('assets/croissant-bow.jpg') },
+  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up â€” all count.', image: publicAsset('assets/croissant-bow.jpg') },
   { title: 'Protect your energy', text: 'Not every rejection says something about you.', image: publicAsset('assets/cat-bed.jpg') },
   { title: 'One clean step', text: 'Today can be only one application. That is enough.', image: publicAsset('assets/cozy-home.jpg') },
   { title: 'Stay curious', text: 'Every offer teaches you what to learn next.', image: publicAsset('assets/desk-photo2.jpg') },
@@ -326,7 +326,7 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
 ];
 
 const pageLabels: Record<Page, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Dashboard', subtitle: 'Here’s an overview of your recruitment progress.' },
+  dashboard: { title: 'Dashboard', subtitle: 'Hereâ€™s an overview of your recruitment progress.' },
   applications: { title: 'Applications', subtitle: 'Manage your job applications and recruitment stages.' },
   companies: { title: 'Companies', subtitle: 'Track companies, previous applications and recruitment history.' },
   statistics: { title: 'Statistics', subtitle: 'Analyze your application progress and discover what works best.' },
@@ -349,7 +349,7 @@ function writeStorage<T>(key: string, value: T) {
 }
 
 function formatDate(value: string) {
-  if (!value) return '—';
+  if (!value) return 'â€”';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
@@ -387,7 +387,7 @@ function startOfWeek(value: string | Date) {
 function formatWeekRange(start: Date) {
   const end = addDays(start, 6);
   const formatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
-  return `${formatter.format(start)} – ${formatter.format(end)}`;
+  return `${formatter.format(start)} â€“ ${formatter.format(end)}`;
 }
 
 function formatWeekday(date: Date) {
@@ -607,7 +607,7 @@ function LoginPage({ onLogin }: { onLogin: (profile: Profile) => void }) {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!email.includes('@') || password.length < 4) {
-      setError('Podaj poprawny e-mail i hasło minimum 4 znaki.');
+      setError('Podaj poprawny e-mail i hasĹ‚o minimum 4 znaki.');
       return;
     }
     const next = { ...initialProfile, email };
@@ -619,7 +619,7 @@ function LoginPage({ onLogin }: { onLogin: (profile: Profile) => void }) {
     <main className="login-page">
       <section className="login-card">
         <Logo />
-        <div className="login-copy"><span className="eyebrow">Live demo</span><h1>Track applications without chaos.</h1><p>Mockup działa lokalnie w przeglądarce: możesz dodawać, edytować, filtrować i zapisywać dane w localStorage.</p></div>
+        <div className="login-copy"><span className="eyebrow">Live demo</span><h1>Track applications without chaos.</h1><p>Mockup dziaĹ‚a lokalnie w przeglÄ…darce: moĹĽesz dodawaÄ‡, edytowaÄ‡, filtrowaÄ‡ i zapisywaÄ‡ dane w localStorage.</p></div>
         <form className="login-form" onSubmit={submit}>
           <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
@@ -667,13 +667,16 @@ function Topbar({ page, profile, theme, setTheme, onOpenApplication, onOpenSetti
   const [open, setOpen] = useState(false);
   const isDashboard = page === 'dashboard';
   const firstName = profile.name.split(' ')[0] || 'Demo';
+  const pageMeta = pageLabels[page];
+  const title = isDashboard ? `Good morning, ${firstName}` : pageMeta.title;
+  const subtitle = isDashboard ? "Here's an overview of your recruitment progress." : pageMeta.subtitle;
   function openSettings(tab: ProfileTab) {
     setOpen(false);
     onOpenSettings(tab);
   }
   return (
-    <header className={`topbar ${isDashboard ? '' : 'actions-only'}`}>
-      {isDashboard ? <div className="topbar-title"><h1>Good morning, {firstName}</h1><p>Here’s an overview of your recruitment progress.</p></div> : <div className="topbar-spacer" />}
+    <header className="topbar">
+      <div className="topbar-title"><h1>{title}</h1><p>{subtitle}</p></div>
       <div className="topbar-actions">
         <button className="icon-button" type="button" aria-label="Search" onClick={() => setPage('applications')}><Search size={19} /></button>
         <button className="icon-button with-dot" type="button" aria-label="Notifications" onClick={() => openSettings('notifications')}><Bell size={19} /></button>
@@ -800,7 +803,7 @@ function SuccessRateCard({ applications }: { applications: JobApplication[] }) {
 
 function UpcomingCard({ events, onOpenCalendar }: { events: CalendarEvent[]; onOpenCalendar: () => void }) {
   const upcoming = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).slice(0, 3);
-  return <section className="panel-card upcoming-card"><div className="mini-title"><CalendarDays size={17} /><h2>Upcoming</h2></div>{upcoming.map((event) => <div className="event-row" key={event.id}><span className="event-icon"><CalendarDays size={15} /></span><div><strong>{event.title} — {event.company}</strong><small>{formatDate(event.date)}, {event.time}</small></div></div>)}<button className="mini-link with-arrow" type="button" onClick={onOpenCalendar}>View calendar <ChevronDown className="chevron-right" size={16} /></button></section>;
+  return <section className="panel-card upcoming-card"><div className="mini-title"><CalendarDays size={17} /><h2>Upcoming</h2></div>{upcoming.map((event) => <div className="event-row" key={event.id}><span className="event-icon"><CalendarDays size={15} /></span><div><strong>{event.title} â€” {event.company}</strong><small>{formatDate(event.date)}, {event.time}</small></div></div>)}<button className="mini-link with-arrow" type="button" onClick={onOpenCalendar}>View calendar <ChevronDown className="chevron-right" size={16} /></button></section>;
 }
 
 function ApplicationsTable({
@@ -1240,7 +1243,7 @@ function ApplicationDetailsModal({
   return (
     <BaseModal
       title="Application details"
-      subtitle={`${application.company} · ${application.position}`}
+      subtitle={`${application.company} Â· ${application.position}`}
       onClose={onClose}
     >
       <div className="application-details-modal custom-scroll">
@@ -1343,9 +1346,9 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
             <div className="calendar-header-row">
               <div><h2>{formatMonthYear(monthDate)}</h2><p>Monthly overview</p></div>
               <div className="calendar-nav-controls">
-                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))} aria-label="Previous month">‹</button>
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))} aria-label="Previous month">â€ą</button>
                 <button className="secondary-button today-button" type="button" onClick={() => setMonthDate(startOfMonth(today()))}>Today</button>
-                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))} aria-label="Next month">›</button>
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))} aria-label="Next month">â€ş</button>
               </div>
             </div>
             <div className="calendar-grid-head">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}</div>
@@ -1355,7 +1358,7 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
           <section className="panel-card calendar-card week-calendar">
             <div className="calendar-header-row">
               <div><h2>Week view</h2><p>{formatWeekRange(weekStart)}</p></div>
-              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">‹</button><button className="secondary-button today-button" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">›</button></div>
+              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">â€ą</button><button className="secondary-button today-button" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">â€ş</button></div>
             </div>
             <div className="week-grid custom-scroll">
               {weekDays.map((day) => {
@@ -1390,7 +1393,7 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
 }
 
 function EventCard({ event, onEdit, onDelete, compact = false }: { event: CalendarEvent; onEdit: () => void; onDelete: () => void; compact?: boolean }) {
-  return <div className={`event-card ${compact ? 'compact-event' : ''}`}><span className="event-icon"><Clock size={16} /></span><div><strong>{event.title}</strong><p>{event.company}</p><small>{formatDate(event.date)}, {event.time} · {event.location}</small></div><div className="event-card-actions"><button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button><button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button></div>{event.type.includes('interview') ? <Video size={16} /> : <Mail size={16} />}</div>;
+  return <div className={`event-card ${compact ? 'compact-event' : ''}`}><span className="event-icon"><Clock size={16} /></span><div><strong>{event.title}</strong><p>{event.company}</p><small>{formatDate(event.date)}, {event.time} Â· {event.location}</small></div><div className="event-card-actions"><button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button><button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button></div>{event.type.includes('interview') ? <Video size={16} /> : <Mail size={16} />}</div>;
 }
 
 function EventModal({ event, applications, onClose, onSave }: { event: CalendarEvent; applications: JobApplication[]; onClose: () => void; onSave: (event: CalendarEvent) => void }) {
@@ -1415,7 +1418,7 @@ function DocumentsPage({ documents, setDocuments, onExport, setToast }: { docume
   }
   function addLink(doc: DocumentItem) { setDocuments([doc, ...documents]); setLinkModal(false); setToast('Link saved.'); }
   function remove(id: number) { setDocuments(documents.filter((doc) => doc.id !== id)); setToast('Document removed.'); }
-  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} /><button className="secondary-button" type="button" onClick={() => fileInput.current?.click()}><Upload size={17} /> Upload</button><input ref={fileInput} type="file" hidden onChange={(e) => upload(e.target.files)} /><button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button></div><div className="document-grid">{filtered.map((doc) => <article className="panel-card document-card" key={doc.id}><div className="document-icon"><FileText size={24} /></div><div><h2>{doc.name}</h2><p>{doc.type} · {doc.category}</p></div><div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.size}</span></div><div className="document-actions"><button className="ghost-icon" type="button" onClick={() => doc.url && window.open(doc.url, '_blank')}><Eye size={17} /></button><button className="ghost-icon" type="button" onClick={() => setToast('Preview/download is mocked for local files.')}><Download size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(doc.id)}><Trash2 size={17} /></button></div></article>)}</div><section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span><span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span></section>{linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}</section>;
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} /><button className="secondary-button" type="button" onClick={() => fileInput.current?.click()}><Upload size={17} /> Upload</button><input ref={fileInput} type="file" hidden onChange={(e) => upload(e.target.files)} /><button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button></div><div className="document-grid">{filtered.map((doc) => <article className="panel-card document-card" key={doc.id}><div className="document-icon"><FileText size={24} /></div><div><h2>{doc.name}</h2><p>{doc.type} Â· {doc.category}</p></div><div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.size}</span></div><div className="document-actions"><button className="ghost-icon" type="button" onClick={() => doc.url && window.open(doc.url, '_blank')}><Eye size={17} /></button><button className="ghost-icon" type="button" onClick={() => setToast('Preview/download is mocked for local files.')}><Download size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(doc.id)}><Trash2 size={17} /></button></div></article>)}</div><section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span><span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span></section>{linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}</section>;
 }
 
 function DocumentLinkModal({ onClose, onSave }: { onClose: () => void; onSave: (doc: DocumentItem) => void }) {
@@ -1435,7 +1438,7 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
   function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selected.checklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
   function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selected.checklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
   function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selected.checklist.filter((item) => item.id !== id) }); }
-  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." /></div><button className="primary-button" type="button" onClick={addNote}><Plus size={17} /> Add note</button></div><div className="notes-layout"><aside className="notes-list panel-card custom-scroll">{notes.map((note) => <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}><strong>{note.title}</strong><span>{note.company} · {note.tag}</span><small>{formatDate(note.updated)}</small></button>)}</aside>{selected ? <section className="panel-card note-editor"><div className="note-editor-head"><TextField label="Title" value={selected.title} onChange={(v) => patchNote({ title: v })} /><button className="ghost-icon danger" type="button" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button></div><div className="form-grid"><TextField label="Company" value={selected.company} onChange={(v) => patchNote({ company: v })} /><TextField label="Application" value={selected.application} onChange={(v) => patchNote({ application: v })} /><TextField label="Tag" value={selected.tag} onChange={(v) => patchNote({ tag: v })} /></div><label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value })} /></label><div className="checklist-panel"><div className="checklist-header"><h3>Checklist</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>{selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}</div><div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this mockup.</div></section> : <section className="panel-card empty-state"><StickyNote size={28} /><strong>No note selected</strong><span>Add a note to start writing.</span></section>}</div></section>;
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." /></div><button className="primary-button" type="button" onClick={addNote}><Plus size={17} /> Add note</button></div><div className="notes-layout"><aside className="notes-list panel-card custom-scroll">{notes.map((note) => <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}><strong>{note.title}</strong><span>{note.company} Â· {note.tag}</span><small>{formatDate(note.updated)}</small></button>)}</aside>{selected ? <section className="panel-card note-editor"><div className="note-editor-head"><TextField label="Title" value={selected.title} onChange={(v) => patchNote({ title: v })} /><button className="ghost-icon danger" type="button" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button></div><div className="form-grid"><TextField label="Company" value={selected.company} onChange={(v) => patchNote({ company: v })} /><TextField label="Application" value={selected.application} onChange={(v) => patchNote({ application: v })} /><TextField label="Tag" value={selected.tag} onChange={(v) => patchNote({ tag: v })} /></div><label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value })} /></label><div className="checklist-panel"><div className="checklist-header"><h3>Checklist</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>{selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}</div><div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this mockup.</div></section> : <section className="panel-card empty-state"><StickyNote size={28} /><strong>No note selected</strong><span>Add a note to start writing.</span></section>}</div></section>;
 }
 
 function BaseModal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
@@ -1505,7 +1508,7 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   }
   const categoryItems = uniqueOptions(categories, prefs.categories);
   const levelItems = uniqueOptions(levels, prefs.levels);
-  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'Kraków', 'Wrocław', 'Gdańsk'], prefs.locations);
+  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'KrakĂłw', 'WrocĹ‚aw', 'GdaĹ„sk'], prefs.locations);
   return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><TextField label="Mark as no response after" value={String(prefs.noResponseDays)} onChange={(v) => patch({ noResponseDays: Number(v) || 0 })} /><TextField label="Mark as ghosted after" value={String(prefs.ghostedDays)} onChange={(v) => patch({ ghostedDays: Number(v) || 0 })} /><TextField label="Suggest follow-up after" value={String(prefs.followUpDays)} onChange={(v) => patch({ followUpDays: Number(v) || 0 })} /></div></div>;
 }
 
@@ -1760,7 +1763,7 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
         </button>
         <button type="button" onClick={() => { onOpenSettings('appearance'); onClose(); }}>
           <span className="mobile-more-icon"><Palette size={19} /></span>
-          <div><strong>Appearance</strong><small>{theme} · {settings.accent}</small></div>
+          <div><strong>Appearance</strong><small>{theme} Â· {settings.accent}</small></div>
         </button>
         <button type="button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
           <span className="mobile-more-icon">{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</span>
@@ -1855,7 +1858,7 @@ function MobileActionItem({ application, onClick }: { application: JobApplicatio
       <CompanyLogo name={application.company} domain={application.domain} />
       <div>
         <strong>{application.nextStep || application.status}</strong>
-        <span>{application.company} · {application.position}</span>
+        <span>{application.company} Â· {application.position}</span>
       </div>
       <StatusBadge status={application.status} />
     </button>
@@ -1988,7 +1991,7 @@ function MobileApplicationCard({ application, onOpen, onEdit, onDelete, onStatus
             <CompanyLogo name={application.company} domain={application.domain} />
             <div>
               <strong>{application.company}</strong>
-              <span>{application.location} · {application.workMode}</span>
+              <span>{application.location} Â· {application.workMode}</span>
             </div>
           </div>
           <StatusBadge status={application.status} />
@@ -2036,7 +2039,7 @@ function MobileFiltersSheet({ status, setStatus, category, setCategory, level, s
 
 function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
   return (
-    <MobileBottomSheet title="Application details" subtitle={`${application.company} · ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
+    <MobileBottomSheet title="Application details" subtitle={`${application.company} Â· ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
       <div className="mobile-detail-hero">
         <CompanyLogo name={application.company} domain={application.domain} large />
         <div>
@@ -2114,7 +2117,7 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
               <div className="mobile-calendar-event" key={event.id}>
                 <button type="button" onClick={() => setModal(event)}>
                   <span>{event.time}</span>
-                  <div><strong>{event.title}</strong><small>{event.company} · {event.location}</small></div>
+                  <div><strong>{event.title}</strong><small>{event.company} Â· {event.location}</small></div>
                 </button>
                 <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
                 <button className="ghost-icon danger" type="button" onClick={() => remove(event.id)}><Trash2 size={16} /></button>
@@ -2135,7 +2138,7 @@ function MobileAgendaItem({ event }: { event: CalendarEvent }) {
       <span>{event.time}</span>
       <div>
         <strong>{event.title}</strong>
-        <small>{formatDate(event.date)} · {event.company}</small>
+        <small>{formatDate(event.date)} Â· {event.company}</small>
       </div>
     </div>
   );
@@ -2238,7 +2241,7 @@ function App() {
     );
   }
 
-  return <div className={shellClass}><Sidebar page={page} setPage={setPage} applications={applications} settings={settings} /><div className="workspace"><Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => setEditingApplication(null)} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} /><div className="content custom-scroll">{page !== 'dashboard' ? <PageHeader page={page} /> : null}{page === 'dashboard' ? <DashboardPage applications={applications} events={events} setPage={setPage} /> : null}{page === 'applications' ? <ApplicationsPage applications={applications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(applications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} /> : null}{page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}{page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}{page === 'calendar' ? <CalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} /> : null}{page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={() => exportCsv(applications, setToast)} setToast={setToast} /> : null}{page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}</div></div>{commonOverlays}</div>;
+  return <div className={shellClass}><Sidebar page={page} setPage={setPage} applications={applications} settings={settings} /><div className="workspace"><Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => setEditingApplication(null)} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} /><div className="content custom-scroll">{page === 'dashboard' ? <DashboardPage applications={applications} events={events} setPage={setPage} /> : null}{page === 'applications' ? <ApplicationsPage applications={applications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(applications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} /> : null}{page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}{page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}{page === 'calendar' ? <CalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} /> : null}{page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={() => exportCsv(applications, setToast)} setToast={setToast} /> : null}{page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}</div></div>{commonOverlays}</div>;
 }
 
 export default App;
