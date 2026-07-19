@@ -9,11 +9,10 @@ const isWindows = process.platform === 'win32';
 const args = new Set(process.argv.slice(2));
 
 const apiUrl = process.env.VITE_API_URL || 'http://localhost:5228';
-const frontendHost = process.env.VITE_HOST || '127.0.0.1';
+const frontendHost = process.env.VITE_HOST || 'localhost';
 const frontendPort = process.env.VITE_PORT || '5173';
 const frontendUrl = `http://${frontendHost}:${frontendPort}`;
 
-const npmCommand = isWindows ? 'npm.cmd' : 'npm';
 const dockerCommand = isWindows ? 'docker.exe' : 'docker';
 
 const children = new Set();
@@ -153,7 +152,12 @@ spawnLongRunning('api', 'dotnet', ['run', '--project', apiProject, '--launch-pro
   }
 });
 
-spawnLongRunning('web', npmCommand, ['run', 'dev', '--', '--host', frontendHost, '--port', frontendPort], {
+const frontendCommand = isWindows ? 'cmd.exe' : 'npm';
+const frontendArgs = isWindows
+  ? ['/d', '/s', '/c', 'npm', 'run', 'dev', '--', '--host', frontendHost, '--port', frontendPort]
+  : ['run', 'dev', '--', '--host', frontendHost, '--port', frontendPort];
+
+spawnLongRunning('web', frontendCommand, frontendArgs, {
   cwd: frontendDir,
   env: {
     ...process.env,

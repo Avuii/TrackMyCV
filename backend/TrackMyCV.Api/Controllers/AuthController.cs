@@ -23,14 +23,19 @@ public class AuthController : ControllerBase
     {
         var email = NormalizeEmail(request.Email);
 
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest("Email is required.");
+        }
+
         if (!IsValidEmail(email))
         {
             return BadRequest("Enter a valid email address.");
         }
 
-        if (request.Password.Length < 8)
+        if (!MeetsPasswordRequirements(request.Password))
         {
-            return BadRequest("Password must have at least 8 characters.");
+            return BadRequest("Password must include minimum 8 characters, uppercase and lowercase letters, a number and a special character.");
         }
 
         if (await _dbContext.AppUsers.AnyAsync(x => x.Email == email))
@@ -55,6 +60,12 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
         var email = NormalizeEmail(request.Email);
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest("Email and password are required.");
+        }
+
         var user = await _dbContext.AppUsers.FirstOrDefaultAsync(x => x.Email == email);
 
         if (user is null || !AuthTokenService.VerifyPassword(request.Password, user.PasswordHash))
@@ -120,9 +131,9 @@ public class AuthController : ControllerBase
         return new AuthUserDto(user.Id, user.Email, user.DisplayName);
     }
 
-    private static string NormalizeEmail(string email)
+    private static string NormalizeEmail(string? email)
     {
-        return email.Trim().ToLowerInvariant();
+        return (email ?? string.Empty).Trim().ToLowerInvariant();
     }
 
     private static bool IsValidEmail(string email)
@@ -136,6 +147,16 @@ public class AuthController : ControllerBase
         {
             return false;
         }
+    }
+
+    private static bool MeetsPasswordRequirements(string? password)
+    {
+        return !string.IsNullOrWhiteSpace(password)
+            && password.Length >= 8
+            && password.Any(char.IsLower)
+            && password.Any(char.IsUpper)
+            && password.Any(char.IsDigit)
+            && password.Any(character => !char.IsLetterOrDigit(character));
     }
 }
 

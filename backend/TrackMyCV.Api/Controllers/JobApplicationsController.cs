@@ -63,26 +63,31 @@ public class JobApplicationsController : ControllerBase
             return Unauthorized();
         }
 
+        if (ValidateApplication(dto) is { } validationProblem)
+        {
+            return validationProblem;
+        }
+
         var application = new JobApplication
         {
             AppUserId = userId.Value,
             CompanyId = dto.CompanyId,
-            CompanyName = dto.CompanyName,
-            Position = dto.Position,
-            Category = dto.Category,
-            Level = dto.Level,
+            CompanyName = Clean(dto.CompanyName, 180),
+            Position = Clean(dto.Position, 220),
+            Category = Clean(dto.Category, 100),
+            Level = Clean(dto.Level, 80),
             Status = dto.Status,
             DateApplied = dto.DateApplied,
             LastContact = dto.LastContact,
-            NextStep = dto.NextStep,
-            Location = dto.Location,
+            NextStep = Clean(dto.NextStep, 180),
+            Location = Clean(dto.Location, 160),
             WorkMode = dto.WorkMode,
-            Source = dto.Source,
-            OfferUrl = dto.OfferUrl,
-            Requirements = dto.Requirements,
-            Benefits = dto.Benefits,
-            Notes = dto.Notes,
-            CvName = dto.CvName
+            Source = Clean(dto.Source, 160),
+            OfferUrl = Clean(dto.OfferUrl, 700),
+            Requirements = Clean(dto.Requirements, 4000),
+            Benefits = Clean(dto.Benefits, 4000),
+            Notes = Clean(dto.Notes, 6000),
+            CvName = Clean(dto.CvName, 180)
         };
 
         var created = await _repository.CreateAsync(application);
@@ -107,23 +112,28 @@ public class JobApplicationsController : ControllerBase
             return NotFound();
         }
 
+        if (ValidateApplication(dto) is { } validationProblem)
+        {
+            return validationProblem;
+        }
+
         application.CompanyId = dto.CompanyId;
-        application.CompanyName = dto.CompanyName;
-        application.Position = dto.Position;
-        application.Category = dto.Category;
-        application.Level = dto.Level;
+        application.CompanyName = Clean(dto.CompanyName, 180);
+        application.Position = Clean(dto.Position, 220);
+        application.Category = Clean(dto.Category, 100);
+        application.Level = Clean(dto.Level, 80);
         application.Status = dto.Status;
         application.DateApplied = dto.DateApplied;
         application.LastContact = dto.LastContact;
-        application.NextStep = dto.NextStep;
-        application.Location = dto.Location;
+        application.NextStep = Clean(dto.NextStep, 180);
+        application.Location = Clean(dto.Location, 160);
         application.WorkMode = dto.WorkMode;
-        application.Source = dto.Source;
-        application.OfferUrl = dto.OfferUrl;
-        application.Requirements = dto.Requirements;
-        application.Benefits = dto.Benefits;
-        application.Notes = dto.Notes;
-        application.CvName = dto.CvName;
+        application.Source = Clean(dto.Source, 160);
+        application.OfferUrl = Clean(dto.OfferUrl, 700);
+        application.Requirements = Clean(dto.Requirements, 4000);
+        application.Benefits = Clean(dto.Benefits, 4000);
+        application.Notes = Clean(dto.Notes, 6000);
+        application.CvName = Clean(dto.CvName, 180);
 
         await _repository.UpdateAsync(application);
 
@@ -177,5 +187,55 @@ public class JobApplicationsController : ControllerBase
             CreatedAt = application.CreatedAt,
             UpdatedAt = application.UpdatedAt
         };
+    }
+
+    private ActionResult? ValidateApplication(CreateJobApplicationDto dto)
+    {
+        var errors = ValidateApplicationFields(dto.CompanyName, dto.Position, dto.DateApplied, dto.OfferUrl);
+
+        return errors.Count == 0 ? null : BadRequest(new { message = "Correct the highlighted fields.", errors });
+    }
+
+    private ActionResult? ValidateApplication(UpdateJobApplicationDto dto)
+    {
+        var errors = ValidateApplicationFields(dto.CompanyName, dto.Position, dto.DateApplied, dto.OfferUrl);
+
+        return errors.Count == 0 ? null : BadRequest(new { message = "Correct the highlighted fields.", errors });
+    }
+
+    private static List<string> ValidateApplicationFields(string companyName, string position, DateOnly dateApplied, string offerUrl)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(companyName))
+        {
+            errors.Add("Company name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(position))
+        {
+            errors.Add("Position is required.");
+        }
+
+        if (dateApplied == default)
+        {
+            errors.Add("Date applied is required.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(offerUrl) &&
+            (!Uri.TryCreate(offerUrl.Trim(), UriKind.Absolute, out var uri) ||
+             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)))
+        {
+            errors.Add("Offer URL must be a valid http or https URL.");
+        }
+
+        return errors;
+    }
+
+    private static string Clean(string? value, int maxLength)
+    {
+        var clean = value?.Trim() ?? string.Empty;
+
+        return clean.Length <= maxLength ? clean : clean[..maxLength];
     }
 }

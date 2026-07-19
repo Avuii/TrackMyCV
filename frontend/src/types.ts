@@ -235,12 +235,15 @@ export interface CalendarEvent {
   company: string;
   date: string;
   time: string;
+  endTime?: string;
   type: CalendarEventType;
   applicationId?: ApplicationId;
   linkedApplication?: string;
   channel: 'Online' | 'On-site' | 'Phone' | 'Email';
   notes: string;
   status: CalendarEventStatus;
+  icon?: string;
+  color?: string;
 }
 
 export interface ExportReportData {

@@ -1,11 +1,15 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TrackMyCV.Infrastructure.Data;
 
 #nullable disable
 
 namespace TrackMyCV.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260716103000_AddUserDocuments")]
     public partial class AddUserDocuments : Migration
     {
         /// <inheritdoc />

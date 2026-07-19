@@ -10,6 +10,8 @@ namespace TrackMyCV.Api.Controllers;
 [Route("api/documents")]
 public class DocumentsController : ControllerBase
 {
+    private const long MaxFileBytes = 20_000_000;
+
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".pdf",
@@ -75,7 +77,18 @@ public class DocumentsController : ControllerBase
             return BadRequest("Choose a file to upload.");
         }
 
+        if (request.File.Length > MaxFileBytes)
+        {
+            return BadRequest("File is too large. Upload files up to 20 MB.");
+        }
+
         var originalFileName = Path.GetFileName(request.File.FileName);
+
+        if (string.IsNullOrWhiteSpace(originalFileName))
+        {
+            return BadRequest("Uploaded file must have a file name.");
+        }
+
         var extension = Path.GetExtension(originalFileName);
 
         if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
@@ -136,12 +149,15 @@ public class DocumentsController : ControllerBase
             return Unauthorized();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Url))
+        var name = request.Name?.Trim() ?? string.Empty;
+        var url = request.Url?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(url))
         {
             return BadRequest("Name and URL are required.");
         }
 
-        if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             return BadRequest("Enter a valid http or https URL.");
         }
@@ -150,7 +166,7 @@ public class DocumentsController : ControllerBase
         var document = new UserDocument
         {
             AppUserId = userId.Value,
-            Name = TrimTo(request.Name.Trim(), 220),
+            Name = TrimTo(name, 220),
             Type = TrimTo(string.IsNullOrWhiteSpace(request.Type) ? "Portfolio" : request.Type.Trim(), 80),
             Category = TrimTo(string.IsNullOrWhiteSpace(request.Category) ? "General" : request.Category.Trim(), 100),
             Url = TrimTo(uri.ToString(), 700),
@@ -211,7 +227,12 @@ public class DocumentsController : ControllerBase
             return BadRequest("This document is a saved link and cannot be downloaded.");
         }
 
-        var absolutePath = Path.Combine(GetUploadRoot(), document.RelativePath);
+        var absolutePath = GetSafeDocumentPath(document);
+
+        if (absolutePath is null)
+        {
+            return BadRequest("Document path is invalid.");
+        }
 
         if (!System.IO.File.Exists(absolutePath))
         {
@@ -236,9 +257,7 @@ public class DocumentsController : ControllerBase
             return NotFound();
         }
 
-        var absolutePath = string.IsNullOrWhiteSpace(document.RelativePath)
-            ? null
-            : Path.Combine(GetUploadRoot(), document.RelativePath);
+        var absolutePath = GetSafeDocumentPath(document);
 
         _dbContext.UserDocuments.Remove(document);
         await _dbContext.SaveChangesAsync();
@@ -263,6 +282,24 @@ public class DocumentsController : ControllerBase
     private string GetUploadRoot()
     {
         return Path.Combine(_environment.ContentRootPath, "App_Data", "uploads");
+    }
+
+    private string? GetSafeDocumentPath(UserDocument document)
+    {
+        if (string.IsNullOrWhiteSpace(document.RelativePath))
+        {
+            return null;
+        }
+
+        var uploadRoot = Path.GetFullPath(GetUploadRoot());
+        var absolutePath = Path.GetFullPath(Path.Combine(uploadRoot, document.RelativePath));
+        var rootWithSeparator = uploadRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? uploadRoot
+            : $"{uploadRoot}{Path.DirectorySeparatorChar}";
+
+        return absolutePath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase)
+            ? absolutePath
+            : null;
     }
 
     private static string InferDocumentType(string fileName)

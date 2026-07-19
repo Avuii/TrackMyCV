@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertCircle,
   BarChart3,
   Bell,
   BriefcaseBusiness,
@@ -9,7 +10,12 @@ import {
   CheckCircle2,
   CheckSquare,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Code2,
+  Coffee,
+  Copy,
   Database,
   Download,
   Edit3,
@@ -17,6 +23,7 @@ import {
   Eye,
   FileText,
   Filter,
+  Flag,
   Folder,
   Globe,
   Heart,
@@ -26,11 +33,14 @@ import {
   LogOut,
   Mail,
   MapPin,
+  MessageCircle,
   Monitor,
   Moon,
   MoreHorizontal,
   Palette,
   Pencil,
+  PhoneCall,
+  Pin,
   Plus,
   Search,
   SlidersHorizontal,
@@ -52,19 +62,12 @@ import { clearAuthToken, getAuthToken } from './api/apiClient';
 import type { ApplicationUpsertInput } from './api/applicationsApi';
 import type { StoredDocument } from './api/documentsApi';
 import type { ApplicationStatus as ApiApplicationStatus, JobApplication as ApiJobApplication } from './types';
-import {
-  applications as richApplications,
-  calendarEvents as richCalendarEvents,
-  companies as richCompanies,
-  documents as richDocuments,
-  notes as richNotes
-} from './mockData';
 
 type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes';
 type Theme = 'light' | 'dark';
 type Status = 'Saved' | 'Applied' | 'In progress' | 'Interview' | 'Task / test' | 'Offer' | 'Rejected' | 'No response' | 'Ghosted' | 'Archived';
 type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
-type CalendarView = 'Month' | 'Week' | 'List';
+type CalendarView = 'Month' | 'Week' | 'Day';
 type ProfileTab = 'profile' | 'appearance' | 'notifications' | 'preferences' | 'data';
 type DocKind = 'CV' | 'Cover letter' | 'Portfolio' | 'GitHub' | 'LinkedIn' | 'Job offer' | 'Task description' | 'Recruiter email' | 'Certificate' | 'Other';
 type EntityId = string | number;
@@ -109,10 +112,13 @@ type CalendarEvent = {
   applicationId?: EntityId;
   date: string;
   time: string;
+  endTime?: string;
   type: string;
   location: string;
   meetingLink: string;
   notes: string;
+  icon?: string;
+  color?: string;
 };
 
 type DocumentItem = {
@@ -195,15 +201,15 @@ type AppSettings = {
 };
 
 const STORAGE = {
-  session: 'trackmycv.session.v3',
-  profile: 'trackmycv.profile.v3',
-  applications: 'trackmycv.applications.v3',
-  companies: 'trackmycv.companies.v3',
-  events: 'trackmycv.events.v3',
-  documents: 'trackmycv.documents.v3',
-  notes: 'trackmycv.notes.v3',
-  settings: 'trackmycv.settings.v3',
-  theme: 'trackmycv.theme.v3'
+  session: 'trackmycv.session.v4',
+  profile: 'trackmycv.profile.v4',
+  applications: 'trackmycv.applications.v4',
+  companies: 'trackmycv.companies.v4',
+  events: 'trackmycv.events.v4',
+  documents: 'trackmycv.documents.v4',
+  notes: 'trackmycv.notes.v4',
+  settings: 'trackmycv.settings.v4',
+  theme: 'trackmycv.theme.v4'
 };
 
 const statuses: Status[] = ['Saved', 'Applied', 'In progress', 'Interview', 'Task / test', 'Offer', 'Rejected', 'No response', 'Ghosted', 'Archived'];
@@ -212,6 +218,26 @@ const levels = ['Internship', 'Intern', 'Trainee', 'Working Student', 'Junior', 
 const workModes: WorkMode[] = ['Remote', 'Hybrid', 'On-site'];
 const sources = ['LinkedIn', 'Just Join IT', 'No Fluff Jobs', 'Pracuj.pl', 'Company website', 'Company career page', 'Referral', 'Direct referral', 'Recruiter message', 'Other'];
 const eventTypes = ['HR interview', 'Technical interview', 'Recruitment task', 'Online test', 'Follow-up reminder', 'Application deadline', 'Company research', 'CV update reminder'];
+const eventIconOptions = [
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'video', label: 'Video', icon: Video },
+  { id: 'mail', label: 'Mail', icon: Mail },
+  { id: 'phone', label: 'Phone', icon: PhoneCall },
+  { id: 'code', label: 'Code', icon: Code2 },
+  { id: 'briefcase', label: 'Work', icon: BriefcaseBusiness },
+  { id: 'message', label: 'Message', icon: MessageCircle },
+  { id: 'coffee', label: 'Coffee', icon: Coffee },
+  { id: 'flag', label: 'Deadline', icon: Flag },
+  { id: 'alert', label: 'Important', icon: AlertCircle }
+];
+const eventColorOptions = [
+  { id: 'taupe', label: 'Taupe', value: '#9a7658' },
+  { id: 'rose', label: 'Rose', value: '#ca7374' },
+  { id: 'blue', label: 'Blue', value: '#5f8faf' },
+  { id: 'green', label: 'Green', value: '#6d8b63' },
+  { id: 'gold', label: 'Gold', value: '#c69260' },
+  { id: 'violet', label: 'Violet', value: '#8c75b8' }
+];
 const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 'Banking', 'Cybersecurity', 'Other'];
 const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Job offer', 'Task description', 'Recruiter email', 'Certificate', 'Other'];
 
@@ -228,9 +254,9 @@ const publicAsset = (path: string) => {
 
 const initialProfile: Profile = {
   name: 'User',
-  email: 'user@example.com',
-  title: 'Software Engineering / Security Intern',
-  location: 'Remote / Poland',
+  email: '',
+  title: '',
+  location: '',
   workMode: 'Hybrid'
 };
 
@@ -277,8 +303,6 @@ const normalizeStatus = (status: string): Status => {
 const normalizeWorkMode = (mode: string): WorkMode => workModes.includes(mode as WorkMode) ? mode as WorkMode : 'Remote';
 
 const normalizeDocumentType = (type: string): DocKind => documentTypes.includes(type as DocKind) ? type as DocKind : 'Other';
-
-const companyIdFor = (companyName: string) => richCompanies.find((company) => company.name === companyName)?.id;
 
 const splitTextList = (value: string) =>
   value
@@ -352,165 +376,11 @@ const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput
   cv: application.cv
 });
 
-const initialCompanies: Company[] = [
-  { id: 1, name: 'Northstar Labs', domain: '', industry: 'Technology', location: 'Remote', website: 'https://example.com/northstar', contact: 'careers@example.com', notes: 'Fictional demo company for portfolio presentation.' },
-  { id: 2, name: 'Riverstone Consulting', domain: '', industry: 'Consulting', location: 'Warsaw', website: 'https://example.com/riverstone', contact: 'recruitment@example.com', notes: 'Fictional consulting company with security roles.' },
-  { id: 3, name: 'BrightPath Digital', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/brightpath', contact: '', notes: 'Fictional company used for demo data.' },
-  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'KrakĂłw', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
-  { id: 5, name: 'Oak & Code', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/oak-code', contact: '', notes: 'Fictional software studio.' },
-  { id: 6, name: 'Lumen Security', domain: '', industry: 'Cybersecurity', location: 'Warsaw', website: 'https://example.com/lumen-security', contact: '', notes: 'Fictional cybersecurity company.' },
-  { id: 7, name: 'MapleWorks', domain: '', industry: 'E-commerce', location: 'Remote', website: 'https://example.com/mapleworks', contact: '', notes: 'Fictional product company.' }
-];
-
-const demoCompanyLogos: Record<string, { label: string; className: string }> = {
-  'Northstar Labs': {
-    label: 'N',
-    className: 'northstar'
-  },
-  'Riverstone Consulting': {
-    label: 'R',
-    className: 'riverstone'
-  },
-  'BrightPath Digital': {
-    label: 'B',
-    className: 'brightpath'
-  },
-  'Cloudberry Systems': {
-    label: 'C',
-    className: 'cloudberry'
-  },
-  'Oak & Code': {
-    label: 'O',
-    className: 'oakcode'
-  },
-  'Lumen Security': {
-    label: 'L',
-    className: 'lumen'
-  },
-  MapleWorks: {
-    label: 'M',
-    className: 'mapleworks'
-  }
-};
-
-const initialApplications: JobApplication[] = [
-  { id: 1, company: 'Northstar Labs', companyId: 1, domain: '', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/northstar/job-1', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Mentoring, training budget, flexible work', notes: 'Demo note: prepare technical topics before the interview.', cv: 'CV_NET_Intern_Demo.pdf' },
-  { id: 2, company: 'Riverstone Consulting', companyId: 2, domain: '', position: 'Cyber Security Analyst Intern', category: 'Cybersecurity', level: 'Internship', status: 'In progress', dateApplied: '2026-05-18', lastContact: '2026-05-20', nextStep: 'HR interview', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://example.com/riverstone/job-2', requirements: 'IAM basics, security awareness, English, documentation', benefits: 'Learning path, mentor support, workshops', notes: 'Demo note: prepare motivation and security basics.', cv: 'CV_Security_Demo.pdf' },
-  { id: 3, company: 'BrightPath Digital', companyId: 3, domain: '', position: 'IAM Intern', category: 'IAM', level: 'Intern', status: 'Applied', dateApplied: '2026-05-15', lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/brightpath/job-3', requirements: 'Identity lifecycle, MFA, access management', benefits: 'Remote work, office events, training', notes: 'Demo note: good match for IAM interests.', cv: 'CV_Security_Demo.pdf' },
-  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'KrakĂłw', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
-  { id: 5, company: 'Oak & Code', companyId: 5, domain: '', position: 'Junior Full-stack Developer', category: 'Full-stack', level: 'Junior', status: 'Rejected', dateApplied: '2026-05-05', lastContact: '2026-05-12', nextStep: 'Closed', location: 'Remote', workMode: 'Remote', source: 'Pracuj.pl', offerUrl: 'https://example.com/oak-code/job-5', requirements: 'C#, React, SQL, Git', benefits: 'Remote-first, workshops, team projects', notes: 'Demo note: add feedback and learning points here.', cv: 'CV_Fullstack_Demo.pdf' },
-  { id: 6, company: 'Lumen Security', companyId: 6, domain: '', position: 'Security Internship', category: 'Cybersecurity', level: 'Internship', status: 'Ghosted', dateApplied: '2026-05-02', lastContact: '', nextStep: 'Archive or follow-up', location: 'Warsaw', workMode: 'Hybrid', source: 'No Fluff Jobs', offerUrl: 'https://example.com/lumen-security/job-6', requirements: 'Security basics, cloud basics, communication', benefits: 'Mentoring, certifications, hybrid work', notes: 'Demo note: no response after 30 days.', cv: 'CV_Security_Demo.pdf' },
-  { id: 7, company: 'MapleWorks', companyId: 7, domain: '', position: 'Frontend Trainee', category: 'Frontend', level: 'Trainee', status: 'Offer', dateApplied: '2026-04-28', lastContact: '2026-05-07', nextStep: 'Decision', location: 'Remote', workMode: 'Remote', source: 'Direct referral', offerUrl: 'https://example.com/mapleworks/job-7', requirements: 'React, TypeScript, CSS, Git', benefits: 'Flexible work, product team, mentoring', notes: 'Demo note: strong frontend learning opportunity.', cv: 'CV_Frontend_Demo.pdf' }
-];
-
-const initialEvents: CalendarEvent[] = [
-  { id: 1, title: 'Technical interview', company: 'Northstar Labs', applicationId: 1, date: '2026-05-28', time: '10:00', type: 'Technical interview', location: 'Online', meetingLink: 'https://example.com/meeting', notes: 'Demo event: prepare technical questions.' },
-  { id: 2, title: 'HR interview', company: 'Riverstone Consulting', applicationId: 2, date: '2026-05-29', time: '14:00', type: 'HR interview', location: 'Online', meetingLink: 'https://example.com/meeting', notes: 'Demo event: prepare motivation and questions.' },
-  { id: 3, title: 'Follow-up', company: 'Cloudberry Systems', applicationId: 4, date: '2026-05-31', time: '09:00', type: 'Follow-up reminder', location: 'Email', meetingLink: '', notes: 'Demo event: send a short follow-up.' },
-  { id: 4, title: 'Online test', company: 'BrightPath Digital', applicationId: 3, date: '2026-06-02', time: '16:00', type: 'Online test', location: 'Online', meetingLink: '', notes: 'Demo event: complete online test.' }
-];
-
-const initialDocuments: DocumentItem[] = [
-  { id: 1, name: 'CV_NET_Intern_Demo.pdf', type: 'CV', category: '.NET', updated: '2026-05-18', usedIn: 5, size: '420 KB', url: '' },
-  { id: 2, name: 'CV_Security_Demo.pdf', type: 'CV', category: 'Cybersecurity', updated: '2026-05-19', usedIn: 4, size: '436 KB', url: '' },
-  { id: 3, name: 'CV_Fullstack_Demo.pdf', type: 'CV', category: 'Full-stack', updated: '2026-05-12', usedIn: 2, size: '448 KB', url: '' },
-  { id: 4, name: 'Cover_Letter_Demo.pdf', type: 'Cover letter', category: 'General', updated: '2026-05-18', usedIn: 1, size: '198 KB', url: '' },
-  { id: 5, name: 'Portfolio_Demo_Link', type: 'Portfolio', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://example.com/portfolio' },
-  { id: 6, name: 'GitHub_Demo_Profile', type: 'GitHub', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://github.com/example-user' }
-];
-
-const initialNotes: NoteItem[] = [
-  { id: 1, title: 'HR interview preparation', company: 'Riverstone Consulting', application: 'Cyber Security Analyst Intern', tag: 'Interview preparation', updated: '2026-05-21', body: 'Demo note: prepare a short introduction, motivation, project examples and questions to the recruiter.', checklist: [{ id: 1, text: 'Prepare short intro', done: true }, { id: 2, text: 'Revise role requirements', done: false }, { id: 3, text: 'Prepare questions to recruiter', done: false }] },
-  { id: 2, title: 'Security topics to revise', company: 'BrightPath Digital', application: 'IAM Intern', tag: 'Technical questions', updated: '2026-05-20', body: 'Demo note: revise authentication, authorization, MFA, identity lifecycle and access management basics.', checklist: [{ id: 1, text: 'Authentication vs authorization', done: false }, { id: 2, text: 'MFA basics', done: false }] },
-  { id: 3, title: '.NET technical questions', company: 'Northstar Labs', application: '.NET Developer Intern', tag: 'Technical questions', updated: '2026-05-22', body: 'Demo note: review OOP, dependency injection, async/await, REST endpoints and database basics.', checklist: [{ id: 1, text: 'Dependency injection', done: true }, { id: 2, text: 'async/await', done: false }, { id: 3, text: 'REST API basics', done: false }] }
-];
-
-const richInitialCompanies: Company[] = richCompanies.map((company) => ({
-  id: company.id,
-  name: company.name,
-  domain: company.website,
-  industry: company.industry,
-  location: company.location,
-  website: company.website.startsWith('http') ? company.website : `https://${company.website}`,
-  contact: '',
-  notes: company.notes
-}));
-
-const richInitialApplications: JobApplication[] = richApplications.map((application) => ({
-  id: Number(application.id),
-  company: application.company,
-  companyId: companyIdFor(application.company),
-  domain: '',
-  position: application.position,
-  category: application.category,
-  level: application.level,
-  status: normalizeStatus(application.status),
-  dateApplied: application.dateApplied,
-  lastContact: application.lastContact === '-' ? '' : application.lastContact,
-  nextStep: application.nextStep,
-  location: application.location,
-  workMode: normalizeWorkMode(application.workMode),
-  source: application.source,
-  offerUrl: application.offerUrl,
-  requirements: toListText(application.requirements),
-  benefits: toListText(application.benefits),
-  notes: application.notes,
-  cv: application.cv
-}));
-
-const richInitialEvents: CalendarEvent[] = richCalendarEvents.map((event) => ({
-  id: event.id,
-  title: event.title,
-  company: event.company,
-  applicationId: typeof event.applicationId === 'number' ? event.applicationId : Number(event.applicationId),
-  date: event.date,
-  time: event.time,
-  type: event.type,
-  location: event.channel,
-  meetingLink: event.channel === 'Online' ? 'https://example.com/meeting' : '',
-  notes: `${event.notes}${event.status === 'done' ? ' Status: done.' : ''}`
-}));
-
-const richInitialDocuments: DocumentItem[] = richDocuments.map((document) => ({
-  id: document.id,
-  name: document.name,
-  type: document.type as DocKind,
-  category: document.category,
-  updated: document.updatedAt || document.updated,
-  usedIn: document.usedInApplicationsCount ?? document.usedIn,
-  size: document.size,
-  url: document.url || '',
-  language: document.language,
-  targetRole: document.targetRole,
-  fileName: document.fileName,
-  createdAt: document.createdAt,
-  updatedAt: document.updatedAt,
-  usedInApplicationsCount: document.usedInApplicationsCount,
-  assignedApplications: document.assignedApplications?.map((id) => Number(id)),
-  tags: document.tags,
-  status: document.status,
-  notes: document.notes,
-  successRate: document.successRate,
-  lastUsedAt: document.lastUsedAt,
-  isDefault: document.isDefault
-}));
-
-const richInitialNotes: NoteItem[] = richNotes.map((note) => ({
-  id: note.id,
-  title: note.title,
-  company: note.company,
-  application: note.application,
-  tag: note.type || note.tag,
-  tags: note.tags,
-  type: note.type,
-  updated: note.lastEdited || note.updated,
-  lastEdited: note.lastEdited,
-  preview: note.preview,
-  body: note.body,
-  pinned: note.pinned,
-  favorite: note.favorite,
-  checklist: (note.checklist ?? []).map((item, index) => ({ id: index + 1, text: item.label, done: item.done }))
-}));
+const appInitialCompanies: Company[] = [];
+const appInitialApplications: JobApplication[] = [];
+const appInitialEvents: CalendarEvent[] = [];
+const appInitialDocuments: DocumentItem[] = [];
+const appInitialNotes: NoteItem[] = [];
 
 const inspirationCards = [
   { title: 'Stay consistent', text: 'Small steps every day lead to big changes.', image: publicAsset('assets/bed-coffe.jpg') },
@@ -563,7 +433,39 @@ function writeStorage<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function removeStorage(key: string) {
+  localStorage.removeItem(key);
+}
+
+const workspaceStorageKeys = [
+  STORAGE.profile,
+  STORAGE.settings,
+  STORAGE.applications,
+  STORAGE.companies,
+  STORAGE.events,
+  STORAGE.documents,
+  STORAGE.notes,
+  STORAGE.theme
+];
+
+function userStorageKey(userId: string, key: string) {
+  return `${key}.user.${userId}`;
+}
+
+function readUserStorage<T>(userId: string, key: string, fallback: T): T {
+  return readStorage(userStorageKey(userId, key), fallback);
+}
+
+function writeUserStorage<T>(userId: string, key: string, value: T) {
+  writeStorage(userStorageKey(userId, key), value);
+}
+
+function clearSharedWorkspaceStorage() {
+  workspaceStorageKeys.forEach(removeStorage);
+}
+
 function formatDate(value: string) {
+  if (!value) return '-';
   if (!value) return 'â€”';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
@@ -602,6 +504,7 @@ function startOfWeek(value: string | Date) {
 function formatWeekRange(start: Date) {
   const end = addDays(start, 6);
   const formatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
+  return [formatter.format(start), formatter.format(end)].join(' - ');
   return `${formatter.format(start)} â€“ ${formatter.format(end)}`;
 }
 
@@ -640,6 +543,126 @@ function getMonthCells(monthDate: Date) {
       isCurrentMonth: date.getMonth() === monthStart.getMonth()
     };
   });
+}
+
+const dayHours = Array.from({ length: 24 }, (_, hour) => hour);
+const DAY_HOUR_HEIGHT = 64;
+const DEFAULT_EVENT_ICON = eventIconOptions[0].id;
+const DEFAULT_EVENT_COLOR = eventColorOptions[0].value;
+
+type EventCssStyle = CSSProperties & { '--event-color': string };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function timeToMinutes(time?: string) {
+  const [rawHours, rawMinutes] = (time || '00:00').split(':');
+  const hours = Number(rawHours);
+  const minutes = Number(rawMinutes);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+  return clamp((hours * 60) + minutes, 0, 1439);
+}
+
+function minutesToTime(value: number) {
+  const minutes = clamp(Math.round(value), 0, 1439);
+  const hoursPart = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const minutesPart = String(minutes % 60).padStart(2, '0');
+  return `${hoursPart}:${minutesPart}`;
+}
+
+function addMinutesToTime(time: string | undefined, minutes: number) {
+  return minutesToTime(timeToMinutes(time || '10:00') + minutes);
+}
+
+function getEventColor(color?: string) {
+  return eventColorOptions.find((option) => option.value === color)?.value || DEFAULT_EVENT_COLOR;
+}
+
+function getEventIconComponent(icon?: string) {
+  return eventIconOptions.find((option) => option.id === icon)?.icon || CalendarDays;
+}
+
+function normalizeCalendarEvent(event: CalendarEvent): CalendarEvent {
+  const start = timeToMinutes(event.time || '10:00');
+  const rawEnd = event.endTime ? timeToMinutes(event.endTime) : start + 60;
+  const end = clamp(rawEnd <= start ? start + 60 : rawEnd, start + 15, 1439);
+
+  return {
+    ...event,
+    date: event.date || today(),
+    time: minutesToTime(start),
+    endTime: minutesToTime(end),
+    icon: event.icon || DEFAULT_EVENT_ICON,
+    color: getEventColor(event.color)
+  };
+}
+
+function getEventRange(event: CalendarEvent) {
+  const normalized = normalizeCalendarEvent(event);
+  const start = timeToMinutes(normalized.time);
+  const end = Math.max(start + 15, timeToMinutes(normalized.endTime));
+  return { start, end: clamp(end, start + 15, 1439) };
+}
+
+function formatEventTime(event: CalendarEvent) {
+  const normalized = normalizeCalendarEvent(event);
+  return `${normalized.time} - ${normalized.endTime}`;
+}
+
+function eventColorStyle(event: CalendarEvent): EventCssStyle {
+  return { '--event-color': getEventColor(event.color) };
+}
+
+function getDayEventLayouts(events: CalendarEvent[]) {
+  const prepared = events.map(normalizeCalendarEvent)
+    .map((event) => ({ event, ...getEventRange(event), column: 0, columnCount: 1 }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  const layouts: Array<typeof prepared[number] & { top: number; height: number; left: number; width: number }> = [];
+
+  function flush(cluster: typeof prepared) {
+    if (!cluster.length) return;
+
+    const columnEnds: number[] = [];
+    cluster.forEach((item) => {
+      const column = columnEnds.findIndex((end) => end <= item.start);
+      item.column = column === -1 ? columnEnds.length : column;
+      columnEnds[item.column] = item.end;
+    });
+
+    const columnCount = Math.max(1, columnEnds.length);
+    cluster.forEach((item) => {
+      const top = (item.start / 60) * DAY_HOUR_HEIGHT;
+      const height = Math.max(((item.end - item.start) / 60) * DAY_HOUR_HEIGHT, 34);
+      layouts.push({
+        ...item,
+        columnCount,
+        top,
+        height,
+        left: (item.column / columnCount) * 100,
+        width: 100 / columnCount
+      });
+    });
+  }
+
+  let cluster: typeof prepared = [];
+  let clusterEnd = -1;
+
+  prepared.forEach((item) => {
+    if (!cluster.length || item.start < clusterEnd) {
+      cluster.push(item);
+      clusterEnd = Math.max(clusterEnd, item.end);
+      return;
+    }
+
+    flush(cluster);
+    cluster = [item];
+    clusterEnd = item.end;
+  });
+
+  flush(cluster);
+  return layouts;
 }
 
 function makeId() {
@@ -682,9 +705,22 @@ function calculateStats(applications: JobApplication[]) {
   const interviews = applications.filter((app) => ['Interview', 'Offer'].includes(app.status)).length;
   const positive = applications.filter((app) => ['Interview', 'Task / test', 'Offer', 'In progress'].includes(app.status)).length;
   const response = applications.filter((app) => !['Saved', 'Applied', 'No response', 'Ghosted', 'Archived'].includes(app.status)).length;
+  const responseTimes = applications
+    .map((app) => {
+      if (!app.dateApplied || !app.lastContact) return null;
+
+      const appliedAt = new Date(`${app.dateApplied}T00:00:00`);
+      const contactedAt = new Date(`${app.lastContact}T00:00:00`);
+
+      if (Number.isNaN(appliedAt.getTime()) || Number.isNaN(contactedAt.getTime())) return null;
+
+      return Math.max(0, Math.round((contactedAt.getTime() - appliedAt.getTime()) / 86_400_000));
+    })
+    .filter((days): days is number => days !== null);
   const responseRate = total ? Math.round((response / total) * 100) : 0;
   const successRate = total ? Math.round((positive / total) * 100) : 0;
-  return { total, active, interviews, positive, responseRate, successRate };
+  const averageResponseDays = responseTimes.length ? Math.round(responseTimes.reduce((sum, days) => sum + days, 0) / responseTimes.length) : 0;
+  return { total, active, interviews, positive, responseRate, successRate, averageResponseDays };
 }
 
 function companyStats(company: Company, applications: JobApplication[]) {
@@ -699,6 +735,11 @@ function companyStats(company: Company, applications: JobApplication[]) {
 }
 
 function exportCsv(applications: JobApplication[], setToast: (value: string) => void) {
+  if (!applications.length) {
+    setToast('Add your first application before exporting CSV.');
+    return;
+  }
+
   const header = ['Company', 'Position', 'Category', 'Level', 'Status', 'Date applied', 'Last contact', 'Next step', 'Location', 'Work mode', 'Source', 'Offer URL'];
   const rows = applications.map((app) => [app.company, app.position, app.category, app.level, app.status, app.dateApplied, app.lastContact, app.nextStep, app.location, app.workMode, app.source, app.offerUrl]);
   const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -733,19 +774,7 @@ function CompanyLogo({
   large?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-  const demoLogo = demoCompanyLogos[name];
   const cleanDomain = domain?.trim();
-
-  if (demoLogo) {
-    return (
-      <span
-        className={`company-logo demo-company-logo ${demoLogo.className} ${large ? 'large' : ''}`}
-        aria-label={`${name} logo`}
-      >
-        <span>{demoLogo.label}</span>
-      </span>
-    );
-  }
 
   if (cleanDomain && !failed) {
     const resolvedDomain = safeDomain(name, cleanDomain);
@@ -762,7 +791,7 @@ function CompanyLogo({
   }
 
   return (
-    <span className={`company-logo demo-company-logo fallback ${large ? 'large' : ''}`} aria-label={`${name} logo`}>
+    <span className={`company-logo initials-logo ${large ? 'large' : ''}`} aria-label={`${name} logo`}>
       <span>{getInitials(name)}</span>
     </span>
   );
@@ -815,26 +844,74 @@ function TextAreaField({ label, value, onChange, placeholder = '' }: { label: st
   return <label className="form-field full-field"><span>{label}</span><textarea value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
+const passwordRules = [
+  { id: 'length', label: 'Minimum 8 characters', test: (value: string) => value.length >= 8 },
+  { id: 'lowercase', label: 'Lowercase letter', test: (value: string) => /[a-z]/.test(value) },
+  { id: 'uppercase', label: 'Uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
+  { id: 'number', label: 'Number', test: (value: string) => /\d/.test(value) },
+  { id: 'special', label: 'Special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) }
+];
+
+function getPasswordRuleStates(password: string) {
+  return passwordRules.map((rule) => ({ ...rule, met: rule.test(password) }));
+}
+
+function PasswordRequirements({ password }: { password: string }) {
+  const ruleStates = useMemo(() => getPasswordRuleStates(password), [password]);
+
+  return (
+    <div className="password-requirements" aria-live="polite">
+      <strong>Password needs:</strong>
+      <div className="password-rule-grid">
+        {ruleStates.map((rule) => (
+          <span key={rule.id} className={rule.met ? 'met' : ''}>
+            {rule.met ? <Check size={13} /> : <X size={13} />}
+            {rule.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LoginPage({ onLogin, onRegister }: { onLogin: (input: LoginInput) => Promise<void>; onRegister: (input: RegisterInput) => Promise<void> }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [displayName, setDisplayName] = useState('User');
-  const [email, setEmail] = useState('user@example.com');
-  const [password, setPassword] = useState('local1234');
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!email.includes('@') || password.length < 8) {
-      setError('Enter a valid email and a password with at least 8 characters.');
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanDisplayName = displayName.trim();
+
+    if (!cleanEmail.includes('@')) {
+      setError('Enter a valid email address.');
       return;
     }
+
+    if (!password) {
+      setError('Enter your password.');
+      return;
+    }
+
+    if (mode === 'register') {
+      const failedRule = getPasswordRuleStates(password).find((rule) => !rule.met);
+
+      if (failedRule) {
+        setError('Password must include minimum 8 characters, uppercase and lowercase letters, a number and a special character.');
+        return;
+      }
+    }
+
     setError('');
     setSubmitting(true);
     try {
       if (mode === 'register') {
-        await onRegister({ email, password, displayName });
+        await onRegister({ email: cleanEmail, password, displayName: cleanDisplayName });
       } else {
-        await onLogin({ email, password });
+        await onLogin({ email: cleanEmail, password });
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Could not sign in.');
@@ -846,18 +923,18 @@ function LoginPage({ onLogin, onRegister }: { onLogin: (input: LoginInput) => Pr
     <main className="login-page">
       <section className="login-card">
         <Logo />
-        <div className="login-copy"><span className="eyebrow">Local workspace</span><h1>Track applications without chaos.</h1><p>Applications are connected to your local ASP.NET Core API. Supporting modules keep workspace data locally until their backend endpoints are added.</p></div>
+        <div className="login-copy"><span className="eyebrow">Private workspace</span><h1>Track applications without chaos.</h1><p>Create your account, upload your CV, save applications and keep recruitment notes in one place.</p></div>
         <form className="login-form" onSubmit={submit}>
           <div className="segmented-row auth-mode-switch">
-            <button className={mode === 'login' ? 'selected' : ''} type="button" onClick={() => setMode('login')}>Log in</button>
-            <button className={mode === 'register' ? 'selected' : ''} type="button" onClick={() => setMode('register')}>Register</button>
+            <button className={mode === 'login' ? 'selected' : ''} type="button" onClick={() => { setMode('login'); setError(''); }}>Log in</button>
+            <button className={mode === 'register' ? 'selected' : ''} type="button" onClick={() => { setMode('register'); setError(''); }}>Register</button>
           </div>
-          {mode === 'register' ? <label>Name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label> : null}
-          <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-          {error ? <p className="form-error">{error}</p> : null}
+          {mode === 'register' ? <label>Name<input value={displayName} placeholder="Anna" autoComplete="name" onChange={(event) => { setDisplayName(event.target.value); setError(''); }} /></label> : null}
+          <label>Email<input type="email" value={email} placeholder="example@mail.com" autoComplete="email" onChange={(event) => { setEmail(event.target.value); setError(''); }} /></label>
+          <label>Password<input type="password" value={password} placeholder="........" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} onChange={(event) => { setPassword(event.target.value); setError(''); }} /></label>
+          {mode === 'register' ? <PasswordRequirements password={password} /> : null}
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
           <button className="primary-button full" type="submit" disabled={submitting}>{submitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Log in'}</button>
-          <small>{mode === 'register' ? 'Your account is created with email and password.' : 'Use the email and password created for this local API.'}</small>
         </form>
       </section>
       <aside className="login-visual"><img src={publicAsset('assets/work2.webp')} alt="Soft work setup" /><div className="visual-card"><CheckCircle2 size={18} /> Soft productivity dashboard</div></aside>
@@ -944,6 +1021,23 @@ function CategoryPill({ category }: { category: string }) {
 function DashboardPage({ applications, events, setPage }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void }) {
   const stats = calculateStats(applications);
   const latest = [...applications].sort((a, b) => b.dateApplied.localeCompare(a.dateApplied)).slice(0, 5);
+
+  if (!applications.length) {
+    return (
+      <section className="page-section">
+        <div className="panel-card empty-state app-empty-state">
+          <BriefcaseBusiness size={30} />
+          <strong>Your tracker is ready</strong>
+          <span>Add your first job application, then upload the CV version you used for it.</span>
+          <div className="empty-state-actions">
+            <button className="primary-button" type="button" onClick={() => setPage('applications')}><Plus size={17} /> Add application</button>
+            <button className="secondary-button" type="button" onClick={() => setPage('documents')}><Upload size={17} /> Upload CV</button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div className="page-grid dashboard-grid">
       <main className="main-column">
@@ -1326,7 +1420,14 @@ function ApplicationsPage({
         ) : null}
       </div>
 
-      {viewMode === 'list' ? (
+      {!applications.length ? (
+        <div className="panel-card empty-state app-empty-state">
+          <BriefcaseBusiness size={30} />
+          <strong>No applications yet</strong>
+          <span>Add your first application to start tracking companies, stages and CV usage.</span>
+          <button className="primary-button" type="button" onClick={onOpenApplication}><Plus size={17} /> Add application</button>
+        </div>
+      ) : viewMode === 'list' ? (
         <DesktopApplicationsList
           applications={filtered}
           onSelect={openPreview}
@@ -1531,7 +1632,7 @@ function CompanyModal({ company, onClose, onSave }: { company: Company; onClose:
   const [form, setForm] = useState(company);
   function set<K extends keyof Company>(key: K, value: Company[K]) { setForm((current) => ({ ...current, [key]: value })); }
   function submit(event: FormEvent) { event.preventDefault(); onSave({ ...form, id: form.id || makeId(), domain: safeDomain(form.name, form.domain), website: form.website || `https://${safeDomain(form.name, form.domain)}` }); }
-  return <BaseModal title={form.id ? 'Edit company' : 'Add company'} subtitle="Save company details for recruitment history." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Company name" value={form.name} onChange={(v) => set('name', v)} placeholder="e.g. Sii" /><TextField label="Domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="e.g. sii.pl" /><div className="form-field"><span>Industry</span><CustomSelect value={form.industry} options={industries} onChange={(v) => set('industry', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><TextField label="Website" value={form.website} onChange={(v) => set('website', v)} /><TextField label="Contact" value={form.contact} onChange={(v) => set('contact', v)} /></div><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} /><ModalFooter onClose={onClose} submitLabel="Save company" /></form></BaseModal>;
+  return <BaseModal title={form.id ? 'Edit company' : 'Add company'} subtitle="Save company details for recruitment history." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Company name" value={form.name} onChange={(v) => set('name', v)} placeholder="Example Company" /><TextField label="Domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><div className="form-field"><span>Industry</span><CustomSelect value={form.industry} options={industries} onChange={(v) => set('industry', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><TextField label="Website" value={form.website} onChange={(v) => set('website', v)} /><TextField label="Contact" value={form.contact} onChange={(v) => set('contact', v)} /></div><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} /><ModalFooter onClose={onClose} submitLabel="Save company" /></form></BaseModal>;
 }
 
 function StatisticsPage({ applications, categoryOptions }: { applications: JobApplication[]; categoryOptions: string[] }) {
@@ -1540,7 +1641,7 @@ function StatisticsPage({ applications, categoryOptions }: { applications: JobAp
   const [mode, setMode] = useState('All');
   const scoped = applications.filter((app) => (category === 'All' || app.category === category) && (mode === 'All' || app.workMode === mode));
   const stats = calculateStats(scoped);
-  return <section className="page-section"><div className="toolbar compact-toolbar"><CustomSelect label="Range" value={range} options={['Last 7 days', 'Last 30 days', 'This month', 'All time']} onChange={setRange} /><CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} /><CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} /></div><div className="stats-metrics-grid"><MetricCard label="Total applications" value={stats.total} hint={range} /><MetricCard label="Active processes" value={stats.active} hint="currently open" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from selected" tone="green-text" /><MetricCard label="Interview rate" value={`${stats.successRate}%`} hint="positive stages" tone="blue-text" /><MetricCard label="Ghosted" value={scoped.filter((app) => app.status === 'Ghosted').length} hint="to archive" /><MetricCard label="Avg response time" value="6d" hint="first contact" /></div><div className="stats-grid"><section className="panel-card chart-panel wide-chart"><div className="mini-title"><BarChart3 size={18} /><h2>Applications by category</h2></div><BarList rows={topRows(scoped.map((app) => app.category))} /></section><ApplicationSummary applications={scoped} /><section className="panel-card chart-panel"><div className="mini-title"><Sparkles size={18} /><h2>Applications by level</h2></div><BarList rows={topRows(scoped.map((app) => app.level))} /></section><MiniListCard icon={Globe} title="Best sources" rows={topRows(scoped.map((app) => app.source))} /></div></section>;
+  return <section className="page-section"><div className="toolbar compact-toolbar"><CustomSelect label="Range" value={range} options={['Last 7 days', 'Last 30 days', 'This month', 'All time']} onChange={setRange} /><CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} /><CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} /></div><div className="stats-metrics-grid"><MetricCard label="Total applications" value={stats.total} hint={range} /><MetricCard label="Active processes" value={stats.active} hint="currently open" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from selected" tone="green-text" /><MetricCard label="Interview rate" value={`${stats.successRate}%`} hint="positive stages" tone="blue-text" /><MetricCard label="Ghosted" value={scoped.filter((app) => app.status === 'Ghosted').length} hint="to archive" /><MetricCard label="Avg response time" value={`${stats.averageResponseDays}d`} hint="first contact" /></div><div className="stats-grid"><section className="panel-card chart-panel wide-chart"><div className="mini-title"><BarChart3 size={18} /><h2>Applications by category</h2></div><BarList rows={topRows(scoped.map((app) => app.category))} /></section><ApplicationSummary applications={scoped} /><section className="panel-card chart-panel"><div className="mini-title"><Sparkles size={18} /><h2>Applications by level</h2></div><BarList rows={topRows(scoped.map((app) => app.level))} /></section><MiniListCard icon={Globe} title="Best sources" rows={topRows(scoped.map((app) => app.source))} /></div></section>;
 }
 
 function BarList({ rows }: { rows: [string, string][] }) {
@@ -1551,26 +1652,32 @@ function BarList({ rows }: { rows: [string, string][] }) {
 function CalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
   const [view, setView] = useState<CalendarView>('Month');
   const [modal, setModal] = useState<CalendarEvent | null>(null);
-  const sorted = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  const sorted = events.map(normalizeCalendarEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
+  const [dayDate, setDayDate] = useState(() => toDate(today()));
   const [monthDate, setMonthDate] = useState(() => startOfMonth(today()));
   const monthCells = getMonthCells(monthDate);
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const selectedDayIso = toIsoDate(dayDate);
+  const selectedDayEvents = sorted.filter((event) => event.date === selectedDayIso);
+  const dayLayouts = getDayEventLayouts(selectedDayEvents);
+  const dayTimelineHeight = DAY_HOUR_HEIGHT * 24;
   function save(event: CalendarEvent) {
-    if (events.some((item) => item.id === event.id)) setEvents(events.map((item) => item.id === event.id ? event : item));
-    else setEvents([event, ...events]);
+    const normalized = normalizeCalendarEvent(event);
+    if (events.some((item) => item.id === normalized.id)) setEvents(events.map((item) => item.id === normalized.id ? normalized : item));
+    else setEvents([normalized, ...events]);
     setModal(null);
     setToast('Calendar event saved.');
   }
   function remove(id: number) { setEvents(events.filter((event) => event.id !== id)); setToast('Calendar event removed.'); }
   function newEvent(date = today(), time = '10:00') {
-    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date, time, type: 'HR interview', location: 'Online', meetingLink: '', notes: '' });
+    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date, time, endTime: addMinutesToTime(time, 60), type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
   }
   return (
     <section className="page-section">
       <div className="toolbar compact-toolbar">
-        <div className="segmented-inline">{(['Month', 'Week', 'List'] as CalendarView[]).map((item) => <button type="button" className={view === item ? 'selected' : ''} key={item} onClick={() => setView(item)}>{item}</button>)}</div>
-        <button className="primary-button" type="button" onClick={() => newEvent()}><Plus size={17} /> Add event</button>
+        <div className="segmented-inline">{(['Month', 'Week', 'Day'] as CalendarView[]).map((item) => <button type="button" className={view === item ? 'selected' : ''} key={item} onClick={() => setView(item)}>{item}</button>)}</div>
+        <button className="primary-button" type="button" onClick={() => newEvent(view === 'Day' ? selectedDayIso : today())}><Plus size={17} /> Add event</button>
       </div>
       <div className="calendar-layout">
         {view === 'Month' ? (
@@ -1603,8 +1710,14 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
                       <strong>{day.getDate()}</strong>
                     </button>
                     <div className="week-events">
-                      {dayEvents.map((event) => <button className="week-event-block" key={event.id} type="button" onClick={() => setModal(event)}><span>{event.time}</span><strong>{event.title}</strong><small>{event.company}</small></button>)}
-                      {!dayEvents.length ? <button className="week-empty-slot" type="button" onClick={() => newEvent(iso)}>Add event</button> : null}
+                      {dayEvents.map((event) => {
+                        const EventIcon = getEventIconComponent(event.icon);
+                        return <button className="week-event-block" key={event.id} type="button" style={eventColorStyle(event)} onClick={() => setModal(event)}><span>{formatEventTime(event)}</span><strong>{event.title}</strong><small>{event.company}</small><span className="event-corner-icon"><EventIcon size={13} /></span></button>;
+                      })}
+                      <button className={`week-add-event ${dayEvents.length ? 'compact' : 'empty'}`} type="button" onClick={() => newEvent(iso)}>
+                        <Plus size={14} />
+                        <span>Add event</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -1612,9 +1725,38 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
             </div>
           </section>
         ) : (
-          <section className="panel-card calendar-card list-calendar">
-            <h2>All events</h2>
-            {sorted.map((event) => <EventCard key={event.id} event={event} onEdit={() => setModal(event)} onDelete={() => remove(event.id)} />)}
+          <section className="panel-card calendar-card day-calendar">
+            <div className="calendar-header-row">
+              <div><h2>Day view</h2><p>{formatDate(selectedDayIso)}</p></div>
+              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setDayDate(addDays(dayDate, -1))} aria-label="Previous day"><ChevronLeft size={18} /></button><button className="secondary-button today-button" type="button" onClick={() => setDayDate(toDate(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setDayDate(addDays(dayDate, 1))} aria-label="Next day"><ChevronRight size={18} /></button></div>
+            </div>
+            <div className="day-schedule custom-scroll" style={{ '--day-hour-height': `${DAY_HOUR_HEIGHT}px` } as CSSProperties}>
+              <div className="day-time-rail" style={{ height: dayTimelineHeight }}>
+                {dayHours.map((hour) => <span className="day-time-label" key={hour}>{minutesToTime(hour * 60)}</span>)}
+              </div>
+              <div className="day-track" style={{ height: dayTimelineHeight }}>
+                {dayHours.map((hour) => <button className="day-hour-button" key={hour} type="button" style={{ top: hour * DAY_HOUR_HEIGHT, height: DAY_HOUR_HEIGHT }} onClick={() => newEvent(selectedDayIso, minutesToTime(hour * 60))}><span>Add plan</span></button>)}
+                {!dayLayouts.length ? <div className="day-empty-note">Choose an hour to add your first plan for this day.</div> : null}
+                {dayLayouts.map((layout) => {
+                  const EventIcon = getEventIconComponent(layout.event.icon);
+                  const style = {
+                    ...eventColorStyle(layout.event),
+                    top: layout.top,
+                    height: layout.height,
+                    left: `calc(${layout.left}% + 4px)`,
+                    width: `calc(${layout.width}% - 8px)`
+                  } as EventCssStyle;
+                  return (
+                    <button className="day-event-block" key={layout.event.id} type="button" style={style} onClick={() => setModal(layout.event)}>
+                      <span className="day-event-icon"><EventIcon size={14} /></span>
+                      <span className="day-event-time">{formatEventTime(layout.event)}</span>
+                      <strong>{layout.event.title || 'Untitled event'}</strong>
+                      <small>{layout.event.company || layout.event.location}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </section>
         )}
         <section className="panel-card event-panel"><div className="mini-title"><CalendarDays size={18} /><h2>Upcoming events</h2></div>{sorted.slice(0, 5).map((event) => <EventCard key={event.id} event={event} compact onEdit={() => setModal(event)} onDelete={() => remove(event.id)} />)}</section>
@@ -1625,14 +1767,66 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
 }
 
 function EventCard({ event, onEdit, onDelete, compact = false }: { event: CalendarEvent; onEdit: () => void; onDelete: () => void; compact?: boolean }) {
-  return <div className={`event-card ${compact ? 'compact-event' : ''}`}><span className="event-icon"><Clock size={16} /></span><div><strong>{event.title}</strong><p>{event.company}</p><small>{formatDate(event.date)}, {event.time} Â· {event.location}</small></div><div className="event-card-actions"><button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button><button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button></div>{event.type.includes('interview') ? <Video size={16} /> : <Mail size={16} />}</div>;
+  const normalized = normalizeCalendarEvent(event);
+  const EventIcon = getEventIconComponent(normalized.icon);
+  return <div className={`event-card ${compact ? 'compact-event' : ''}`} style={eventColorStyle(normalized)}><span className="event-icon"><Clock size={16} /></span><div><strong>{normalized.title}</strong><p>{normalized.company}</p><small>{formatDate(normalized.date)}, {formatEventTime(normalized)} - {normalized.location}</small></div><div className="event-card-actions"><button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button><button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button></div><span className="event-corner-icon"><EventIcon size={16} /></span></div>;
 }
 
 function EventModal({ event, applications, onClose, onSave }: { event: CalendarEvent; applications: JobApplication[]; onClose: () => void; onSave: (event: CalendarEvent) => void }) {
-  const [form, setForm] = useState(event);
+  const [form, setForm] = useState(() => normalizeCalendarEvent(event));
+  const [error, setError] = useState('');
   function set<K extends keyof CalendarEvent>(key: K, value: CalendarEvent[K]) { setForm((current) => ({ ...current, [key]: value })); }
-  function submit(e: FormEvent) { e.preventDefault(); onSave({ ...form, id: form.id || makeId() }); }
-  return <BaseModal title={form.id ? 'Edit event' : 'Add event'} subtitle="Plan interviews, follow-ups and recruitment tasks." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Event title" value={form.title} onChange={(v) => set('title', v)} placeholder="e.g. HR interview" /><div className="form-field"><span>Company</span><CustomSelect value={form.company || 'General'} options={['General', ...Array.from(new Set(applications.map((app) => app.company)))]} onChange={(v) => set('company', v)} /></div><div className="form-field"><span>Type</span><CustomSelect value={form.type} options={eventTypes} onChange={(v) => set('type', v)} /></div><TextField label="Date" type="date" value={form.date} onChange={(v) => set('date', v)} /><TextField label="Time" type="time" value={form.time} onChange={(v) => set('time', v)} /><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><TextField label="Meeting link" value={form.meetingLink} onChange={(v) => set('meetingLink', v)} /></div><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} /><ModalFooter onClose={onClose} submitLabel="Save event" /></form></BaseModal>;
+  function submit(e: FormEvent) {
+    e.preventDefault();
+
+    if (!form.title.trim()) {
+      setError('Add an event title.');
+      return;
+    }
+
+    if (timeToMinutes(form.endTime) <= timeToMinutes(form.time)) {
+      setError('End time must be later than start time.');
+      return;
+    }
+
+    onSave(normalizeCalendarEvent({ ...form, id: form.id || makeId(), title: form.title.trim() }));
+  }
+  return (
+    <BaseModal title={form.id ? 'Edit event' : 'Add event'} subtitle="Plan interviews, follow-ups and recruitment tasks." onClose={onClose}>
+      <form className="modal-form" onSubmit={submit}>
+        <div className="form-grid">
+          <TextField label="Event title" value={form.title} onChange={(v) => { set('title', v); setError(''); }} placeholder="HR interview" />
+          <div className="form-field"><span>Company</span><CustomSelect value={form.company || 'General'} options={['General', ...Array.from(new Set(applications.map((app) => app.company)))]} onChange={(v) => set('company', v)} /></div>
+          <div className="form-field"><span>Type</span><CustomSelect value={form.type} options={eventTypes} onChange={(v) => set('type', v)} /></div>
+          <TextField label="Date" type="date" value={form.date} onChange={(v) => set('date', v)} />
+          <TextField label="Start time" type="time" value={form.time} onChange={(v) => { set('time', v); if (timeToMinutes(form.endTime) <= timeToMinutes(v)) set('endTime', addMinutesToTime(v, 60)); setError(''); }} />
+          <TextField label="End time" type="time" value={form.endTime || addMinutesToTime(form.time, 60)} onChange={(v) => { set('endTime', v); setError(''); }} />
+          <TextField label="Location" value={form.location} onChange={(v) => set('location', v)} />
+          <TextField label="Meeting link" value={form.meetingLink} onChange={(v) => set('meetingLink', v)} />
+        </div>
+        <div className="event-style-grid">
+          <div className="setting-group compact-setting">
+            <span className="setting-label">Icon</span>
+            <div className="event-icon-picker">
+              {eventIconOptions.map((option) => {
+                const Icon = option.icon;
+                return <button key={option.id} className={form.icon === option.id ? 'selected' : ''} type="button" title={option.label} aria-label={option.label} onClick={() => set('icon', option.id)}><Icon size={17} /></button>;
+              })}
+            </div>
+          </div>
+          <div className="setting-group compact-setting">
+            <span className="setting-label">Color</span>
+            <div className="event-color-picker">
+              {eventColorOptions.map((option) => <button key={option.id} className={getEventColor(form.color) === option.value ? 'selected' : ''} type="button" title={option.label} aria-label={option.label} style={{ '--event-color': option.value } as EventCssStyle} onClick={() => set('color', option.value)}><span /></button>)}
+            </div>
+          </div>
+        </div>
+        <TextAreaField label="Detailed plan" value={form.notes} onChange={(v) => set('notes', v)} placeholder="09:00 intro, 09:20 technical questions, 09:50 next steps" />
+        {error ? <p className="form-error" role="alert">{error}</p> : null}
+        <ModalFooter onClose={onClose} submitLabel="Save event" />
+      </form>
+    </BaseModal>
+  );
 }
 
 function LegacyDocumentsPage({ documents, setDocuments, onExport, setToast }: { documents: DocumentItem[]; setDocuments: (docs: DocumentItem[]) => void; onExport: () => void; setToast: (value: string) => void }) {
@@ -1646,7 +1840,7 @@ function LegacyDocumentsPage({ documents, setDocuments, onExport, setToast }: { 
     const file = files[0];
     const next: DocumentItem = { id: makeId(), name: file.name, type: file.name.toLowerCase().includes('cv') ? 'CV' : 'Other', category: 'General', updated: today(), usedIn: 0, size: `${Math.max(1, Math.round(file.size / 1024))} KB`, url: '' };
     setDocuments([next, ...documents]);
-    setToast('Document added to demo.');
+    setToast('Document added.');
   }
   function addLink(doc: DocumentItem) { setDocuments([doc, ...documents]); setLinkModal(false); setToast('Link saved.'); }
   function remove(id: EntityId) { setDocuments(documents.filter((doc) => doc.id !== id)); setToast('Document removed.'); }
@@ -1667,15 +1861,20 @@ type DocumentsPageProps = {
   onDeleteDocument?: (id: EntityId) => Promise<void>;
   onArchiveDocument?: (id: EntityId) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
+  onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
 };
 
-function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onDownloadDocument }: DocumentsPageProps) {
+function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onDownloadDocument, onPreviewDocument }: DocumentsPageProps) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
   const [linkModal, setLinkModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const filtered = documents.filter((doc) => `${doc.name} ${doc.type} ${doc.category} ${doc.tags?.join(' ') ?? ''}`.toLowerCase().includes(query.toLowerCase()) && (type === 'All' || doc.type === type));
+  const cvCount = documents.filter((doc) => doc.type === 'CV').length;
+  const mostUsedDocument = documents
+    .filter((doc) => doc.type === 'CV')
+    .sort((first, second) => (second.usedInApplicationsCount ?? second.usedIn) - (first.usedInApplicationsCount ?? first.usedIn))[0];
 
   useEffect(() => {
     if (!selectedDocument) return;
@@ -1754,8 +1953,12 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
   }
   async function copyLink(doc: DocumentItem) {
     if (!doc.url) { setToast('This document has no link to copy.'); return; }
-    await navigator.clipboard?.writeText(doc.url);
-    setToast('Document link copied.');
+    try {
+      await navigator.clipboard?.writeText(doc.url);
+      setToast('Document link copied.');
+    } catch {
+      setToast('Could not copy the link. Open it and copy it from the browser.');
+    }
   }
   return (
     <section className="page-section">
@@ -1763,7 +1966,7 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
         <div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>
         <CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} />
         <button className="secondary-button" type="button" onClick={() => fileInput.current?.click()} disabled={loading}><Upload size={17} /> Upload</button>
-        <input ref={fileInput} type="file" hidden onChange={(event) => void upload(event.target.files)} />
+        <input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.txt,.rtf,.png,.jpg,.jpeg" hidden onChange={(event) => void upload(event.target.files)} />
         <button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button>
         <button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button>
       </div>
@@ -1789,24 +1992,105 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
       ) : (
         <div className="panel-card empty-state"><FileText size={28} /><strong>No documents yet</strong><span>Upload your CV or add a portfolio link.</span></div>
       )}
-      <section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_Demo.pdf</strong></span><span>Best response rate: <strong>CV_Fullstack_Demo.pdf</strong></span></section>
-      {selectedDocument ? <DocumentDetailsModal document={selectedDocument} applications={applications} onClose={() => setSelectedDocument(null)} onDownload={download} onCopyLink={copyLink} onArchive={archive} onDelete={remove} /> : null}
+      {documents.length ? (
+        <section className="panel-card insight-strip">
+          <Sparkles size={18} />
+          <span>CV versions: <strong>{cvCount}</strong></span>
+          <span>Most used CV: <strong>{mostUsedDocument?.name || 'Not enough data yet'}</strong></span>
+        </section>
+      ) : null}
+      {selectedDocument ? <DocumentDetailsModal document={selectedDocument} applications={applications} onClose={() => setSelectedDocument(null)} onDownload={download} onCopyLink={copyLink} onArchive={archive} onDelete={remove} onPreviewDocument={onPreviewDocument} /> : null}
       {linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}
     </section>
   );
 }
 
-function DocumentDetailsModal({ document, applications, onClose, onDownload, onCopyLink, onArchive, onDelete }: { document: DocumentItem; applications: JobApplication[]; onClose: () => void; onDownload: (doc: DocumentItem) => void; onCopyLink: (doc: DocumentItem) => void; onArchive: (id: EntityId) => void; onDelete: (id: EntityId) => void }) {
+function DocumentDetailsModal({
+  document,
+  applications,
+  onClose,
+  onDownload,
+  onCopyLink,
+  onArchive,
+  onDelete,
+  onPreviewDocument
+}: {
+  document: DocumentItem;
+  applications: JobApplication[];
+  onClose: () => void;
+  onDownload: (doc: DocumentItem) => void;
+  onCopyLink: (doc: DocumentItem) => void;
+  onArchive: (id: EntityId) => void;
+  onDelete: (id: EntityId) => void;
+  onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
+}) {
   const assignedApplications = applications.filter((application) => document.assignedApplications?.includes(application.id));
   const isLink = Boolean(document.url);
+  const previewFileName = (document.fileName || document.name).toLowerCase();
+  const canPreviewPdf = previewFileName.endsWith('.pdf');
+  const canPreviewImage = /\.(png|jpe?g)$/i.test(previewFileName);
+  const canPreviewInline = canPreviewPdf || canPreviewImage;
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+
+  useEffect(() => {
+    if (isLink || !canPreviewInline || !onPreviewDocument) {
+      setPreviewUrl('');
+      setPreviewLoading(false);
+      setPreviewError('');
+      return;
+    }
+
+    let active = true;
+    let objectUrl = '';
+
+    setPreviewUrl('');
+    setPreviewError('');
+    setPreviewLoading(true);
+
+    onPreviewDocument(document)
+      .then((url) => {
+        objectUrl = url;
+        if (active) {
+          setPreviewUrl(url);
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      })
+      .catch((requestError) => {
+        if (active) {
+          setPreviewError(requestError instanceof Error ? requestError.message : 'Document preview could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [canPreviewInline, document.id, isLink]);
+
   return (
     <BaseModal title={document.name} subtitle={`${document.type} details and preview`} onClose={onClose}>
       <div className="document-details-modal custom-scroll">
         <section className="document-preview-card">
           {isLink ? (
             <div className="url-preview"><LinkIcon size={28} /><strong>{document.url}</strong><span>{document.notes || 'Saved URL preview.'}</span></div>
+          ) : previewUrl && canPreviewPdf ? (
+            <iframe className="document-preview-frame" src={previewUrl} title={`${document.name} preview`} />
+          ) : previewUrl && canPreviewImage ? (
+            <img className="document-preview-image" src={previewUrl} alt={`${document.name} preview`} />
+          ) : previewLoading ? (
+            <div className="pdf-preview"><span>{document.fileName || document.name}</span><i /><i /><i /><i /><strong>Loading preview...</strong></div>
           ) : (
-            <div className="pdf-preview"><span>{document.fileName || document.name}</span><i /><i /><i /><i /><strong>Preview available locally</strong></div>
+            <div className="pdf-preview"><span>{document.fileName || document.name}</span><i /><i /><i /><i /><strong>{previewError || (canPreviewInline ? 'Preview unavailable. You can still download the file.' : 'This file type can be downloaded for preview.')}</strong></div>
           )}
         </section>
         <section className="document-detail-grid">
@@ -1827,7 +2111,7 @@ function DocumentDetailsModal({ document, applications, onClose, onDownload, onC
         </section>
         <footer className="modal-footer inner">
           {isLink ? <button className="secondary-button" type="button" onClick={() => window.open(document.url, '_blank')}><ExternalLink size={17} /> Open link</button> : null}
-          <button className="secondary-button" type="button" onClick={() => onCopyLink(document)}><LinkIcon size={17} /> Copy link</button>
+          {document.url ? <button className="secondary-button" type="button" onClick={() => onCopyLink(document)}><LinkIcon size={17} /> Copy link</button> : null}
           <button className="secondary-button" type="button" onClick={() => onDownload(document)}><Download size={17} /> Download</button>
           <button className="secondary-button" type="button" onClick={() => onArchive(document.id)}>Archive</button>
           <button className="secondary-button danger-action" type="button" onClick={() => onDelete(document.id)}><Trash2 size={17} /> Delete</button>
@@ -1838,11 +2122,29 @@ function DocumentDetailsModal({ document, applications, onClose, onDownload, onC
 }
 
 function DocumentLinkModal({ onClose, onSave }: { onClose: () => void; onSave: (doc: DocumentItem) => void }) {
-  const [name, setName] = useState('Portfolio link');
-  const [url, setUrl] = useState('https://');
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
   const [type, setType] = useState<DocKind>('Portfolio');
-  function submit(e: FormEvent) { e.preventDefault(); onSave({ id: makeId(), name, type, category: 'General', updated: today(), usedIn: 0, size: 'URL', url }); }
-  return <BaseModal title="Add link" subtitle="Save portfolio, GitHub, LinkedIn or another resource." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Name" value={name} onChange={setName} /><TextField label="URL" value={url} onChange={setUrl} /><div className="form-field"><span>Type</span><CustomSelect value={type} options={documentTypes} onChange={(v) => setType(v as DocKind)} /></div></div><ModalFooter onClose={onClose} submitLabel="Save link" /></form></BaseModal>;
+  const [error, setError] = useState('');
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const cleanName = name.trim();
+    const cleanUrl = url.trim();
+
+    if (!cleanName) {
+      setError('Enter a name for this link.');
+      return;
+    }
+
+    if (!/^https?:\/\/\S+\.\S+/.test(cleanUrl)) {
+      setError('Enter a full http or https URL.');
+      return;
+    }
+
+    setError('');
+    onSave({ id: makeId(), name: cleanName, type, category: 'General', updated: today(), usedIn: 0, size: 'URL', url: cleanUrl });
+  }
+  return <BaseModal title="Add link" subtitle="Save portfolio, GitHub, LinkedIn or another resource." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Name" value={name} onChange={(value) => { setName(value); setError(''); }} placeholder="Portfolio" /><TextField label="URL" value={url} onChange={(value) => { setUrl(value); setError(''); }} placeholder="https://portfolio.example" /><div className="form-field"><span>Type</span><CustomSelect value={type} options={documentTypes} onChange={(v) => setType(v as DocKind)} /></div></div>{error ? <p className="form-error" role="alert">{error}</p> : null}<ModalFooter onClose={onClose} submitLabel="Save link" /></form></BaseModal>;
 }
 
 function LegacyNotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes: (notes: NoteItem[]) => void; setToast: (value: string) => void }) {
@@ -1861,14 +2163,31 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
   const [selectedId, setSelectedId] = useState(notes[0]?.id || 0);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [noteMenuOpen, setNoteMenuOpen] = useState(false);
+  const noteActionsRef = useRef<HTMLDivElement | null>(null);
   const noteTypes = Array.from(new Set(notes.map((note) => note.type || note.tag).filter(Boolean)));
   const filteredNotes = notes
     .filter((note) => {
       const haystack = `${note.title} ${note.company} ${note.application} ${note.tag} ${note.type ?? ''} ${note.tags?.join(' ') ?? ''} ${note.body}`.toLowerCase();
       return haystack.includes(query.toLowerCase()) && (typeFilter === 'All' || (note.type || note.tag) === typeFilter);
     })
-    .sort((first, second) => Number(Boolean(second.pinned)) - Number(Boolean(first.pinned)) || second.updated.localeCompare(first.updated));
+    .sort((first, second) => Number(Boolean(second.pinned)) - Number(Boolean(first.pinned)) || Number(Boolean(second.favorite)) - Number(Boolean(first.favorite)) || second.updated.localeCompare(first.updated));
   const selected = notes.find((note) => note.id === selectedId) || filteredNotes[0] || notes[0];
+  useEffect(() => {
+    setNoteMenuOpen(false);
+  }, [selectedId]);
+  useEffect(() => {
+    if (!noteMenuOpen) return;
+
+    function close(event: MouseEvent) {
+      if (!noteActionsRef.current?.contains(event.target as Node)) {
+        setNoteMenuOpen(false);
+      }
+    }
+
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [noteMenuOpen]);
   function patchNote(patch: Partial<NoteItem>) {
     if (!selected) return;
     setNotes(notes.map((note) => note.id === selected.id ? { ...note, ...patch, updated: today(), lastEdited: today() } : note));
@@ -1885,11 +2204,32 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
     setSelectedId(copy.id);
     setToast('Note duplicated.');
   }
+  async function copyNoteBody(note: NoteItem) {
+    try {
+      await navigator.clipboard.writeText(note.body || note.preview || note.title);
+      setToast('Note copied.');
+    } catch {
+      setToast('Could not copy note.');
+    } finally {
+      setNoteMenuOpen(false);
+    }
+  }
   function deleteNote(id: number) {
     const next = notes.filter((note) => note.id !== id);
     setNotes(next);
     setSelectedId(next[0]?.id || 0);
+    setNoteMenuOpen(false);
     setToast('Note deleted.');
+  }
+  function togglePinned() {
+    if (!selected) return;
+    patchNote({ pinned: !selected.pinned });
+    setToast(selected.pinned ? 'Note unpinned.' : 'Note pinned.');
+  }
+  function toggleFavorite() {
+    if (!selected) return;
+    patchNote({ favorite: !selected.favorite });
+    setToast(selected.favorite ? 'Removed from favorites.' : 'Added to favorites.');
   }
   function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selected.checklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
   function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selected.checklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
@@ -1918,10 +2258,19 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
           <section className="panel-card note-editor">
             <div className="note-editor-head">
               <TextField label="Title" value={selected.title} onChange={(value) => patchNote({ title: value })} />
-              <div className="document-actions">
-                <button className="ghost-icon" type="button" aria-label="Toggle pinned note" onClick={() => patchNote({ pinned: !selected.pinned })}><Tag size={18} /></button>
-                <button className="ghost-icon" type="button" aria-label="Toggle favorite note" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={18} /></button>
-                <button className="ghost-icon" type="button" aria-label="Duplicate note" onClick={() => duplicateNote(selected)}><MoreHorizontal size={18} /></button>
+              <div className="document-actions note-actions" ref={noteActionsRef}>
+                <button className={`ghost-icon note-toggle ${selected.pinned ? 'active' : ''}`} type="button" aria-label="Toggle pinned note" aria-pressed={Boolean(selected.pinned)} onClick={togglePinned}><Pin size={18} /></button>
+                <button className={`ghost-icon note-toggle favorite ${selected.favorite ? 'active' : ''}`} type="button" aria-label="Toggle favorite note" aria-pressed={Boolean(selected.favorite)} onClick={toggleFavorite}><Heart size={18} fill={selected.favorite ? 'currentColor' : 'none'} /></button>
+                <div className="note-more-wrap">
+                  <button className={`ghost-icon note-toggle ${noteMenuOpen ? 'active' : ''}`} type="button" aria-label="Open note actions" aria-expanded={noteMenuOpen} onClick={() => setNoteMenuOpen((open) => !open)}><MoreHorizontal size={18} /></button>
+                  {noteMenuOpen ? (
+                    <div className="note-actions-menu" role="menu">
+                      <button type="button" role="menuitem" onClick={() => { duplicateNote(selected); setNoteMenuOpen(false); }}><Copy size={16} /> Duplicate note</button>
+                      <button type="button" role="menuitem" onClick={() => void copyNoteBody(selected)}><FileText size={16} /> Copy note body</button>
+                      <button className="danger-link" type="button" role="menuitem" onClick={() => deleteNote(selected.id)}><Trash2 size={16} /> Delete note</button>
+                    </div>
+                  ) : null}
+                </div>
                 <button className="ghost-icon danger" type="button" aria-label="Delete note" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button>
               </div>
             </div>
@@ -1953,11 +2302,15 @@ function ModalFooter({ onClose, submitLabel }: { onClose: () => void; submitLabe
 }
 
 function ApplicationModal({ application, companies, documents, categoryOptions, levelOptions, onClose, onSave }: { application?: JobApplication; companies: Company[]; documents: DocumentItem[]; categoryOptions: string[]; levelOptions: string[]; onClose: () => void; onSave: (app: JobApplication) => void }) {
-  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: documents.find((doc) => doc.type === 'CV')?.name || 'CV_NET_Intern_Demo.pdf' });
+  const cvOptions = documents.filter((doc) => doc.type === 'CV').map((doc) => doc.name);
+  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: cvOptions[0] || 'No CV selected' });
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [key]: value })); }
   function chooseCompany(name: string) { const company = companies.find((item) => item.name === name); setForm((current) => ({ ...current, company: name, companyId: company?.id, domain: company?.domain || safeDomain(name), offerUrl: current.offerUrl || company?.website || '' })); }
-  function submit(event: FormEvent) { event.preventDefault(); onSave({ ...form, id: application?.id || makeId(), domain: safeDomain(form.company, form.domain) }); }
-  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="e.g. Sii" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="e.g. sii.pl" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder="e.g. .NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>CV version</span><CustomSelect value={form.cv} options={documents.filter((doc) => doc.type === 'CV').map((doc) => doc.name).concat(['Other'])} onChange={(v) => set('cv', v)} /></div></div><TextAreaField label="Requirements" value={form.requirements} onChange={(v) => set('requirements', v)} placeholder="C#, SQL, Git..." /><TextAreaField label="Benefits" value={form.benefits} onChange={(v) => set('benefits', v)} placeholder="Hybrid work, mentoring..." /><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} placeholder="What should you remember?" /><ModalFooter onClose={onClose} submitLabel={application ? 'Save changes' : 'Save application'} /></form></BaseModal>;
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave({ ...form, id: application?.id || makeId(), domain: safeDomain(form.company, form.domain), cv: form.cv === 'No CV selected' ? '' : form.cv });
+  }
+  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="Example Company" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder=".NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>CV version</span><CustomSelect value={form.cv || 'No CV selected'} options={['No CV selected', ...cvOptions, 'Other']} onChange={(v) => set('cv', v)} /></div></div><TextAreaField label="Requirements" value={form.requirements} onChange={(v) => set('requirements', v)} placeholder="C#, SQL, Git..." /><TextAreaField label="Benefits" value={form.benefits} onChange={(v) => set('benefits', v)} placeholder="Hybrid work, mentoring..." /><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} placeholder="What should you remember?" /><ModalFooter onClose={onClose} submitLabel={application ? 'Save changes' : 'Save application'} /></form></BaseModal>;
 }
 
 function ProfileCustomizationModal({ profile, setProfile, settings, setSettings, activeTab, setActiveTab, theme, setTheme, onClose, onExport, onBackup, onReset }: { profile: Profile; setProfile: (profile: Profile) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void; activeTab: ProfileTab; setActiveTab: (tab: ProfileTab) => void; theme: Theme; setTheme: (theme: Theme) => void; onClose: () => void; onExport: () => void; onBackup: () => void; onReset: () => void }) {
@@ -2020,7 +2373,7 @@ function PreferenceGroup({ title, items, selected, onToggle, addValue, setAddVal
 }
 
 function DataTab({ onExport, onBackup, onReset }: { onExport: () => void; onBackup: () => void; onReset: () => void }) {
-  return <div className="data-actions"><button className="data-action" type="button" onClick={() => alert('Import CSV will be connected to backend later.')}><span className="blue"><Upload size={20} /></span><div><strong>Import CSV</strong><p>Planned import flow for application data.</p></div></button><button className="data-action" type="button" onClick={onExport}><span className="green"><Download size={20} /></span><div><strong>Export CSV</strong><p>Download all applications as a CSV file.</p></div></button><button className="data-action" type="button" onClick={onBackup}><span className="beige"><Database size={20} /></span><div><strong>Backup data</strong><p>Save a complete JSON backup of local workspace data.</p></div></button><button className="data-action" type="button" onClick={onReset}><span className="danger"><Trash2 size={20} /></span><div><strong>Reset local data</strong><p>Restore local documents, notes and preferences.</p></div></button></div>;
+  return <div className="data-actions"><button className="data-action" type="button" onClick={() => alert('Import CSV will be connected to backend later.')}><span className="blue"><Upload size={20} /></span><div><strong>Import CSV</strong><p>Planned import flow for application data.</p></div></button><button className="data-action" type="button" onClick={onExport}><span className="green"><Download size={20} /></span><div><strong>Export CSV</strong><p>Download all applications as a CSV file.</p></div></button><button className="data-action" type="button" onClick={onBackup}><span className="beige"><Database size={20} /></span><div><strong>Backup data</strong><p>Save a complete JSON backup of local workspace data.</p></div></button><button className="data-action" type="button" onClick={onReset}><span className="danger"><Trash2 size={20} /></span><div><strong>Reset local data</strong><p>Clear local companies, events, notes and preferences.</p></div></button></div>;
 }
 
 function Toast({ message }: { message: string }) {
@@ -2077,6 +2430,7 @@ type MobileLayoutProps = {
   onDeleteDocument?: (id: EntityId) => Promise<void>;
   onArchiveDocument?: (id: EntityId) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
+  onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
   categoryOptions: string[];
   levelOptions: string[];
   children?: React.ReactNode;
@@ -2115,6 +2469,7 @@ function MobileLayout({
   onDeleteDocument,
   onArchiveDocument,
   onDownloadDocument,
+  onPreviewDocument,
   categoryOptions,
   levelOptions,
   children
@@ -2166,7 +2521,7 @@ function MobileLayout({
         {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
-        {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onDownloadDocument={onDownloadDocument} /> : null}
+        {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
       </main>
 
       <FloatingActionButton onClick={openAddApplication} label="Add application" />
@@ -2458,7 +2813,13 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
             onStatusChange={(nextStatus) => onStatusChange(app.id, nextStatus)}
           />
         ))}
-        {!filtered.length ? <MobileEmptyState icon={Folder} title="No results" text="Try changing filters or add a new application." /> : null}
+        {!filtered.length ? (
+          <MobileEmptyState
+            icon={Folder}
+            title={applications.length ? 'No results' : 'No applications yet'}
+            text={applications.length ? 'Try changing filters or add a new application.' : 'Add your first application to start tracking your search.'}
+          />
+        ) : null}
       </div>
 
       {filtersOpen ? (
@@ -2599,7 +2960,7 @@ function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { a
 
 function MobileCalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
   const [modal, setModal] = useState<CalendarEvent | null>(null);
-  const sorted = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  const sorted = events.map(normalizeCalendarEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const grouped = sorted.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
     acc[event.date] = acc[event.date] || [];
     acc[event.date].push(event);
@@ -2607,8 +2968,9 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
   }, {});
 
   function save(event: CalendarEvent) {
-    if (events.some((item) => item.id === event.id)) setEvents(events.map((item) => item.id === event.id ? event : item));
-    else setEvents([event, ...events]);
+    const normalized = normalizeCalendarEvent(event);
+    if (events.some((item) => item.id === normalized.id)) setEvents(events.map((item) => item.id === normalized.id ? normalized : item));
+    else setEvents([normalized, ...events]);
     setModal(null);
     setToast('Calendar event saved.');
   }
@@ -2619,7 +2981,7 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
   }
 
   function addEvent() {
-    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date: today(), time: '10:00', type: 'HR interview', location: 'Online', meetingLink: '', notes: '' });
+    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date: today(), time: '10:00', endTime: '11:00', type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
   }
 
   return (
@@ -2635,7 +2997,7 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
             {dayEvents.map((event) => (
               <div className="mobile-calendar-event" key={event.id}>
                 <button type="button" onClick={() => setModal(event)}>
-                  <span>{event.time}</span>
+                  <span>{formatEventTime(event)}</span>
                   <div><strong>{event.title}</strong><small>{event.company} Â· {event.location}</small></div>
                 </button>
                 <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
@@ -2652,9 +3014,10 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
 }
 
 function MobileAgendaItem({ event }: { event: CalendarEvent }) {
+  const normalized = normalizeCalendarEvent(event);
   return (
     <div className="mobile-agenda-item">
-      <span>{event.time}</span>
+      <span>{formatEventTime(normalized)}</span>
       <div>
         <strong>{event.title}</strong>
         <small>{formatDate(event.date)} Â· {event.company}</small>
@@ -2677,14 +3040,15 @@ function MobileEmptyState({ icon: Icon, title, text }: { icon: typeof Folder; ti
 function App() {
   const [isLoggedIn, setLoggedIn] = useState(() => Boolean(getAuthToken()));
   const [authLoading, setAuthLoading] = useState(() => Boolean(getAuthToken()));
-  const [profile, setProfile] = useState<Profile>(() => readStorage(STORAGE.profile, initialProfile));
-  const [settings, setSettings] = useState<AppSettings>(() => readStorage(STORAGE.settings, initialSettings));
-  const [applications, setApplications] = useState<JobApplication[]>(() => readStorage(STORAGE.applications, richInitialApplications));
-  const [companies, setCompanies] = useState<Company[]>(() => readStorage(STORAGE.companies, richInitialCompanies));
-  const [events, setEvents] = useState<CalendarEvent[]>(() => readStorage(STORAGE.events, richInitialEvents));
-  const [documents, setDocuments] = useState<DocumentItem[]>(() => readStorage(STORAGE.documents, richInitialDocuments));
-  const [notes, setNotes] = useState<NoteItem[]>(() => readStorage(STORAGE.notes, richInitialNotes));
-  const [theme, setTheme] = useState<Theme>(() => readStorage(STORAGE.theme, 'light'));
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [profile, setProfile] = useState<Profile>(initialProfile);
+  const [settings, setSettings] = useState<AppSettings>(initialSettings);
+  const [applications, setApplications] = useState<JobApplication[]>(appInitialApplications);
+  const [companies, setCompanies] = useState<Company[]>(appInitialCompanies);
+  const [events, setEvents] = useState<CalendarEvent[]>(appInitialEvents);
+  const [documents, setDocuments] = useState<DocumentItem[]>(appInitialDocuments);
+  const [notes, setNotes] = useState<NoteItem[]>(appInitialNotes);
+  const [theme, setTheme] = useState<Theme>('light');
   const [page, setPage] = useState<Page>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<ProfileTab>('profile');
@@ -2702,31 +3066,99 @@ function App() {
     [documentsApiState.documents]
   );
 
-  useEffect(() => writeStorage(STORAGE.profile, profile), [profile]);
-  useEffect(() => writeStorage(STORAGE.settings, settings), [settings]);
-  useEffect(() => writeStorage(STORAGE.applications, applications), [applications]);
-  useEffect(() => writeStorage(STORAGE.companies, companies), [companies]);
-  useEffect(() => writeStorage(STORAGE.events, events), [events]);
-  useEffect(() => writeStorage(STORAGE.documents, documents), [documents]);
-  useEffect(() => writeStorage(STORAGE.notes, notes), [notes]);
-  useEffect(() => writeStorage(STORAGE.theme, theme), [theme]);
+  function clearWorkspaceState() {
+    setProfile(initialProfile);
+    setSettings(initialSettings);
+    setApplications(appInitialApplications);
+    setCompanies(appInitialCompanies);
+    setEvents(appInitialEvents);
+    setDocuments(appInitialDocuments);
+    setNotes(appInitialNotes);
+    setTheme('light');
+    setSelectedApplication(null);
+    setEditingApplication(undefined);
+    setSettingsOpen(false);
+  }
+
+  function loadUserWorkspace(user: AuthUser) {
+    const authProfile = profileFromAuthUser(user);
+    const savedProfile = readUserStorage(user.id, STORAGE.profile, authProfile);
+
+    setAuthUser(user);
+    setProfile({
+      ...authProfile,
+      ...savedProfile,
+      email: user.email,
+      name: savedProfile.name?.trim() || authProfile.name
+    });
+    setSettings(readUserStorage(user.id, STORAGE.settings, initialSettings));
+    setApplications(readUserStorage(user.id, STORAGE.applications, appInitialApplications));
+    setCompanies(readUserStorage(user.id, STORAGE.companies, appInitialCompanies));
+    setEvents(readUserStorage(user.id, STORAGE.events, appInitialEvents).map(normalizeCalendarEvent));
+    setDocuments(readUserStorage(user.id, STORAGE.documents, appInitialDocuments));
+    setNotes(readUserStorage(user.id, STORAGE.notes, appInitialNotes));
+    setTheme(readUserStorage(user.id, STORAGE.theme, 'light'));
+  }
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.profile, profile);
+  }, [authUser, profile]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.settings, settings);
+  }, [authUser, settings]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.applications, applications);
+  }, [authUser, applications]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.companies, companies);
+  }, [authUser, companies]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.events, events);
+  }, [authUser, events]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.documents, documents);
+  }, [authUser, documents]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.notes, notes);
+  }, [authUser, notes]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    writeUserStorage(authUser.id, STORAGE.theme, theme);
+  }, [authUser, theme]);
   useEffect(() => { if (!toast) return; const timeout = window.setTimeout(() => setToast(''), 2400); return () => window.clearTimeout(timeout); }, [toast]);
 
   useEffect(() => {
+    clearSharedWorkspaceStorage();
+
     if (!getAuthToken()) {
+      clearWorkspaceState();
       setAuthLoading(false);
       return;
     }
 
     authApi.me()
       .then((user) => {
-        const nextProfile = profileFromAuthUser(user);
-        setProfile(nextProfile);
-        writeStorage(STORAGE.profile, nextProfile);
+        loadUserWorkspace(user);
         setLoggedIn(true);
       })
       .catch(() => {
         clearAuthToken();
+        setAuthUser(null);
+        clearWorkspaceState();
         setLoggedIn(false);
       })
       .finally(() => setAuthLoading(false));
@@ -2734,25 +3166,23 @@ function App() {
 
   async function login(input: LoginInput) {
     const response = await authApi.login(input);
-    const nextProfile = profileFromAuthUser(response.user);
-    setProfile(nextProfile);
-    writeStorage(STORAGE.profile, nextProfile);
+    clearSharedWorkspaceStorage();
+    loadUserWorkspace(response.user);
     setLoggedIn(true);
   }
 
   async function register(input: RegisterInput) {
     const response = await authApi.register(input);
-    const nextProfile = profileFromAuthUser(response.user);
-    setProfile(nextProfile);
-    writeStorage(STORAGE.profile, nextProfile);
+    clearSharedWorkspaceStorage();
+    loadUserWorkspace(response.user);
     setLoggedIn(true);
   }
 
   async function logout() {
     await authApi.logout();
+    setAuthUser(null);
     setLoggedIn(false);
-    setSelectedApplication(null);
-    setEditingApplication(undefined);
+    clearWorkspaceState();
   }
   function openSettings(tab: ProfileTab = 'profile') { setSettingsTab(tab); setSettingsOpen(true); }
   async function saveApplication(app: JobApplication) {
@@ -2815,7 +3245,29 @@ function App() {
 
     await documentsApiState.downloadDocument(storedDocument);
   }
-  function resetDemo() { if (!confirm('Reset local documents, notes, settings and profile?')) return; setCompanies(richInitialCompanies); setEvents(richInitialEvents); setDocuments(richInitialDocuments); setNotes(richInitialNotes); setSettings(initialSettings); setProfile(initialProfile); setToast('Local data reset.'); }
+  async function previewDocument(doc: DocumentItem) {
+    const storedDocument = documentsApiState.documents.find((document) => document.id === doc.id);
+
+    if (!storedDocument) {
+      throw new Error('Document is no longer available.');
+    }
+
+    if (!storedDocument.fileName) {
+      throw new Error('Saved links open in a new tab instead of the file preview.');
+    }
+
+    return documentsApiState.createDocumentPreviewUrl(storedDocument);
+  }
+  function resetWorkspace() {
+    if (!confirm('Clear local companies, events, notes, settings and profile?')) return;
+    setCompanies(appInitialCompanies);
+    setEvents(appInitialEvents);
+    setDocuments(appInitialDocuments);
+    setNotes(appInitialNotes);
+    setSettings(initialSettings);
+    setProfile(initialProfile);
+    setToast('Local workspace cleared.');
+  }
   function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications: liveApplications, companies, events, documents: liveDocuments, notes }, setToast); }
   const shellClass = `app-shell ${theme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
   const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
@@ -2838,7 +3290,7 @@ function App() {
 
   const commonOverlays = (
     <>
-      {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onExport={() => exportCsv(liveApplications, setToast)} onBackup={backup} onReset={resetDemo} /> : null}
+      {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onExport={() => exportCsv(liveApplications, setToast)} onBackup={backup} onReset={resetWorkspace} /> : null}
       {editingApplication !== undefined ? <ApplicationModal application={editingApplication || undefined} companies={companies} documents={liveDocuments} categoryOptions={categoryOptions} levelOptions={levelOptions} onClose={() => setEditingApplication(undefined)} onSave={saveApplication} /> : null}
       {toast ? <Toast message={toast} /> : null}
     </>
@@ -2879,6 +3331,7 @@ function App() {
         onDeleteDocument={deleteDocument}
         onArchiveDocument={archiveDocument}
         onDownloadDocument={downloadDocument}
+        onPreviewDocument={previewDocument}
         categoryOptions={categoryOptions}
         levelOptions={levelOptions}
       >
@@ -2906,7 +3359,7 @@ function App() {
           {page === 'companies' ? <CompaniesPage companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} /> : null}
-          {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onDownloadDocument={downloadDocument} /> : null}
+          {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>
       </div>

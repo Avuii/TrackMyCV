@@ -129,6 +129,21 @@ export function useDocuments(enabled = true) {
     }
   }, []);
 
+  const createDocumentPreviewUrl = useCallback(async (document: StoredDocument) => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      const blob = await documentsApi.download(document.id);
+      return URL.createObjectURL(blob);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+      throw requestError;
+    } finally {
+      setSaving(false);
+    }
+  }, []);
+
   return {
     documents,
     loading,
@@ -139,6 +154,7 @@ export function useDocuments(enabled = true) {
     createLink,
     archiveDocument,
     deleteDocument,
-    downloadDocument
+    downloadDocument,
+    createDocumentPreviewUrl
   };
 }

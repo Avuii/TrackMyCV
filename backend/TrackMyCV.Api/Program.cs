@@ -17,7 +17,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173", "http://localhost:3000")
+            .WithOrigins(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -34,6 +38,32 @@ if (app.Environment.IsDevelopment())
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogError(exception, "Unhandled API error.");
+
+        if (context.Response.HasStarted)
+        {
+            throw;
+        }
+
+        context.Response.Clear();
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        await Results.Problem(
+            title: "Unexpected API error",
+            detail: "The request could not be completed. Try again in a moment.",
+            statusCode: StatusCodes.Status500InternalServerError)
+            .ExecuteAsync(context);
+    }
+});
 
 app.UseCors("Frontend");
 
