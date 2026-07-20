@@ -1,492 +1,637 @@
 <p align="center">
-  <img src="docs/logo-removebg.png" alt="Job Application Tracker Logo" width="180" />
+  <img src="docs/logo-removebg.png" alt="TrackMyCV logo" width="180" />
 </p>
 
-<h1 align="center">Job Application Tracker</h1>
+<h1 align="center">TrackMyCV</h1>
 
 <p align="center">
-  <strong>Modern web application for tracking job applications, recruitment stages, interviews and application progress</strong>
+  <strong>A modern recruitment workspace for tracking job applications, organizing career documents and improving the job-search process.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-in%20development-A67856?labelColor=5C5148&style=for-the-badge" />
-  <img src="https://img.shields.io/badge/demo-GitHub%20Pages-C49A6C?labelColor=7A5C42&style=for-the-badge" />
-  <img src="https://img.shields.io/badge/frontend-React-8BA6A9?labelColor=5F7476&style=for-the-badge" />
-  <img src="https://img.shields.io/badge/typescript-Frontend-6E8FA3?labelColor=4D6473&style=for-the-badge" />
-  <img src="https://img.shields.io/badge/backend-ASP.NET%20Core-8A6F5A?labelColor=5E4B3D&style=for-the-badge" />
-  <img src="https://img.shields.io/badge/database-SQL%20Server-B88B6A?labelColor=735846&style=for-the-badge" />
-  <img src="https://img.shields.io/badge/auth-email%20%2B%20password-C76D6D?labelColor=7A4A4A&style=for-the-badge" />
-</p>
-<p align="center">
+  <img src="https://img.shields.io/badge/status-active%20development-A67856?labelColor=5C5148&style=for-the-badge" alt="Status: active development" />
   <a href="https://avuii.github.io/TrackMyCV/">
-    <strong>Open Live Demo</strong>
+    <img src="https://img.shields.io/badge/live%20demo-open-C49A6C?labelColor=7A5C42&style=for-the-badge" alt="Open live demo" />
   </a>
+  <img src="https://img.shields.io/badge/demo-frontend%20mockup-6E8FA3?labelColor=4D6473&style=for-the-badge" alt="Frontend mockup demo" />
+  <img src="https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-8BA6A9?labelColor=5F7476&style=for-the-badge" alt="Frontend: React and TypeScript" />
+  <img src="https://img.shields.io/badge/backend-ASP.NET%20Core-8A6F5A?labelColor=5E4B3D&style=for-the-badge" alt="Backend: ASP.NET Core" />
+  <img src="https://img.shields.io/badge/database-SQL%20Server-B88B6A?labelColor=735846&style=for-the-badge" alt="Database: SQL Server" />
+  <img src="https://img.shields.io/badge/career%20tools-AI%20assisted-C76D6D?labelColor=7A4A4A&style=for-the-badge" alt="AI-assisted career tools" />
 </p>
+
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Job Application Tracker Dashboard Preview" width="800" />
+  <a href="https://avuii.github.io/TrackMyCV/"><strong>Open Live Demo</strong></a>
 </p>
 
----
-
-## 📑 Table of Contents
-
-- [📌 Overview](#-overview)
-- [🧩 Current Status](#-current-status)
-- [🗂️ Application Sections](#️-application-sections)
-- [✨ Features](#-features)
-  - [📊 Dashboard](#-dashboard)
-  - [📄 Applications](#-applications)
-  - [🗓️ Calendar](#️-calendar)
-  - [📈 Analytics](#-analytics)
-  - [🔔 Notifications](#-notifications)
-  - [⚙️ Account Settings](#️-account-settings)
-- [🛠️ Tech Stack](#️-tech-stack)
-- [🧱 Project Structure](#-project-structure)
-- [🚀 Getting Started](#-getting-started)
-- [🔐 Environment Variables](#-environment-variables)
-- [🛣️ Roadmap](#️-roadmap)
-- [⚠️ Limitations](#️-limitations)
-- [👩‍💻 Author](#-author)
+> [!IMPORTANT]
+> The public GitHub Pages version is a **frontend-only portfolio mockup**. It uses demo data and browser storage to present the product concept, navigation and user experience. It does not represent production authentication, real user data or the complete full-stack environment.
 
 ---
 
-## 📌 Overview
+## Table of Contents
 
-**Job Application Tracker** is a web application designed to help users organize and monitor their job application process in one place.
-
-The application allows users to save job offers, track recruitment statuses, manage interview dates, review upcoming events in a calendar view and analyze application progress through visual summaries.
-
-The goal of the project is to make the recruitment process easier to control, especially for people applying to multiple internships, junior positions, graduate programs or IT roles at the same time.
-
-Instead of storing applications across emails, notes, spreadsheets and browser bookmarks, the user can keep all important recruitment information in a single structured dashboard.
+- [Overview](#overview)
+- [Project at a Glance](#project-at-a-glance)
+- [The Problem](#the-problem)
+- [Product Workflow](#product-workflow)
+- [Application Sections](#application-sections)
+- [Core Features](#core-features)
+- [AI Career Tools](#ai-career-tools)
+- [Planned AI Job Scout](#planned-ai-job-scout)
+- [How the Modules Connect](#how-the-modules-connect)
+- [Current Status](#current-status)
+- [Demo Scope](#demo-scope)
+- [Development Checklist](#development-checklist)
+- [Technology](#technology)
+- [Repository Overview](#repository-overview)
+- [Author](#author)
 
 ---
 
-## 🧩 Current Status
+## Overview
 
-The project is currently under active development.
+**TrackMyCV** is a web application designed to support the complete job-search process in one place.
 
-| Area | Status |
+The project combines application tracking, employer research, recruitment events, documents, notes, statistics and AI-assisted career tools in a single workspace. It is especially useful for students, graduates, interns, junior candidates and people managing several recruitment processes at the same time.
+
+The main goal is to replace a fragmented workflow built from spreadsheets, emails, browser bookmarks, calendar entries and separate document folders with one connected system.
+
+---
+
+## Project at a Glance
+
+| Area | Description |
 |---|---|
-| Main dashboard | ✅ Implemented |
-| Application list | ✅ Implemented |
-| Add new application form | ✅ Implemented |
-| Application status tracking | ✅ Implemented |
-| Application details preview | ✅ Implemented |
-| Weekly calendar view | ✅ Implemented |
-| Monthly calendar navigation | ✅ Implemented |
-| Analytics cards | ✅ Implemented |
-| Application summary diagram | ✅ Implemented |
-| Success rate chart | ✅ Implemented |
-| Editing existing applications | Planned |
-| User authentication | Planned |
-| Account settings | Planned |
-| Email notifications | Planned |
-| Backend persistence | Planned |
-| Deployment | Planned |
+| **Product goal** | Help users organize, understand and improve their recruitment process |
+| **Target users** | Students, graduates, interns, junior candidates and active job seekers |
+| **Core value** | One workspace for applications, companies, events, files, notes and progress analysis |
+| **Public version** | Frontend-only interactive mockup deployed through GitHub Pages |
+| **Full application direction** | React and TypeScript frontend with ASP.NET Core and SQL Server |
+| **Current focus** | Calendar improvements, document workflows, AI tools and recruitment automation |
+| **Future direction** | Personalized job discovery, reminders and AI-assisted career preparation |
 
 ---
 
-## 🗂️ Application Sections
+## The Problem
 
-The application is divided into several main sections. Each section represents a different part of the job application tracking process.
+A single recruitment process can include much more than a job link.
+
+| Recruitment information | Where it is usually scattered |
+|---|---|
+| Job offer | Browser bookmarks or job portals |
+| CV version | Local folders or cloud storage |
+| Company research | Notes, documents or browser tabs |
+| Recruiter messages | Email or LinkedIn |
+| Interview date | Personal calendar |
+| Technical task | Email attachments or separate files |
+| Follow-up reminder | Memory, notes or calendar |
+| Recruitment result | Spreadsheet or nowhere |
+
+When several recruitment processes happen at once, it becomes easy to lose context, forget deadlines or use the wrong document.
+
+TrackMyCV connects those elements into one structured workflow.
+
+---
+
+## Product Workflow
+
+```mermaid
+flowchart TB
+    subgraph PREPARE["1. Discover & Prepare"]
+        direction LR
+        A[Discover opportunity]
+        B[Save application]
+        C[Research company]
+        D[Select CV and documents]
+
+        A --> B --> C --> D
+    end
+
+    subgraph MANAGE["2. Apply & Manage"]
+        direction LR
+        E[Submit application]
+        F[Track recruitment stages]
+        G[Plan interviews and follow-ups]
+
+        E --> F --> G
+    end
+
+    subgraph IMPROVE["3. Review & Improve"]
+        direction LR
+        H[Add notes and outcomes]
+        I[Review statistics]
+        J[Improve future applications]
+
+        H --> I --> J
+    end
+
+    D --> E
+    G --> H
+    J -. Continuous improvement .-> A
+```
+
+---
+
+## Application Sections
+
+The application is divided into connected modules representing different parts of the recruitment process.
 
 | Preview | Section | Description |
 |---|---|---|
-| <img src="docs/screenshots/dashboard.png" alt="Dashboard preview" width="800" /> | **Dashboard** | Main overview screen with recruitment summary cards, recent applications, application status chart and success rate preview. It helps the user quickly understand their current recruitment progress. |
-| <img src="docs/screenshots/applications.png" alt="Applications preview" width="800" /> | **Applications** | Main application management view with search, filters, status selection, work mode, location, source and export option. It allows the user to track job applications and recruitment stages in one structured table. |
-| <img src="docs/screenshots/companies.png" alt="Companies preview" width="800" /> | **Companies** | Company tracking section with saved employers, career links, locations, industries, response rate and application history. It helps compare companies and keep useful recruitment context in one place. |
-| <img src="docs/screenshots/statistics.png" alt="Statistics preview" width="800" /> | **Statistics** | Analytical view with application metrics, response rate, interview rate, active processes, application categories, levels and best sources. It helps the user evaluate which application strategies work best. |
-| <img src="docs/screenshots/calendar.png" alt="Calendar preview" width="800" /> | **Calendar** | Calendar view for interviews, follow-ups, online tests and recruitment tasks. It supports monthly, weekly and list views, helping the user manage upcoming recruitment events. |
-| <img src="docs/screenshots/documents.png" alt="Documents preview" width="800" /> | **Documents** | Document management section for CV versions, cover letters, portfolio links and GitHub profile references. It helps organize files used in different applications. |
-| <img src="docs/screenshots/notes.png" alt="Notes preview" width="800" /> | **Notes** | Notes section for interview preparation, company research, technical questions and personal recruitment checklists. It helps keep preparation materials connected with applications and companies. |
+| <img src="docs/screenshots/dashboard.png" alt="Dashboard preview" width="380" /> | **Dashboard** | Main overview with recruitment summary cards, recent applications, upcoming events, application-status charts and success indicators. It helps the user understand the current situation without opening every process separately. |
+| <img src="docs/screenshots/applications.png" alt="Applications preview" width="380" /> | **Applications** | Central recruitment workspace with search, filters, statuses, job details, work mode, location, source, next steps and related documents. |
+| <img src="docs/screenshots/companies.png" alt="Companies preview" width="380" /> | **Companies** | Employer profiles with locations, industries, career links, research notes, response history and related applications. |
+| <img src="docs/screenshots/statistics.png" alt="Statistics preview" width="380" /> | **Statistics** | Recruitment analytics including response rate, interview rate, active processes, application categories, seniority levels and best sources. |
+| <img src="docs/screenshots/calendar.png" alt="Calendar preview" width="380" /> | **Calendar** | Month, week and day views for interviews, recruiter calls, technical tasks, online tests, deadlines and follow-up reminders. |
+| <img src="docs/screenshots/documents.png" alt="Documents preview" width="380" /> | **Documents** | Management of CV versions, cover letters, portfolio links, certificates, task descriptions and other recruitment resources. |
+| <img src="docs/screenshots/notes.png" alt="Notes preview" width="380" /> | **Notes** | Interview preparation, company research, technical questions, recruiter-call summaries, checklists and personal reminders. |
 
 ---
 
-## ✨ Features
+## Core Features
 
-### 📊 Dashboard
+### Applications
 
-The dashboard gives the user a quick overview of the recruitment process.
+The Applications module is the central part of TrackMyCV.
 
-It includes:
+Users can organize:
 
-- total number of saved applications,
-- number of active applications,
-- number of interviews,
-- number of rejected applications,
-- upcoming recruitment events,
-- application status summary,
-- success rate visualization,
-- quick access to recently added applications.
+- company and position,
+- category and experience level,
+- application date,
+- source and job-offer link,
+- location and work mode,
+- recruitment status,
+- requirements and benefits,
+- last contact and next action,
+- assigned CV and related documents,
+- notes and preparation materials.
 
-The dashboard is designed to make the current situation clear without requiring the user to manually count applications or check every offer separately.
+Example recruitment stages:
 
----
+| Early stage | Active process | Final stage |
+|---|---|---|
+| Saved | In progress | Offer |
+| Preparing | Recruiter contact | Rejected |
+| Applied | Interview | No response |
+| Follow-up needed | Task / test | Archived |
 
-### 📄 Applications
+### Calendar
 
-The application module allows users to manage all job applications in one place.
+The Calendar module supports:
 
-Current and planned features include:
-
-- adding a new job application,
-- saving company name, position, location and work mode,
-- assigning recruitment status,
-- storing application date,
-- adding notes,
-- editing already saved applications,
-- deleting outdated entries,
-- filtering applications by status, company, location or type,
-- sorting applications by date, status or priority.
-
-Example statuses:
-
-- saved,
-- applied,
-- in progress,
-- interview scheduled,
-- offer received,
-- rejected,
-- archived.
-
-This structure helps users understand which applications still require action and which are already closed.
-
----
-
-### 🗓️ Calendar
-
-The calendar module helps users track recruitment-related dates.
-
-Available and planned views:
-
-- weekly view,
-- monthly view,
-- navigation between weeks and months,
-- interview reminders,
+- HR and technical interviews,
+- recruiter calls,
+- online tests,
+- recruitment tasks,
 - application deadlines,
-- follow-up dates,
-- custom recruitment events.
+- follow-up reminders,
+- company research sessions,
+- CV update reminders.
 
-The weekly view is simplified and focused on readability. It presents events as clear blocks, making it easier to see what is planned for the current week.
+| View | Use case |
+|---|---|
+| **Month** | High-level overview of recruitment activity |
+| **Week** | Planning events across individual days |
+| **Day** | Hour-based schedule with precise event placement |
+| **Upcoming events** | Quick access to the nearest recruitment activities |
 
----
+Events may include a title, company, date, time range, location, meeting link, icon, color and detailed plan.
 
-### 📈 Analytics
+### Documents
 
-The analytics section presents application progress in a visual way.
+The Documents module helps users manage different versions of recruitment materials.
 
-It may include:
+Supported document categories include:
 
-- applications by status,
-- applications by month,
-- success rate,
-- rejection rate,
-- interview conversion rate,
-- number of active processes,
-- most common application outcomes.
+- CV,
+- cover letter,
+- portfolio,
+- GitHub profile,
+- LinkedIn profile,
+- job offer,
+- task description,
+- recruiter email,
+- certificate,
+- other recruitment files.
 
-The goal of analytics is not only to show statistics, but also to help the user improve their application strategy over time.
+| Metadata | Purpose |
+|---|---|
+| Language | Distinguish local and international versions |
+| Target role | Connect a document to a career direction |
+| Tags | Improve filtering and organization |
+| Status | Mark drafts, active documents and archived versions |
+| Related applications | Track where a document was used |
+| Last used date | Identify outdated versions |
+| Default selection | Speed up common application workflows |
 
-For example, the user can notice whether applications are leading to interviews, whether most offers are rejected at the CV stage, or whether follow-ups are needed.
+### Statistics
 
----
+The Statistics module transforms recruitment history into useful insights.
 
-### 🔔 Notifications
+| Insight | Why it matters |
+|---|---|
+| Applications by status | Shows the size and health of the current pipeline |
+| Response rate | Helps evaluate application effectiveness |
+| Interview rate | Indicates how often applications move forward |
+| Applications by category | Shows which career paths receive the most attention |
+| Applications by level | Helps compare internship and junior opportunities |
+| Best sources | Identifies which job portals or channels are most effective |
+| Activity over time | Makes changes in consistency and results easier to notice |
 
-The application is planned to support email notifications connected with the user account.
+### Profile and Personalization
 
-Planned notification types:
+TrackMyCV includes profile and workspace settings for:
 
-- upcoming interview reminder,
-- follow-up reminder,
-- application deadline reminder,
-- reminder after no response for a selected number of days,
-- important status change notification.
+- preferred job categories,
+- target experience levels,
+- preferred locations,
+- work-mode preferences,
+- follow-up timing,
+- no-response and ghosting thresholds,
+- light, dark and system themes,
+- accent colors,
+- interface density,
+- animations,
+- notification preferences.
 
-The notification email will be configured in account settings.
-
----
-
-### ⚙️ Account Settings
-
-The account settings module is planned to support:
-
-- user registration,
-- login with email and password,
-- password handling on the backend side,
-- email address used for notifications,
-- notification preferences,
-- basic profile settings.
-
-Authentication and account management will be implemented using the ASP.NET Core backend.
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- Lucide React
-- Recharts
-
-### Backend
-
-- ASP.NET Core
-- C#
-- Entity Framework Core
-- REST API
-- Authentication with email and password
-
-### Database
-
-- SQL Server
-
-### Tools
-
-- Git
-- GitHub
-- Visual Studio / Visual Studio Code
-- Swagger / OpenAPI
-- Figma
+These settings also prepare the application for future personalized job discovery.
 
 ---
 
-## 🧱 Project Structure
+## AI Career Tools
 
-```text
-JobApplicationTracker/
-├── backend/
-│   └── JobApplicationTracker.Api/
-│       ├── Controllers/
-│       ├── Models/
-│       ├── DTOs/
-│       ├── Services/
-│       ├── Data/
-│       ├── Program.cs
-│       └── appsettings.json
-│
-├── frontend/
-│   ├── src/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   ├── types/
-│   │   └── utils/
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── docs/
-│   ├── logo.png
-│   └── screenshots/
-│       ├── dashboard.png
-│       ├── applications.png
-│       ├── calendar.png
-│       └── analytics.png
-│
-└── README.md
-````
+TrackMyCV is being expanded from a recruitment tracker into an active career-support workspace.
 
----
+### AI CV Review
 
-## 🚀 Getting Started
+The user selects a stored CV and chooses one of two review modes:
 
-### 1. Clone the repository
+| Review mode | Result |
+|---|---|
+| **General CV Review** | Structure, clarity, strengths, weaknesses and recommended improvements |
+| **Job Match Review** | Comparison with a selected job description, matching skills, missing keywords and fit assessment |
 
-```bash
-git clone https://github.com/Avuii/JobApplicationTracker.git
-cd JobApplicationTracker
+The review may contain:
+
+- overall assessment,
+- category scores,
+- strengths,
+- priority issues,
+- ATS-oriented feedback,
+- relevant and missing keywords,
+- section-level recommendations,
+- recommended next actions.
+
+The original document is not changed automatically.
+
+### AI Cover Letter Generator
+
+The generator creates an editable cover-letter draft based on:
+
+- a selected CV,
+- company name,
+- target position,
+- job description,
+- preferred language,
+- tone,
+- length,
+- additional user context.
+
+The workflow is designed to save time without inventing experience or qualifications.
+
+### AI Workflow
+
+```mermaid
+flowchart TD
+    A[Select a CV from Documents] --> B{Choose an AI tool}
+
+    B -->|CV Review| C[General review or job-match review]
+    C --> D[Structured feedback]
+    D --> E[Strengths, issues and recommended actions]
+
+    B -->|Cover Letter| F[Add company and job description]
+    F --> G[Generate editable draft]
+    G --> H[Review and save as a document]
 ```
 
 ---
 
-### 2. Run the frontend
+## Planned AI Job Scout
 
-Go to the frontend directory:
+A future **AI Job Scout** module will help users discover opportunities matching preferences stored in their profile.
 
-```bash
-cd frontend
-```
+### Planned Matching Criteria
 
-Install dependencies:
+| Category | Examples |
+|---|---|
+| Target roles | .NET Developer, Cybersecurity Intern, IAM Analyst |
+| Experience level | Internship, Junior, Junior-friendly |
+| Technologies | C#, ASP.NET Core, React, SQL, Entra ID |
+| Locations | Łódź, Warsaw, Remote |
+| Work mode | Remote, hybrid, onsite |
+| Exclusions | Senior, Lead, Principal or unrelated roles |
+| Notification threshold | Only offers above a selected match score |
 
-```bash
-npm install
-```
+### Planned User Actions
 
-Start the development server:
+- open the original application link,
+- save an interesting offer,
+- ignore an irrelevant result,
+- add the offer directly to Applications,
+- avoid duplicate recommendations,
+- receive notifications only for newly discovered matches.
 
-```bash
-npm run dev
-```
+```mermaid
+flowchart LR
+    A[Profile preferences] --> B[Scheduled or manual search]
+    B --> C[Permitted job sources]
+    C --> D[Normalize and remove duplicates]
+    D --> E[AI-assisted matching]
+    E --> F{Relevant offer?}
 
-The frontend should be available at:
+    F -->|Yes| G[Show score and explanation]
+    G --> H[Apply]
+    G --> I[Save]
+    G --> J[Add to Applications]
 
-```text
-http://localhost:5173
-```
-
----
-
-### 3. Run the backend
-
-Go to the backend directory:
-
-```bash
-cd backend/JobApplicationTracker.Api
-```
-
-Restore dependencies:
-
-```bash
-dotnet restore
-```
-
-Run the API:
-
-```bash
-dotnet run
-```
-
-Swagger should be available at a local address similar to:
-
-```text
-http://localhost:5000/swagger
+    F -->|No| K[Ignore]
 ```
 
 ---
 
-## 🔐 Environment Variables
+## How the Modules Connect
 
-Frontend example:
+```mermaid
+flowchart TB
+    PROFILE[Profile and job preferences]
 
-```env
-VITE_API_URL=http://localhost:5000
+    DASH[Dashboard]
+    APPS[Applications]
+    COMP[Companies]
+    CAL[Calendar]
+    DOCS[Documents]
+    NOTES[Notes]
+    STATS[Statistics]
+    AI[AI Tools]
+    SCOUT[AI Job Scout - planned]
+
+    PROFILE --> SCOUT
+    PROFILE --> AI
+
+    SCOUT --> APPS
+    APPS --> COMP
+    APPS --> CAL
+    APPS --> DOCS
+    APPS --> NOTES
+    APPS --> STATS
+
+    DOCS --> AI
+    AI --> DOCS
+
+    DASH --> APPS
+    DASH --> CAL
+    DASH --> STATS
 ```
 
-Backend example:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "YOUR_DATABASE_CONNECTION_STRING"
-  },
-  "Jwt": {
-    "Key": "YOUR_SECRET_KEY",
-    "Issuer": "JobApplicationTracker",
-    "Audience": "JobApplicationTrackerUsers"
-  }
-}
-```
-
-For local development, use user secrets or environment variables.
+The modules are intended to share recruitment context instead of operating as isolated pages.
 
 ---
 
-## 🛣️ Roadmap
+## Current Status
 
-Planned next steps:
+| Product area | Status | Notes |
+|---|---:|---|
+| Dashboard | ✅ Available | Recruitment overview and quick insights |
+| Applications | ✅ Available | Tracking, details, filters and recruitment statuses |
+| Companies | ✅ Available | Employer profiles and recruitment context |
+| Statistics | ✅ Available | Charts, metrics and source analysis |
+| Calendar | ✅ Available | Month, week, day and upcoming-event views |
+| Documents | ✅ Available | Recruitment files, links and metadata |
+| Notes | ✅ Available | Preparation, research and checklists |
+| Profile and appearance | ✅ Available | Preferences and workspace personalization |
+| AI CV Review | ✅ Available | General and job-match review |
+| AI Cover Letter Generator | ✅ Available | Editable application-specific drafts |
+| AI review history | ✅ Available | Previous CV analyses |
+| Reminder automation | 🚧 In development | Follow-ups and event notifications |
+| AI Job Scout | ⏳ Planned | Personalized discovery and matching |
+| Production release | ⏳ Planned | Stable public full-stack deployment |
 
-* add editing existing applications,
-* add deleting and archiving applications,
-* add user registration and login,
-* add account settings,
-* add email notification configuration,
-* add email reminders for interviews and follow-ups,
-* improve filtering and sorting,
-* add list and card/image views,
-* add more detailed analytics,
-* improve responsive mobile layout,
-* add backend database persistence,
-* prepare production deployment,
-* add more screenshots to documentation.
-
----
-
-## ⚠️ Limitations
-
-Current limitations:
-
-* authentication is not fully implemented yet,
-* email notifications are planned but not active yet,
-* some data may still be stored only in frontend state during development,
-* analytics are based on available application data,
-* diagrams and charts may change as the data model evolves,
-* the project is still under active development.
+Legend: ✅ available · 🚧 in development · ⏳ planned
 
 ---
 
-## 👩‍💻 Author
+## Demo Scope
 
-Created by Katarzyna Stańczyk.
+The public GitHub Pages deployment is an interactive frontend mockup.
+
+### What the Demo Presents
+
+| Demo capability | Included |
+|---|---:|
+| Navigation across main sections | ✅ |
+| Frontend login experience | ✅ |
+| Add-application workflow | ✅ |
+| Local application status changes | ✅ |
+| Search and filters | ✅ |
+| CSV export | ✅ |
+| Dashboard and statistics based on demo data | ✅ |
+| Profile and appearance customization | ✅ |
+| Light and dark themes | ✅ |
+| Editable notes | ✅ |
+| Responsive interface preview | ✅ |
+
+### How the Demo Stores Data
+
+```mermaid
+flowchart LR
+    U[Demo user] --> UI[Frontend mockup]
+    UI --> LS[(Browser localStorage)]
+    LS --> UI
+```
+
+The mockup:
+
+- uses demo data,
+- stores selected changes in the browser,
+- does not connect to a production database,
+- does not use real authentication,
+- does not contain real CV files,
+- does not contain private application history,
+- does not contain production secrets.
+
+### Demo vs Full Application
+
+| Area | Public Mockup Demo | Full Application Direction |
+|---|---|---|
+| Purpose | Portfolio and UX presentation | Real recruitment management |
+| Data | Mock data and browser storage | User-owned persistent data |
+| Authentication | Frontend simulation | Backend-controlled access |
+| Integrations | Demonstration only | Connected services and AI tools |
+| Deployment | GitHub Pages | Full-stack environment |
+| Intended use | Explore the concept | Manage an actual job search |
 
 ---
 
-## AI Tools
+## Development Checklist
 
-TrackMyCV includes an authenticated AI Tools module with:
+The checklist below presents the current implementation status without assigning fixed release phases.
 
-- AI CV Review: general CV analysis and job-match review against a pasted job offer.
-- AI Cover Letter Generator: generates an editable cover letter from a selected CV and job description.
-- Recent AI Activity: saved CV review history.
+**Legend**
 
-AI requests are executed only by the ASP.NET Core backend. The frontend never receives or stores the OpenAI API key.
+- [x] Completed
+- [ ] Planned
+- [ ] ⏳ In progress
 
-### OpenAI Configuration
+### Recruitment Workspace
 
-Backend configuration supports:
+- [x] Dashboard and recruitment summary
+- [x] Application tracking
+- [x] Detailed recruitment statuses
+- [x] Search, filtering and sorting
+- [x] Company profiles
+- [x] Statistics and progress analysis
+- [x] Documents and notes
+- [ ] ⏳ Improve relationships between applications, companies, documents, notes and events
+- [ ] Add a complete activity timeline
+- [ ] Add comparison tools for selected job offers
+- [ ] Add easier comparison of active recruitment processes
 
-```json
-{
-  "OpenAI": {
-    "ApiKey": "",
-    "Model": "gpt-5-mini",
-    "TimeoutSeconds": 90
-  }
-}
+### Calendar and Reminders
+
+- [x] Month view
+- [x] Week view
+- [x] Day view
+- [x] Upcoming events panel
+- [x] Custom event types
+- [x] Event icons and colors
+- [x] Hour-based day planning
+- [x] Live current-time indicator
+- [x] Overlapping event handling
+- [ ] Add automatic follow-up suggestions
+- [ ] Add configurable reminders
+- [ ] Add in-app notifications
+- [ ] Add email notifications
+- [ ] Connect deadlines more closely with applications
+
+### Documents and Preparation
+
+- [x] Multiple recruitment document categories
+- [x] Document details and metadata
+- [x] Application-document relationships
+- [x] Notes, checklists and attachments
+- [x] Default-document selection
+- [ ] Add CV version comparison
+- [ ] Add reusable application-document templates
+- [ ] Add interview-preparation collections
+- [ ] Add company-specific preparation workspaces
+- [ ] Add better document usage history
+
+### AI Career Tools
+
+- [x] General AI CV Review
+- [x] Job-match CV Review
+- [x] AI Cover Letter Generator
+- [x] Editable generated drafts
+- [x] Saved CV review history
+- [ ] Add comparison between CV versions
+- [ ] Add AI interview-question preparation
+- [ ] Add job-description summaries
+- [ ] Add application-specific recommendations
+- [ ] Add suggested document selection for an application
+
+### AI Job Scout
+
+- [ ] ⏳ Complete job-search preferences in the user profile
+- [ ] Add manual job discovery
+- [ ] Add configurable scheduled searches
+- [ ] Integrate permitted job sources, APIs and feeds
+- [ ] Normalize discovered offers
+- [ ] Detect and remove duplicate offers
+- [ ] Add AI-assisted match scoring
+- [ ] Explain matching strengths and missing requirements
+- [ ] Provide direct links to original application forms
+- [ ] Add Save and Ignore actions
+- [ ] Add selected offers directly to Applications
+- [ ] Prevent offers already added to Applications from appearing as new
+- [ ] Notify users only about newly discovered matching opportunities
+
+### User Experience
+
+- [x] Responsive desktop interface
+- [x] Light theme
+- [x] Dark theme
+- [x] System theme
+- [x] Accent-color personalization
+- [x] Interface-density settings
+- [x] Optional animations
+- [ ] ⏳ Continue mobile usability improvements
+- [ ] Improve accessibility
+- [ ] Improve loading, empty and error states
+- [ ] Add first-time user onboarding
+- [ ] Add dashboard customization
+
+### Product Quality and Delivery
+
+- [x] Frontend mockup deployed with GitHub Pages
+- [x] Repository screenshots and product documentation
+- [x] Docker-based development direction
+- [ ] ⏳ Expand automated test coverage
+- [ ] Add complete production deployment
+- [ ] Add health checks and production monitoring
+- [ ] Improve structured logging and error reporting
+- [ ] Prepare a stable public full-stack release
+- [ ] Expand technical and user documentation
+
+---
+
+## Technology
+
+| Layer | Technologies |
+|---|---|
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| UI and visualization | Lucide React, Recharts |
+| Backend | C#, ASP.NET Core, REST API |
+| Data | Entity Framework Core, SQL Server |
+| AI-assisted features | CV analysis and document generation |
+| Development | Git, GitHub, Visual Studio, VS Code |
+| Design and documentation | Figma, Mermaid, repository screenshots |
+| Delivery | GitHub Pages demo, Docker-based development direction |
+
+---
+
+## Repository Overview
+
+| Directory | Purpose |
+|---|---|
+| `frontend/` | Main React and TypeScript frontend |
+| `backend/` | ASP.NET Core application and persistence layer |
+| `demo/` | Frontend-only mockup used by the public GitHub Pages demo |
+| `docs/` | Logo, screenshots and project documentation |
+| `.github/workflows/` | Repository automation |
+| `docker-compose.yml` | Local multi-service development setup |
+| `scripts/` | Development helper scripts |
+
+```mermaid
+flowchart TD
+    REPO[TrackMyCV repository]
+
+    REPO --> FRONTEND[frontend]
+    REPO --> BACKEND[backend]
+    REPO --> DEMO[demo]
+    REPO --> DOCS[docs]
+    REPO --> WORKFLOWS[GitHub workflows]
+
+    FRONTEND --> PRODUCT[Full product interface]
+    BACKEND --> SERVICES[Application services and persistence]
+    DEMO --> PAGES[Public GitHub Pages mockup]
+    DOCS --> MEDIA[Logo and screenshots]
+    WORKFLOWS --> AUTOMATION[Build and deployment automation]
 ```
 
-Use environment variables for real values:
+---
 
-```bash
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5-mini
-```
+## Author
 
-For local development, copy or edit the ignored `.env` file in the repository root. `npm run dev` loads it automatically and passes the values to the ASP.NET Core backend:
-
-```bash
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-5-mini
-```
-
-Restart `npm run dev` after changing `.env`.
-
-Do not commit a real API key. `.env.example` contains placeholders only.
-
-### AI Endpoints
-
-- `POST /api/ai/cv-reviews`
-- `GET /api/ai/cv-reviews`
-- `GET /api/ai/cv-reviews/{id}`
-- `DELETE /api/ai/cv-reviews/{id}`
-- `POST /api/ai/cover-letters/generate`
-- `POST /api/documents/text`
-
-All AI endpoints require the TrackMyCV auth token. Users can analyze only their own documents.
-
-### Document Formats
-
-AI CV text extraction supports uploaded CV documents in:
-
-- PDF, when the PDF contains readable text
-- DOCX
-- TXT
-- RTF
-
-Scanned PDFs without embedded text should be converted to a text-based PDF or DOCX before analysis.
+Created by **Katarzyna Stańczyk**.
