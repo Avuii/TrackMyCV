@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   Code2,
   Coffee,
@@ -188,6 +189,9 @@ type Profile = {
   email: string;
   title: string;
   location: string;
+  portfolioUrl: string;
+  linkedInUrl: string;
+  githubUrl: string;
   workMode: WorkMode;
   avatarVariant: AvatarVariant;
   avatarImage: string;
@@ -306,6 +310,9 @@ const initialProfile: Profile = {
   email: '',
   title: '',
   location: '',
+  portfolioUrl: '',
+  linkedInUrl: '',
+  githubUrl: '',
   workMode: 'Hybrid',
   avatarVariant: 'initials',
   avatarImage: ''
@@ -1409,6 +1416,16 @@ function base64ToBlob(base64: string, type: string) {
   return new Blob([bytes], { type });
 }
 
+function normalizePdfFileName(value: string, fallback = 'cover-letter.pdf') {
+  const cleaned = value
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/\.+$/g, '');
+  const safeName = cleaned || fallback.replace(/\.pdf$/i, '');
+  return safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -1510,6 +1527,42 @@ function CustomSelect({ label, value, options, onChange, className = '' }: { lab
 
 function TextField({ label, value, onChange, placeholder = '', type = 'text' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
   return <label className="form-field"><span>{label}</span><input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function NumberStepper({ label, value, onChange, min = 0, max = 365, unit = 'days' }: { label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; unit?: string }) {
+  const current = Number.isFinite(value) ? Math.round(value) : min;
+
+  function update(nextValue: number) {
+    onChange(clamp(Math.round(nextValue), min, max));
+  }
+
+  return (
+    <div className="number-stepper">
+      <span>{label}</span>
+      <div className="number-stepper-control">
+        <input
+          aria-label={label}
+          inputMode="numeric"
+          value={String(current)}
+          onChange={(event) => {
+            const raw = event.target.value.trim();
+            if (!raw) {
+              update(min);
+              return;
+            }
+
+            const parsed = Number(raw.replace(/[^\d-]/g, ''));
+            if (Number.isFinite(parsed)) update(parsed);
+          }}
+        />
+        <em>{unit}</em>
+        <div className="number-stepper-buttons">
+          <button type="button" aria-label={`Increase ${label}`} onClick={() => update(current + 1)}><ChevronUp size={14} /></button>
+          <button type="button" aria-label={`Decrease ${label}`} onClick={() => update(current - 1)}><ChevronDown size={14} /></button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TextAreaField({ label, value, onChange, placeholder = '' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
@@ -3099,16 +3152,29 @@ type SaveCoverLetterInput = {
   jobTitle: string;
 };
 
-const defaultCoverLetterCandidate = (profile: Profile): CoverLetterCandidate => ({
-  fullName: profile.name && profile.name !== 'User' ? profile.name : 'Katarzyna Stańczyk',
-  location: profile.location || 'Łódź',
-  headline: profile.title || 'studentka Informatyki | kandydatka na praktyki',
-  portfolioUrl: 'https://avuii.github.io/PortfolioKS/',
-  linkedInUrl: 'https://www.linkedin.com/in/katarzyna-stanczykk/',
-  githubUrl: 'https://github.com/Avuii'
+const coverLetterCandidateFromProfile = (profile: Profile): CoverLetterCandidate => ({
+  fullName: profile.name && profile.name.trim().toLowerCase() !== 'user' ? profile.name.trim() : '',
+  location: (profile.location || '').trim(),
+  headline: (profile.title || '').trim(),
+  portfolioUrl: (profile.portfolioUrl || '').trim(),
+  linkedInUrl: (profile.linkedInUrl || '').trim(),
+  githubUrl: (profile.githubUrl || '').trim()
 });
 
-function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast, onSaveCoverLetter, profile }: { documents: DocumentItem[]; documentsLoading?: boolean; onRefreshDocuments?: () => void; setToast: (value: string) => void; onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>; profile: Profile }) {
+const getCoverLetterProfileMissing = (profile: Profile) => {
+  const candidate = coverLetterCandidateFromProfile(profile);
+  const missing: string[] = [];
+
+  if (!candidate.fullName) missing.push('Full name');
+  if (!candidate.headline) missing.push('Job search title');
+  if (!candidate.location) missing.push('Location');
+  if (!candidate.linkedInUrl) missing.push('LinkedIn URL');
+  if (!candidate.githubUrl) missing.push('GitHub URL');
+
+  return missing;
+};
+
+function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast, onSaveCoverLetter, profile, onOpenSettings }: { documents: DocumentItem[]; documentsLoading?: boolean; onRefreshDocuments?: () => void; setToast: (value: string) => void; onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>; profile: Profile; onOpenSettings?: (tab?: ProfileTab) => void }) {
   const cvDocuments = documents.filter((document) => document.type === 'CV' && document.status !== 'Archived');
   const cvOptions = cvDocuments.map((document) => ({
     id: String(document.id),
@@ -3144,14 +3210,16 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     language: 'en' as 'en' | 'pl',
     tone: 'professional' as 'professional' | 'natural' | 'formal',
     length: 'standard' as 'short' | 'standard' | 'detailed',
-    additionalContext: '',
-    candidate: defaultCoverLetterCandidate(profile)
+    additionalContext: ''
   });
   const [coverResult, setCoverResult] = useState<CoverLetterGenerateResponse | null>(null);
   const [editableCoverLetter, setEditableCoverLetter] = useState('');
+  const [coverFileName, setCoverFileName] = useState('');
   const [coverPreviewMode, setCoverPreviewMode] = useState<'edit' | 'preview'>('edit');
   const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
   const [coverPreviewError, setCoverPreviewError] = useState('');
+  const coverCandidate = coverLetterCandidateFromProfile(profile);
+  const coverProfileMissing = getCoverLetterProfileMissing(profile);
   const selectedReviewCvLabel = cvOptions.find((option) => option.id === reviewForm.documentId)?.label || cvOptions[0]?.label || '';
   const selectedCoverCvLabel = cvOptions.find((option) => option.id === coverForm.documentId)?.label || cvOptions[0]?.label || '';
 
@@ -3204,12 +3272,6 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
 
   function setCover<K extends keyof typeof coverForm>(key: K, value: typeof coverForm[K]) {
     setCoverForm((current) => ({ ...current, [key]: value }));
-    clearCoverPreview();
-    setError('');
-  }
-
-  function setCoverCandidate<K extends keyof CoverLetterCandidate>(key: K, value: CoverLetterCandidate[K]) {
-    setCoverForm((current) => ({ ...current, candidate: { ...current.candidate, [key]: value } }));
     clearCoverPreview();
     setError('');
   }
@@ -3275,8 +3337,8 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       return;
     }
 
-    if (!coverForm.candidate.fullName.trim()) {
-      setError('Candidate full name is required for the PDF header and signature.');
+    if (coverProfileMissing.length) {
+      setError(`Complete profile info first: ${coverProfileMissing.join(', ')}.`);
       return;
     }
 
@@ -3284,9 +3346,10 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     setError('');
 
     try {
-      const response = await aiApi.generateCoverLetter(coverForm);
+      const response = await aiApi.generateCoverLetter({ ...coverForm, candidate: coverCandidate });
       setCoverResult(response);
       setEditableCoverLetter(response.coverLetter);
+      setCoverFileName(normalizePdfFileName(response.suggestedFileName || 'cover-letter.pdf').replace(/\.pdf$/i, ''));
       clearCoverPreview();
       setCoverPreviewMode('edit');
       setToast('Cover letter generated.');
@@ -3308,8 +3371,8 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       throw new Error('Cover letter text is required.');
     }
 
-    if (!coverForm.candidate.fullName.trim()) {
-      throw new Error('Candidate full name is required for the PDF header and signature.');
+    if (coverProfileMissing.length) {
+      throw new Error(`Complete profile info first: ${coverProfileMissing.join(', ')}.`);
     }
 
     const response = await aiApi.renderCoverLetter({
@@ -3317,7 +3380,7 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       companyName: coverForm.companyName,
       jobTitle: coverForm.jobTitle,
       language: coverForm.language,
-      candidate: coverForm.candidate
+      candidate: coverCandidate
     });
 
     setCoverResult(response);
@@ -3353,7 +3416,8 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       setCoverRenderBusy(true);
       setError('');
       const rendered = await renderCoverLetterPdf();
-      downloadBlob(base64ToBlob(rendered.pdfBase64!, rendered.pdfContentType || 'application/pdf'), rendered.suggestedFileName || 'cover-letter.pdf');
+      const fileName = normalizePdfFileName(coverFileName || rendered.suggestedFileName || 'cover-letter.pdf');
+      downloadBlob(base64ToBlob(rendered.pdfBase64!, rendered.pdfContentType || 'application/pdf'), fileName);
       setToast('Cover letter PDF downloaded.');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Cover letter PDF could not be downloaded.');
@@ -3370,8 +3434,9 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
 
     try {
       const rendered = await renderCoverLetterPdf();
+      const fileName = normalizePdfFileName(coverFileName || rendered.suggestedFileName || 'Cover letter.pdf');
       await onSaveCoverLetter({
-        name: (rendered.suggestedFileName || 'Cover letter.pdf').replace(/\.pdf$/i, ''),
+        name: fileName.replace(/\.pdf$/i, ''),
         content: editableCoverLetter,
         pdfBase64: rendered.pdfBase64!,
         latexSource: rendered.latexSource,
@@ -3448,18 +3513,10 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
                 <div className="form-field"><span>Tone</span><CustomSelect value={coverForm.tone} options={['professional', 'natural', 'formal']} onChange={(value) => setCover('tone', value as typeof coverForm.tone)} /></div>
                 <div className="form-field"><span>Length</span><CustomSelect value={coverForm.length} options={['short', 'standard', 'detailed']} onChange={(value) => setCover('length', value as typeof coverForm.length)} /></div>
               </div>
-              <div className="mini-title ai-form-section-title"><User size={18} /><h2>Sender details</h2></div>
-              <div className="form-grid">
-                <TextField label="Full name" value={coverForm.candidate.fullName} onChange={(value) => setCoverCandidate('fullName', value)} placeholder="Katarzyna Stańczyk" />
-                <TextField label="Location" value={coverForm.candidate.location} onChange={(value) => setCoverCandidate('location', value)} placeholder="Łódź" />
-                <TextField label="Headline" value={coverForm.candidate.headline} onChange={(value) => setCoverCandidate('headline', value)} placeholder="studentka Informatyki | kandydatka na praktyki" />
-                <TextField label="Portfolio URL" value={coverForm.candidate.portfolioUrl} onChange={(value) => setCoverCandidate('portfolioUrl', value)} placeholder="https://..." />
-                <TextField label="LinkedIn URL" value={coverForm.candidate.linkedInUrl} onChange={(value) => setCoverCandidate('linkedInUrl', value)} placeholder="https://www.linkedin.com/in/..." />
-                <TextField label="GitHub URL" value={coverForm.candidate.githubUrl} onChange={(value) => setCoverCandidate('githubUrl', value)} placeholder="https://github.com/..." />
-              </div>
+              <CoverLetterProfileCard candidate={coverCandidate} missing={coverProfileMissing} onEdit={() => onOpenSettings?.('profile')} />
               <TextAreaField label="Job description" value={coverForm.jobDescription} onChange={(value) => setCover('jobDescription', value)} placeholder="Paste the job offer here." />
               <TextAreaField label="Additional context" value={coverForm.additionalContext} onChange={(value) => setCover('additionalContext', value)} placeholder="Optional details you want to include, only if true." />
-              <button className="primary-button" type="submit" disabled={coverBusy || !cvDocuments.length}>{coverBusy ? 'Generating...' : coverResult ? 'Generate again' : 'Generate'}</button>
+              <button className="primary-button" type="submit" disabled={coverBusy || !cvDocuments.length || Boolean(coverProfileMissing.length)}>{coverBusy ? 'Generating...' : coverResult ? 'Generate again' : 'Generate'}</button>
             </form>
           )}
         </section>
@@ -3469,10 +3526,12 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
             <CoverLetterEditor
               result={coverResult}
               value={editableCoverLetter}
+              fileName={coverFileName}
               mode={coverPreviewMode}
               previewUrl={coverPreviewUrl}
               previewError={coverPreviewError}
               onChange={updateEditableCoverLetter}
+              onFileNameChange={setCoverFileName}
               onModeChange={setCoverPreviewMode}
               onPreview={() => void previewCoverLetter()}
               busy={coverBusy}
@@ -3519,6 +3578,34 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
 
 function AiSkeleton() {
   return <div className="ai-skeleton"><span /><span /><span /></div>;
+}
+
+function CoverLetterProfileCard({ candidate, missing, onEdit }: { candidate: CoverLetterCandidate; missing: string[]; onEdit?: () => void }) {
+  const links = [
+    { label: 'Portfolio', value: candidate.portfolioUrl },
+    { label: 'LinkedIn', value: candidate.linkedInUrl },
+    { label: 'GitHub', value: candidate.githubUrl }
+  ];
+  const subtitle = [candidate.headline, candidate.location].filter(Boolean).join(' - ');
+
+  return (
+    <div className={`cover-profile-card ${missing.length ? 'incomplete' : ''}`}>
+      <div className="cover-profile-main">
+        <span><User size={16} /> Candidate profile</span>
+        <strong>{candidate.fullName || 'Profile info required'}</strong>
+        <small>{subtitle || 'Add your title and location in Profile settings.'}</small>
+      </div>
+      <div className="cover-profile-links">
+        {links.map((link) => (
+          <span key={link.label} className={link.value ? '' : 'muted'}>
+            <LinkIcon size={14} /> {link.value ? link.label : `${link.label}: not set`}
+          </span>
+        ))}
+      </div>
+      {missing.length ? <p className="form-error cover-profile-error" role="alert">Required before generation: {missing.join(', ')}.</p> : null}
+      {onEdit ? <button className="secondary-button small" type="button" onClick={onEdit}><Pencil size={15} /> Edit profile info</button> : null}
+    </div>
+  );
 }
 
 function ScoreBar({ label, score, note }: { label: string; score: number; note?: string }) {
@@ -3613,10 +3700,12 @@ type CoverLetterEditorMode = 'edit' | 'preview';
 type CoverLetterEditorProps = {
   result: CoverLetterGenerateResponse | null;
   value: string;
+  fileName: string;
   mode: CoverLetterEditorMode;
   previewUrl: string;
   previewError: string;
   onChange: (value: string) => void;
+  onFileNameChange: (value: string) => void;
   onModeChange: (mode: CoverLetterEditorMode) => void;
   onPreview: () => void;
   busy: boolean;
@@ -3628,7 +3717,7 @@ type CoverLetterEditorProps = {
   onGenerateAgain: () => void;
 };
 
-function CoverLetterEditor({ result, value, mode, previewUrl, previewError, onChange, onModeChange, onPreview, busy, rendering, saving, onCopy, onDownload, onSave, onGenerateAgain }: CoverLetterEditorProps) {
+function CoverLetterEditor({ result, value, fileName, mode, previewUrl, previewError, onChange, onFileNameChange, onModeChange, onPreview, busy, rendering, saving, onCopy, onDownload, onSave, onGenerateAgain }: CoverLetterEditorProps) {
   if (busy) {
     return <div className="ai-result-empty"><AiSkeleton /><strong>Generating cover letter...</strong><span>Using your CV and the selected offer.</span></div>;
   }
@@ -3643,10 +3732,18 @@ function CoverLetterEditor({ result, value, mode, previewUrl, previewError, onCh
         <div><span className="eyebrow">Editable draft</span><h2>{result.suggestedFileName}</h2></div>
         <div className="event-card-actions">
           <button className="ghost-icon" type="button" onClick={onCopy} aria-label="Copy cover letter"><Copy size={16} /></button>
-          <button className="ghost-icon" type="button" onClick={onDownload} aria-label="Download cover letter PDF" disabled={rendering}><Download size={16} /></button>
         </div>
       </div>
       {result.warnings.length ? <div className="ai-warning-list">{result.warnings.map((warning) => <span key={warning}><AlertCircle size={14} /> {warning}</span>)}</div> : null}
+      <div className="cover-letter-file-row">
+        <label className="cover-letter-file-name">
+          <span>PDF file name</span>
+          <input value={fileName} onChange={(event) => onFileNameChange(event.target.value)} placeholder="Katarzyna_Stanczyk_cover_letter" />
+        </label>
+        <button className="secondary-button cover-letter-download-button" type="button" onClick={onDownload} disabled={rendering || !value.trim()}>
+          <Download size={16} /> {rendering ? 'Preparing PDF...' : 'Download PDF'}
+        </button>
+      </div>
       <div className="cover-letter-toolbar">
         <div className="segmented-inline" role="tablist" aria-label="Cover letter view">
           <button className={mode === 'edit' ? 'selected' : ''} type="button" role="tab" aria-selected={mode === 'edit'} onClick={() => onModeChange('edit')}>Edit</button>
@@ -4062,11 +4159,10 @@ function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dis
         <TextField label="Full name" value={profile.name} onChange={(v) => patchProfile({ name: v })} />
         <TextField label="Email address" value={profile.email} onChange={(v) => patchProfile({ email: v })} />
         <TextField label="Job search title" value={profile.title} onChange={(v) => patchProfile({ title: v })} />
-        <TextField label="Preferred location" value={profile.location} onChange={(v) => patchProfile({ location: v })} />
-        <div className="form-field">
-          <span>Preferred work mode</span>
-          <CustomSelect value={profile.workMode} options={workModes} onChange={(v) => patchProfile({ workMode: v as WorkMode })} />
-        </div>
+        <TextField label="Location" value={profile.location} onChange={(v) => patchProfile({ location: v })} placeholder="Lodz / Warsaw / Remote" />
+        <TextField label="Portfolio URL" value={profile.portfolioUrl} onChange={(v) => patchProfile({ portfolioUrl: v })} placeholder="https://..." />
+        <TextField label="LinkedIn URL" value={profile.linkedInUrl} onChange={(v) => patchProfile({ linkedInUrl: v })} placeholder="https://www.linkedin.com/in/..." />
+        <TextField label="GitHub URL" value={profile.githubUrl} onChange={(v) => patchProfile({ githubUrl: v })} placeholder="https://github.com/..." />
       </div>
     </div>
   );
@@ -4162,7 +4258,19 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   const categoryItems = uniqueOptions(categories, prefs.categories);
   const levelItems = uniqueOptions(levels, prefs.levels);
   const locationItems = uniqueOptions(['Remote', 'Warsaw', 'Kraków', 'Wrocław', 'Gdańsk'], prefs.locations);
-  return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><TextField label="Mark as no response after" value={String(prefs.noResponseDays)} onChange={(v) => patch({ noResponseDays: Number(v) || 0 })} /><TextField label="Mark as ghosted after" value={String(prefs.ghostedDays)} onChange={(v) => patch({ ghostedDays: Number(v) || 0 })} /><TextField label="Suggest follow-up after" value={String(prefs.followUpDays)} onChange={(v) => patch({ followUpDays: Number(v) || 0 })} /></div></div>;
+  return (
+    <div className="tab-content">
+      <PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" />
+      <PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" />
+      <PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" />
+      <PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} />
+      <div className="rules-grid">
+        <NumberStepper label="Mark as no response after" value={prefs.noResponseDays} onChange={(value) => patch({ noResponseDays: value })} />
+        <NumberStepper label="Mark as ghosted after" value={prefs.ghostedDays} onChange={(value) => patch({ ghostedDays: value })} />
+        <NumberStepper label="Suggest follow-up after" value={prefs.followUpDays} onChange={(value) => patch({ followUpDays: value })} />
+      </div>
+    </div>
+  );
 }
 
 function PreferenceGroup({ title, items, selected, onToggle, addValue, setAddValue, onAdd, addPlaceholder }: { title: string; items: string[]; selected: string[]; onToggle: (item: string) => void; addValue?: string; setAddValue?: (value: string) => void; onAdd?: () => void; addPlaceholder?: string }) {
@@ -4368,7 +4476,7 @@ function MobileLayout({
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
-        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} /> : null}
+        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} onOpenSettings={onOpenSettings} /> : null}
       </main>
 
       <FloatingActionButton onClick={openAddApplication} label="Add application" />
@@ -5405,7 +5513,7 @@ function App() {
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
           {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
-          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} /> : null}
+          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} onOpenSettings={openSettings} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>
       </div>
