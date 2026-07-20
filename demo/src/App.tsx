@@ -172,6 +172,39 @@ type AppSettings = {
   };
 };
 
+type AiTool = 'review' | 'cover' | 'scout';
+type JobScoutTab = 'new' | 'saved' | 'ignored' | 'added' | 'history';
+type JobScoutMatchStatus = 'new' | 'saved' | 'ignored' | 'added';
+type JobScoutFrequency = 'Manual' | 'Daily' | 'Weekdays' | 'Weekly';
+type JobScoutRunStatus = 'completed' | 'blocked' | 'failed';
+
+type JobScoutMatch = {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  workMode: WorkMode;
+  publishedAt: string;
+  foundAt: string;
+  source: string;
+  sourceUrl: string;
+  applyUrl: string;
+  matchScore: number;
+  matchReason: string;
+  matchedSkills: string[];
+  gaps: string[];
+  status: JobScoutMatchStatus;
+};
+
+type JobScoutRun = {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  status: JobScoutRunStatus;
+  newMatches: number;
+  message: string;
+};
+
 const STORAGE = {
   session: 'trackmycv.session.v3',
   profile: 'trackmycv.profile.v3',
@@ -232,8 +265,12 @@ const initialSettings: AppSettings = {
   preferences: {
     categories: ['.NET', 'Cybersecurity', 'IAM', 'DevOps'],
     levels: ['Internship', 'Intern', 'Junior', 'Junior-friendly'],
-    locations: ['Remote', 'Warsaw', 'KrakĂłw'],
-    workModes: ['Hybrid', 'Remote'],
+    locations: ['Warsaw', 'Krakow'],
+    locationPreferences: [
+      { id: 'location-warsaw', city: 'Warsaw', radiusKm: 30 },
+      { id: 'location-krakow', city: 'Krakow', radiusKm: 40 }
+    ],
+    workModes: ['Hybrid', 'Remote', allWorkModes],
     noResponseDays: 14,
     ghostedDays: 30,
     followUpDays: 7
@@ -307,6 +344,104 @@ const initialDocuments: DocumentItem[] = [
   { id: 6, name: 'GitHub_Demo_Profile', type: 'GitHub', category: 'General', updated: '2026-05-20', usedIn: 7, size: 'URL', url: 'https://github.com/example-user' }
 ];
 
+const jobScoutTabs: { id: JobScoutTab; label: string }[] = [
+  { id: 'new', label: 'New matches' },
+  { id: 'saved', label: 'Saved' },
+  { id: 'ignored', label: 'Ignored' },
+  { id: 'added', label: 'Added to applications' },
+  { id: 'history', label: 'Search history' }
+];
+
+const initialJobScoutMatches: JobScoutMatch[] = [
+  {
+    id: 'scout-match-1',
+    title: 'Junior .NET Developer Intern',
+    company: 'Campgemini Demo',
+    location: 'Warsaw + remote',
+    workMode: 'Hybrid',
+    publishedAt: '2026-07-19',
+    foundAt: '2026-07-20',
+    source: 'Company careers RSS',
+    sourceUrl: 'https://example.com/campgemini-careers',
+    applyUrl: 'https://example.com/campgemini-dotnet-intern',
+    matchScore: 92,
+    matchReason: 'Strong match for .NET, C#, SQL and internship-level preferences, with hybrid Warsaw work fitting the profile radius.',
+    matchedSkills: ['C#', '.NET', 'SQL', 'Git', 'REST API'],
+    gaps: ['Azure basics'],
+    status: 'new'
+  },
+  {
+    id: 'scout-match-2',
+    title: 'IAM Analyst Working Student',
+    company: 'Lumen Security',
+    location: 'Remote',
+    workMode: 'Remote',
+    publishedAt: '2026-07-18',
+    foundAt: '2026-07-20',
+    source: 'No Fluff Jobs feed',
+    sourceUrl: 'https://example.com/lumen-iam-feed',
+    applyUrl: 'https://example.com/lumen-iam-working-student',
+    matchScore: 87,
+    matchReason: 'Matches IAM and cybersecurity preferences, junior-friendly level and remote work mode.',
+    matchedSkills: ['IAM', 'MFA', 'Documentation', 'Security basics'],
+    gaps: ['Okta experience'],
+    status: 'new'
+  },
+  {
+    id: 'scout-match-3',
+    title: 'Junior DevOps Trainee',
+    company: 'Cloudberry Systems',
+    location: 'Krakow + 40 km',
+    workMode: 'Hybrid',
+    publishedAt: '2026-07-17',
+    foundAt: '2026-07-20',
+    source: 'Just Join IT API',
+    sourceUrl: 'https://example.com/cloudberry-devops-api',
+    applyUrl: 'https://example.com/cloudberry-devops-trainee',
+    matchScore: 79,
+    matchReason: 'Good fit for DevOps and junior-friendly preferences, but less aligned with primary .NET focus.',
+    matchedSkills: ['Docker', 'Git', 'Linux', 'CI/CD'],
+    gaps: ['Kubernetes'],
+    status: 'saved'
+  },
+  {
+    id: 'scout-match-4',
+    title: 'Senior Backend Engineer',
+    company: 'Oak & Code',
+    location: 'Remote',
+    workMode: 'Remote',
+    publishedAt: '2026-07-16',
+    foundAt: '2026-07-19',
+    source: 'Company careers RSS',
+    sourceUrl: 'https://example.com/oak-code-feed',
+    applyUrl: 'https://example.com/oak-code-senior-backend',
+    matchScore: 41,
+    matchReason: 'Tech stack overlaps, but seniority is far above current preferred levels.',
+    matchedSkills: ['C#', 'REST API', 'SQL'],
+    gaps: ['Senior experience', 'System design ownership'],
+    status: 'ignored'
+  }
+];
+
+const initialJobScoutRuns: JobScoutRun[] = [
+  {
+    id: 'scout-run-demo-1',
+    startedAt: '2026-07-20T09:00:00.000Z',
+    completedAt: '2026-07-20T09:01:00.000Z',
+    status: 'completed',
+    newMatches: 2,
+    message: 'Demo search checked 4 connected mock sources, deduplicated 3 repeats and found 2 new matches above threshold.'
+  },
+  {
+    id: 'scout-run-demo-2',
+    startedAt: '2026-07-19T09:00:00.000Z',
+    completedAt: '2026-07-19T09:01:00.000Z',
+    status: 'completed',
+    newMatches: 1,
+    message: 'Daily demo search found one saved DevOps trainee role and ignored one senior mismatch.'
+  }
+];
+
 const initialNotes: NoteItem[] = [
   { id: 1, title: 'HR interview preparation', company: 'Riverstone Consulting', application: 'Cyber Security Analyst Intern', tag: 'Interview preparation', updated: '2026-05-21', body: 'Demo note: prepare a short introduction, motivation, project examples and questions to the recruiter.', checklist: [{ id: 1, text: 'Prepare short intro', done: true }, { id: 2, text: 'Revise role requirements', done: false }, { id: 3, text: 'Prepare questions to recruiter', done: false }] },
   { id: 2, title: 'Security topics to revise', company: 'BrightPath Digital', application: 'IAM Intern', tag: 'Technical questions', updated: '2026-05-20', body: 'Demo note: revise authentication, authorization, MFA, identity lifecycle and access management basics.', checklist: [{ id: 1, text: 'Authentication vs authorization', done: false }, { id: 2, text: 'MFA basics', done: false }] },
@@ -338,6 +473,7 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'statistics', label: 'Statistics', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'ai', label: 'AI Tools', icon: Sparkles },
   { id: 'notes', label: 'Notes', icon: StickyNote }
 ];
 
@@ -348,6 +484,7 @@ const pageLabels: Record<Page, { title: string; subtitle: string }> = {
   statistics: { title: 'Statistics', subtitle: 'Analyze your application progress and discover what works best.' },
   calendar: { title: 'Calendar', subtitle: 'Plan interviews, follow-ups and recruitment tasks.' },
   documents: { title: 'Documents', subtitle: 'Manage CV versions, cover letters and application files.' },
+  ai: { title: 'AI Tools', subtitle: 'Review CVs, draft cover letters and scout matching jobs in the demo.' },
   notes: { title: 'Notes', subtitle: 'Keep recruitment notes, interview questions and company research in one place.' }
 };
 
@@ -364,11 +501,53 @@ function writeStorage<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function normalizeProfile(value?: Partial<Profile> | null): Profile {
+  return { ...initialProfile, ...(value ?? {}) };
+}
+
+function normalizeSettings(value?: Partial<AppSettings> | null): AppSettings {
+  const preferences: Partial<AppSettings['preferences']> = value?.preferences ?? {};
+  const rawLocationPreferences = preferences.locationPreferences?.length
+    ? preferences.locationPreferences
+    : (preferences.locations?.length ? preferences.locations : initialSettings.preferences.locations).map((city: string, index: number) => ({
+      id: `location-${index + 1}`,
+      city,
+      radiusKm: 30
+    }));
+
+  return {
+    ...initialSettings,
+    ...(value ?? {}),
+    notifications: {
+      ...initialSettings.notifications,
+      ...(value?.notifications ?? {})
+    },
+    preferences: {
+      ...initialSettings.preferences,
+      ...preferences,
+      locationPreferences: rawLocationPreferences
+        .filter((location: PreferredLocationPreference) => location.city && location.city.toLowerCase() !== 'remote')
+        .map((location: PreferredLocationPreference, index: number) => ({
+          id: location.id || `location-${index + 1}`,
+          city: location.city,
+          radiusKm: Math.min(500, Math.max(0, Math.round(Number(location.radiusKm) || 30)))
+        }))
+    }
+  };
+}
+
 function formatDate(value: string) {
   if (!value) return 'â€”';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function formatDateTime(value: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 function today() {
@@ -610,6 +789,36 @@ function CustomSelect({ label, value, options, onChange, className = '' }: { lab
 
 function TextField({ label, value, onChange, placeholder = '', type = 'text' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
   return <label className="form-field"><span>{label}</span><input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function NumberStepper({ label, value, onChange, min = 0, max = 365, unit = 'days' }: { label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; unit?: string }) {
+  const current = Number.isFinite(value) ? Math.round(value) : min;
+
+  function update(nextValue: number) {
+    onChange(Math.min(max, Math.max(min, Math.round(nextValue))));
+  }
+
+  return (
+    <div className="number-stepper">
+      <span>{label}</span>
+      <div className="number-stepper-control">
+        <input
+          aria-label={label}
+          inputMode="numeric"
+          value={String(current)}
+          onChange={(event) => {
+            const parsed = Number(event.target.value.replace(/[^\d-]/g, ''));
+            if (Number.isFinite(parsed)) update(parsed);
+          }}
+        />
+        <em>{unit}</em>
+        <div className="number-stepper-buttons">
+          <button type="button" aria-label={`Increase ${label}`} onClick={() => update(current + 1)}><ChevronUp size={14} /></button>
+          <button type="button" aria-label={`Decrease ${label}`} onClick={() => update(current - 1)}><ChevronDown size={14} /></button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TextAreaField({ label, value, onChange, placeholder = '' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
@@ -1437,6 +1646,106 @@ function DocumentsPage({ documents, setDocuments, onExport, setToast }: { docume
   return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} /><button className="secondary-button" type="button" onClick={() => fileInput.current?.click()}><Upload size={17} /> Upload</button><input ref={fileInput} type="file" hidden onChange={(e) => upload(e.target.files)} /><button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button></div><div className="document-grid">{filtered.map((doc) => <article className="panel-card document-card" key={doc.id}><div className="document-icon"><FileText size={24} /></div><div><h2>{doc.name}</h2><p>{doc.type} Â· {doc.category}</p></div><div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.size}</span></div><div className="document-actions"><button className="ghost-icon" type="button" onClick={() => doc.url && window.open(doc.url, '_blank')}><Eye size={17} /></button><button className="ghost-icon" type="button" onClick={() => setToast('Preview/download is mocked for local files.')}><Download size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(doc.id)}><Trash2 size={17} /></button></div></article>)}</div><section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span><span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span></section>{linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}</section>;
 }
 
+function AIToolsPage({ documents, settings, setToast, onOpenSettings, onAddApplicationFromScout }: { documents: DocumentItem[]; settings: AppSettings; setToast: (value: string) => void; onOpenSettings: (tab?: ProfileTab) => void; onAddApplicationFromScout: (match: JobScoutMatch) => void }) {
+  const cvDocuments = documents.filter((document) => document.type === 'CV');
+  const cvOptions = cvDocuments.map((document) => document.name);
+  const [activeTool, setActiveTool] = useState<AiTool>('scout');
+  const [reviewReady, setReviewReady] = useState(true);
+  const [coverLetter, setCoverLetter] = useState('Dear Hiring Team,\n\nI am excited to apply for the Junior .NET Developer Intern role. My background in C#, SQL, REST APIs and security-aware documentation matches the requirements of the position.\n\nKind regards,\nDemo User');
+  const [scoutTab, setScoutTab] = useState<JobScoutTab>('new');
+  const [scoutMatches, setScoutMatches] = useState<JobScoutMatch[]>(initialJobScoutMatches);
+  const [scoutRuns, setScoutRuns] = useState<JobScoutRun[]>(initialJobScoutRuns);
+  const [scoutMinScore, setScoutMinScore] = useState(70);
+  const [scoutFrequency, setScoutFrequency] = useState<JobScoutFrequency>('Daily');
+  const [scoutUseCvContext, setScoutUseCvContext] = useState(false);
+  const newMatches = scoutMatches.filter((match) => match.status === 'new');
+  const lastRun = scoutRuns[0];
+  const preferenceSummary = {
+    roles: uniqueOptions(settings.preferences.categories, settings.preferences.levels).slice(0, 6),
+    locations: settings.preferences.locationPreferences.length ? settings.preferences.locationPreferences.map((location) => `${location.city} +${location.radiusKm} km`).join(', ') : 'No city radius preferences',
+    workModes: settings.preferences.workModes.includes(allWorkModes) ? allWorkModes : settings.preferences.workModes.join(', ')
+  };
+
+  function runReview(event: FormEvent) {
+    event.preventDefault();
+    setReviewReady(true);
+    setToast('Demo CV review refreshed.');
+  }
+
+  function generateCoverLetter(event: FormEvent) {
+    event.preventDefault();
+    setCoverLetter('Dear Hiring Team,\n\nI am writing to express my interest in the selected role. This demo draft uses your profile details, CV version and job preferences to show the intended AI cover letter flow.\n\nThe production version renders the final result as a LaTeX PDF with preview and download controls.\n\nKind regards,\nDemo User');
+    setToast('Demo cover letter generated.');
+  }
+
+  function runJobScout() {
+    const now = new Date().toISOString();
+    setScoutMatches((current) => {
+      const byId = new Map(current.map((match) => [match.id, match]));
+      return initialJobScoutMatches.map((match) => byId.get(match.id) ?? match);
+    });
+    const demoRun: JobScoutRun = {
+      id: `scout-run-${Date.now()}`,
+      startedAt: now,
+      completedAt: now,
+      status: 'completed',
+      newMatches: initialJobScoutMatches.filter((match) => match.status === 'new').length,
+      message: 'Demo search checked mock RSS/API sources, deduplicated repeated offers and refreshed current matches.'
+    };
+    setScoutRuns((current) => [demoRun, ...current].slice(0, 8));
+    setScoutTab('new');
+    setToast('AI Job Scout demo search completed.');
+  }
+
+  function updateScoutMatchStatus(id: string, status: JobScoutMatchStatus) {
+    setScoutMatches((current) => current.map((match) => match.id === id ? { ...match, status } : match));
+    setScoutTab(status === 'new' ? 'new' : status);
+    setToast(status === 'saved' ? 'Job match saved.' : status === 'ignored' ? 'Job match ignored.' : 'Job match updated.');
+  }
+
+  function addScoutMatch(match: JobScoutMatch) {
+    onAddApplicationFromScout(match);
+    setScoutMatches((current) => current.map((item) => item.id === match.id ? { ...item, status: 'added' } : item));
+    setScoutTab('added');
+  }
+
+  return (
+    <section className="page-section ai-tools-page">
+      <div className="ai-privacy-note panel-card"><Sparkles size={20} /><div><strong>Demo AI privacy notice</strong><p>This public mockup uses sample data only. No real CV or job description is sent anywhere.</p></div></div>
+      <div className="ai-tool-grid">
+        <button className={`ai-tool-card panel-card ${activeTool === 'review' ? 'active' : ''}`} type="button" onClick={() => setActiveTool('review')}><span><FileText size={22} /></span><div><h2>AI CV Review</h2><p>Analyze your CV, identify strengths and weaknesses, check ATS compatibility and compare it with a job offer.</p></div><strong>Review CV</strong></button>
+        <button className={`ai-tool-card panel-card ${activeTool === 'cover' ? 'active' : ''}`} type="button" onClick={() => setActiveTool('cover')}><span><Edit3 size={22} /></span><div><h2>AI Cover Letter Generator</h2><p>Generate a personalized cover letter based on your CV and a selected job offer.</p></div><strong>Generate cover letter</strong></button>
+        <article className={`ai-tool-card ai-tool-card-actions-card panel-card ${activeTool === 'scout' ? 'active' : ''}`}><span><BriefcaseBusiness size={22} /></span><div><h2>AI Job Scout</h2><p>Find new job opportunities matching your experience, skills and career preferences.</p><div className="ai-tool-card-meta"><small>{newMatches.length} new matches</small><small>Last search: {lastRun ? formatDate(lastRun.completedAt.slice(0, 10)) : 'Never'}</small><small>Next search: {scoutFrequency}</small></div></div><div className="ai-tool-card-actions"><button className="secondary-button small" type="button" onClick={() => { setActiveTool('scout'); setScoutTab('new'); }}>View matches</button><button className="primary-button small" type="button" onClick={() => { setActiveTool('scout'); runJobScout(); }}>Search now</button><button className="secondary-button small" type="button" onClick={() => onOpenSettings('preferences')}>Configure preferences</button></div></article>
+      </div>
+      <div className="ai-workspace-grid">
+        <section className="panel-card ai-form-panel">
+          {activeTool === 'review' ? <form className="modal-form compact-ai-form" onSubmit={runReview}><div className="mini-title"><FileText size={18} /><h2>AI CV Review</h2></div><div className="form-grid"><div className="form-field"><span>CV document</span><CustomSelect value={cvOptions[0] || 'No CV selected'} options={cvOptions.length ? cvOptions : ['No CV selected']} onChange={() => undefined} /></div><div className="form-field"><span>Analysis type</span><CustomSelect value="job-match" options={['general', 'job-match']} onChange={() => undefined} /></div><div className="form-field"><span>Report language</span><CustomSelect value="en" options={['en', 'pl']} onChange={() => undefined} /></div><TextField label="Job title" value="Junior .NET Developer Intern" onChange={() => undefined} /></div><TextAreaField label="Job description" value="Demo role requiring C#, .NET, SQL, Git and REST API basics." onChange={() => undefined} /><button className="primary-button ai-form-action" type="submit">Run review</button></form> : activeTool === 'cover' ? <form className="modal-form compact-ai-form" onSubmit={generateCoverLetter}><div className="mini-title"><Edit3 size={18} /><h2>AI Cover Letter Generator</h2></div><div className="form-grid"><div className="form-field"><span>CV document</span><CustomSelect value={cvOptions[0] || 'No CV selected'} options={cvOptions.length ? cvOptions : ['No CV selected']} onChange={() => undefined} /></div><TextField label="Company name" value="Campgemini Demo" onChange={() => undefined} /><TextField label="Job title" value="Junior .NET Developer Intern" onChange={() => undefined} /><div className="form-field"><span>Language</span><CustomSelect value="en" options={['en', 'pl']} onChange={() => undefined} /></div></div><div className="cover-profile-card"><div className="cover-profile-main"><span><User size={14} /> Profile context</span><strong>Demo User</strong><small>LinkedIn, GitHub and portfolio are configured in Profile settings.</small></div><button className="secondary-button small" type="button" onClick={() => onOpenSettings('profile')}>Edit profile</button></div><TextAreaField label="Job description" value="Demo job description for a .NET internship." onChange={() => undefined} /><button className="primary-button" type="submit">Generate</button></form> : <form className="modal-form compact-ai-form job-scout-form" onSubmit={(event) => { event.preventDefault(); runJobScout(); }}><div className="mini-title"><BriefcaseBusiness size={18} /><h2>AI Job Scout</h2></div><p className="ai-helper-text">Cyclically checks connected mock job sources, deduplicates offers and uses AI-style scoring to explain fit.</p><div className="job-source-notice ready"><Sparkles size={18} /><div><strong>4 demo source providers active</strong><span>Company careers RSS, Just Join IT API, No Fluff Jobs feed, manual company list.</span></div></div><div className="job-scout-summary-grid"><div><span>Roles</span><strong>{preferenceSummary.roles.join(', ') || 'No roles selected'}</strong></div><div><span>Locations</span><strong>{preferenceSummary.locations}</strong></div><div><span>Work modes</span><strong>{preferenceSummary.workModes}</strong></div></div><div className="form-grid"><NumberStepper label="Notify above match score" value={scoutMinScore} onChange={setScoutMinScore} min={0} max={100} unit="%" /><div className="form-field"><span>Search schedule</span><CustomSelect value={scoutFrequency} options={['Manual', 'Daily', 'Weekdays', 'Weekly']} onChange={(value) => setScoutFrequency(value as JobScoutFrequency)} /></div></div><div className="job-scout-consent"><div><strong>Use full CV context</strong><span>Off by default. Demo can score from profile preferences only until enabled.</span></div><button className={`toggle ${scoutUseCvContext ? 'on' : ''}`} type="button" aria-pressed={scoutUseCvContext} onClick={() => setScoutUseCvContext(!scoutUseCvContext)}><span /></button></div><div className="job-scout-actions"><button className="primary-button" type="submit">Search now</button><button className="secondary-button" type="button" onClick={() => onOpenSettings('preferences')}><SlidersHorizontal size={16} /> Configure preferences</button></div></form>}
+        </section>
+        <section className="panel-card ai-result-panel">{activeTool === 'review' ? <MockCvReviewReport ready={reviewReady} /> : activeTool === 'cover' ? <MockCoverLetterEditor value={coverLetter} onChange={setCoverLetter} setToast={setToast} /> : <JobScoutPanel activeTab={scoutTab} matches={scoutMatches} runs={scoutRuns} minScore={scoutMinScore} onTabChange={setScoutTab} onSave={(match) => updateScoutMatchStatus(match.id, 'saved')} onIgnore={(match) => updateScoutMatchStatus(match.id, 'ignored')} onAdd={addScoutMatch} onSearch={runJobScout} onOpenPreferences={() => onOpenSettings('preferences')} />}</section>
+      </div>
+    </section>
+  );
+}
+
+function MockCvReviewReport({ ready }: { ready: boolean }) {
+  if (!ready) return <div className="ai-result-empty"><Sparkles size={28} /><strong>No report selected</strong><span>Run a CV review to see a demo report.</span></div>;
+  return <div className="cv-review-report"><div className="ai-report-header"><div><h2>CV_NET_Intern_Demo.pdf</h2><p>Job match review - demo report</p></div><span className="priority priority-high">Mock</span></div><div className="ai-score-hero"><strong>84</strong><span>Overall match score</span><p>Strong internship-level fit for .NET, SQL and REST API requirements. Add a short cloud/Azure project note to improve the match.</p></div><div className="ai-report-grid"><div><h3>Strengths</h3><span className="ai-tag positive">C# basics</span><span className="ai-tag positive">SQL</span><span className="ai-tag positive">Git</span></div><div><h3>Gaps</h3><span className="ai-tag warning">Azure basics</span><span className="ai-tag warning">Testing examples</span></div></div></div>;
+}
+
+function MockCoverLetterEditor({ value, onChange, setToast }: { value: string; onChange: (value: string) => void; setToast: (value: string) => void }) {
+  return <div className="cover-letter-editor"><div className="ai-report-header"><div><h2>Cover letter draft</h2><p>Editable demo output with PDF actions mocked.</p></div><button className="secondary-button small" type="button" onClick={() => setToast('Demo PDF preview is mocked in GitHub Pages.')}>Preview PDF</button></div><textarea value={value} onChange={(event) => onChange(event.target.value)} /><div className="cover-letter-file-row"><label className="cover-letter-file-name"><span>PDF file name</span><input value="Campgemini_Demo_cover_letter" readOnly /></label><button className="primary-button cover-letter-download-button" type="button" onClick={() => setToast('Demo download action shown.')}>Download PDF</button></div></div>;
+}
+
+function JobScoutPanel({ activeTab, matches, runs, minScore, onTabChange, onSave, onIgnore, onAdd, onSearch, onOpenPreferences }: { activeTab: JobScoutTab; matches: JobScoutMatch[]; runs: JobScoutRun[]; minScore: number; onTabChange: (tab: JobScoutTab) => void; onSave: (match: JobScoutMatch) => void; onIgnore: (match: JobScoutMatch) => void; onAdd: (match: JobScoutMatch) => void; onSearch: () => void; onOpenPreferences: () => void }) {
+  const counts: Record<JobScoutTab, number> = { new: matches.filter((match) => match.status === 'new').length, saved: matches.filter((match) => match.status === 'saved').length, ignored: matches.filter((match) => match.status === 'ignored').length, added: matches.filter((match) => match.status === 'added').length, history: runs.length };
+  const visibleMatches = activeTab === 'history' ? [] : matches.filter((match) => match.status === activeTab);
+  return <div className="job-scout-panel"><div className="ai-report-header"><div><h2>AI Job Scout</h2><p>Demo of real-source discovery, AI scoring and application handoff.</p></div><button className="secondary-button small" type="button" onClick={onOpenPreferences}><SlidersHorizontal size={15} /> Preferences</button></div><div className="job-scout-tabs" role="tablist" aria-label="AI Job Scout views">{jobScoutTabs.map((tab) => <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => onTabChange(tab.id)}>{tab.label}<span>{counts[tab.id]}</span></button>)}</div>{activeTab === 'history' ? <div className="job-scout-run-list">{runs.map((run) => <article key={run.id} className={`job-scout-run ${run.status}`}><div><strong>{run.status === 'completed' ? 'Search completed' : 'Search blocked'}</strong><span>{formatDateTime(run.completedAt)}</span><p>{run.message}</p></div><em>{run.newMatches} new matches</em></article>)}</div> : visibleMatches.length ? <div className="job-scout-list">{visibleMatches.map((match) => <JobScoutMatchCard key={match.id} match={match} onSave={onSave} onIgnore={onIgnore} onAdd={onAdd} />)}</div> : <div className="job-scout-empty"><Search size={28} /><strong>No matches in this tab</strong><span>Run a demo search to refresh jobs scoring at least {minScore}%.</span><div className="job-scout-empty-actions"><button className="primary-button" type="button" onClick={onSearch}>Search now</button><button className="secondary-button" type="button" onClick={onOpenPreferences}>Configure preferences</button></div></div>}</div>;
+}
+
+function JobScoutMatchCard({ match, onSave, onIgnore, onAdd }: { match: JobScoutMatch; onSave: (match: JobScoutMatch) => void; onIgnore: (match: JobScoutMatch) => void; onAdd: (match: JobScoutMatch) => void }) {
+  return <article className="job-scout-card"><header><div><small>{match.source} - Found {formatDate(match.foundAt)} - Published {formatDate(match.publishedAt)}</small><h3>{match.title}</h3><p><Building2 size={15} /> {match.company} <MapPin size={15} /> {match.location} <Monitor size={15} /> {match.workMode}</p></div><strong>{match.matchScore}%</strong></header><p>{match.matchReason}</p><div className="job-scout-skill-grid"><div><span>Matched tech</span><div>{match.matchedSkills.map((skill) => <em key={skill}>{skill}</em>)}</div></div><div><span>Gaps</span><div>{match.gaps.map((gap) => <em key={gap}>{gap}</em>)}</div></div></div><div className="job-scout-card-actions"><button className="primary-button small" type="button" onClick={() => window.open(match.applyUrl, '_blank')}><ExternalLink size={15} /> Apply</button><button className="secondary-button small" type="button" onClick={() => onSave(match)} disabled={match.status === 'saved'}><Pin size={15} /> Save</button><button className="secondary-button small" type="button" onClick={() => onIgnore(match)} disabled={match.status === 'ignored'}><X size={15} /> Ignore</button><button className="secondary-button small" type="button" onClick={() => onAdd(match)} disabled={match.status === 'added'}><BriefcaseBusiness size={15} /> Add to applications</button></div></article>;
+}
+
 function DocumentLinkModal({ onClose, onSave }: { onClose: () => void; onSave: (doc: DocumentItem) => void }) {
   const [name, setName] = useState('Portfolio link');
   const [url, setUrl] = useState('https://');
@@ -1490,7 +1799,7 @@ function ProfileCustomizationModal({ profile, setProfile, settings, setSettings,
 function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: (profile: Profile) => void }) {
   const [avatarVariant, setAvatarVariant] = useState(0);
   const avatarLabels = ['Neutral icon', 'Soft circle', 'Initials'];
-  return <div className="tab-content"><div className="profile-photo-row"><span className={`profile-photo avatar-variant-${avatarVariant}`}>{avatarVariant === 2 ? getInitials(profile.name) : <User size={31} />}</span><div><h3>Profile photo</h3><p>Mock avatar variant: {avatarLabels[avatarVariant]}.</p><button className="text-button strong" type="button" onClick={() => setAvatarVariant((avatarVariant + 1) % avatarLabels.length)}>Change avatar</button></div></div><div className="form-grid"><TextField label="Full name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} /><TextField label="Email address" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} /><TextField label="Job search title" value={profile.title} onChange={(v) => setProfile({ ...profile, title: v })} /><TextField label="Preferred location" value={profile.location} onChange={(v) => setProfile({ ...profile, location: v })} /><div className="form-field"><span>Preferred work mode</span><CustomSelect value={profile.workMode} options={workModes} onChange={(v) => setProfile({ ...profile, workMode: v as WorkMode })} /></div></div></div>;
+  return <div className="tab-content"><div className="profile-photo-row"><span className={`profile-photo avatar-variant-${avatarVariant}`}>{avatarVariant === 2 ? getInitials(profile.name) : <User size={31} />}</span><div><h3>Profile photo</h3><p>Mock avatar variant: {avatarLabels[avatarVariant]}.</p><button className="text-button strong" type="button" onClick={() => setAvatarVariant((avatarVariant + 1) % avatarLabels.length)}>Change avatar</button></div></div><div className="form-grid"><TextField label="Full name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} /><TextField label="Email address" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} /><TextField label="Job search title" value={profile.title} onChange={(v) => setProfile({ ...profile, title: v })} /><TextField label="Current city" value={profile.location} onChange={(v) => setProfile({ ...profile, location: v })} /><TextField label="Portfolio URL" value={profile.portfolioUrl} onChange={(v) => setProfile({ ...profile, portfolioUrl: v })} /><TextField label="LinkedIn URL" value={profile.linkedInUrl} onChange={(v) => setProfile({ ...profile, linkedInUrl: v })} /><TextField label="GitHub URL" value={profile.githubUrl} onChange={(v) => setProfile({ ...profile, githubUrl: v })} /><div className="form-field"><span>Preferred work mode</span><CustomSelect value={profile.workMode} options={workModes} onChange={(v) => setProfile({ ...profile, workMode: v as WorkMode })} /></div></div></div>;
 }
 
 function AppearanceTab({ theme, setTheme, settings, setSettings }: { theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
@@ -1511,11 +1820,18 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   const prefs = settings.preferences;
   const [newCategory, setNewCategory] = useState('');
   const [newLevel, setNewLevel] = useState('');
-  const [newLocation, setNewLocation] = useState('');
   function patch(patchValue: Partial<AppSettings['preferences']>) { setSettings({ ...settings, preferences: { ...prefs, ...patchValue } }); }
-  function toggleString(key: 'categories' | 'levels' | 'locations', value: string) { const current = prefs[key]; patch({ [key]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value] } as Partial<AppSettings['preferences']>); }
-  function toggleMode(mode: WorkMode) { patch({ workModes: prefs.workModes.includes(mode) ? prefs.workModes.filter((item) => item !== mode) : [...prefs.workModes, mode] }); }
-  function addCustom(key: 'categories' | 'levels' | 'locations', value: string, clear: (value: string) => void) {
+  function toggleString(key: 'categories' | 'levels', value: string) { const current = prefs[key]; patch({ [key]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value] } as Partial<AppSettings['preferences']>); }
+  function toggleMode(mode: WorkMode) {
+    if (mode === allWorkModes) {
+      patch({ workModes: prefs.workModes.includes(allWorkModes) ? [] : [allWorkModes] });
+      return;
+    }
+
+    const current = prefs.workModes.filter((item) => item !== allWorkModes);
+    patch({ workModes: current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode] });
+  }
+  function addCustom(key: 'categories' | 'levels', value: string, clear: (value: string) => void) {
     const clean = value.trim();
     if (!clean) return;
     const current = prefs[key];
@@ -1524,8 +1840,57 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   }
   const categoryItems = uniqueOptions(categories, prefs.categories);
   const levelItems = uniqueOptions(levels, prefs.levels);
-  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'KrakĂłw', 'WrocĹ‚aw', 'GdaĹ„sk'], prefs.locations);
-  return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><TextField label="Mark as no response after" value={String(prefs.noResponseDays)} onChange={(v) => patch({ noResponseDays: Number(v) || 0 })} /><TextField label="Mark as ghosted after" value={String(prefs.ghostedDays)} onChange={(v) => patch({ ghostedDays: Number(v) || 0 })} /><TextField label="Suggest follow-up after" value={String(prefs.followUpDays)} onChange={(v) => patch({ followUpDays: Number(v) || 0 })} /></div></div>;
+  function setLocationPreferences(locations: PreferredLocationPreference[]) {
+    patch({ locationPreferences: locations, locations: locations.map((location) => location.city) });
+  }
+  return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferredLocationsEditor locations={prefs.locationPreferences} onChange={setLocationPreferences} /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><NumberStepper label="Mark as no response after" value={prefs.noResponseDays} onChange={(value) => patch({ noResponseDays: value })} /><NumberStepper label="Mark as ghosted after" value={prefs.ghostedDays} onChange={(value) => patch({ ghostedDays: value })} /><NumberStepper label="Suggest follow-up after" value={prefs.followUpDays} onChange={(value) => patch({ followUpDays: value })} /></div></div>;
+}
+
+function PreferredLocationsEditor({ locations, onChange }: { locations: PreferredLocationPreference[]; onChange: (locations: PreferredLocationPreference[]) => void }) {
+  const [city, setCity] = useState('');
+  const [radiusKm, setRadiusKm] = useState(30);
+  const suggestedCities = ['Warsaw', 'Krakow', 'Wroclaw', 'Gdansk', 'Lodz', 'Poznan', 'Katowice'];
+
+  function addLocation() {
+    const cleanCity = city.trim();
+    if (!cleanCity) return;
+    const existing = locations.find((location) => location.city.toLowerCase() === cleanCity.toLowerCase());
+    const nextLocation: PreferredLocationPreference = {
+      id: existing?.id || `location-${Date.now()}`,
+      city: cleanCity,
+      radiusKm: Math.min(500, Math.max(0, Math.round(radiusKm)))
+    };
+
+    onChange(existing ? locations.map((location) => location.id === existing.id ? nextLocation : location) : [...locations, nextLocation]);
+    setCity('');
+  }
+
+  return (
+    <div className="preference-group location-preferences">
+      <span className="setting-label">Preferred locations</span>
+      <div className="location-suggestions">
+        {suggestedCities.map((suggestedCity) => (
+          <button key={suggestedCity} className={locations.some((location) => location.city.toLowerCase() === suggestedCity.toLowerCase()) ? 'selected' : ''} type="button" onClick={() => setCity(suggestedCity)}>
+            {suggestedCity}
+          </button>
+        ))}
+      </div>
+      <div className="location-add-row">
+        <TextField label="City" value={city} onChange={setCity} placeholder="Add city" />
+        <NumberStepper label="Distance" value={radiusKm} onChange={setRadiusKm} min={0} max={500} unit="km" />
+        <button className="secondary-button location-add-button" type="button" onClick={addLocation}><Plus size={15} /> Add</button>
+      </div>
+      <div className="location-rule-list">
+        {locations.map((location) => (
+          <article className="location-rule-card" key={location.id}>
+            <div className="location-rule-name"><MapPin size={17} /><div><strong>{location.city}</strong><small>Search within selected radius</small></div></div>
+            <NumberStepper label="Radius" value={location.radiusKm} onChange={(value) => onChange(locations.map((item) => item.id === location.id ? { ...item, radiusKm: value } : item))} min={0} max={500} unit="km" />
+            <button className="ghost-icon danger" type="button" aria-label={`Remove ${location.city}`} onClick={() => onChange(locations.filter((item) => item.id !== location.id))}><Trash2 size={16} /></button>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PreferenceGroup({ title, items, selected, onToggle, addValue, setAddValue, onAdd, addPlaceholder }: { title: string; items: string[]; selected: string[]; onToggle: (item: string) => void; addValue?: string; setAddValue?: (value: string) => void; onAdd?: () => void; addPlaceholder?: string }) {
@@ -1582,6 +1947,7 @@ type MobileLayoutProps = {
   onOpenSettings: (tab?: ProfileTab) => void;
   onLogout: () => void;
   onExport: () => void;
+  onAddApplicationFromScout: (match: JobScoutMatch) => void;
   categoryOptions: string[];
   levelOptions: string[];
   children?: React.ReactNode;
@@ -1612,6 +1978,7 @@ function MobileLayout({
   onOpenSettings,
   onLogout,
   onExport,
+  onAddApplicationFromScout,
   categoryOptions,
   levelOptions,
   children
@@ -1664,6 +2031,7 @@ function MobileLayout({
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={onExport} setToast={setToast} /> : null}
+        {page === 'ai' ? <AIToolsPage documents={documents} settings={settings} setToast={setToast} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
       </main>
 
       <FloatingActionButton onClick={openAddApplication} label="Add application" />
@@ -1755,7 +2123,8 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
   const items: { id: Page; label: string; icon: typeof Building2; description: string }[] = [
     { id: 'companies', label: 'Companies', icon: Building2, description: 'Company history and contacts' },
     { id: 'statistics', label: 'Statistics', icon: BarChart3, description: 'Progress and response rates' },
-    { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' }
+    { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' },
+    { id: 'ai', label: 'AI Tools', icon: Sparkles, description: 'CV review, cover letters and Job Scout' }
   ];
 
   return (
@@ -2173,8 +2542,8 @@ function MobileEmptyState({ icon: Icon, title, text }: { icon: typeof Folder; ti
 
 function App() {
   const [isLoggedIn, setLoggedIn] = useState(() => readStorage(STORAGE.session, false));
-  const [profile, setProfile] = useState<Profile>(() => readStorage(STORAGE.profile, initialProfile));
-  const [settings, setSettings] = useState<AppSettings>(() => readStorage(STORAGE.settings, initialSettings));
+  const [profile, setProfile] = useState<Profile>(() => normalizeProfile(readStorage(STORAGE.profile, initialProfile)));
+  const [settings, setSettings] = useState<AppSettings>(() => normalizeSettings(readStorage(STORAGE.settings, initialSettings)));
   const [applications, setApplications] = useState<JobApplication[]>(() => readStorage(STORAGE.applications, initialApplications));
   const [companies, setCompanies] = useState<Company[]>(() => readStorage(STORAGE.companies, initialCompanies));
   const [events, setEvents] = useState<CalendarEvent[]>(() => readStorage(STORAGE.events, initialEvents));
@@ -2202,9 +2571,48 @@ function App() {
   function logout() { writeStorage(STORAGE.session, false); setLoggedIn(false); }
   function openSettings(tab: ProfileTab = 'profile') { setSettingsTab(tab); setSettingsOpen(true); }
   function saveApplication(app: JobApplication) { const exists = applications.some((item) => item.id === app.id); const next = exists ? applications.map((item) => item.id === app.id ? app : item) : [app, ...applications]; setApplications(next); setSelectedApplication(app); setEditingApplication(undefined); setPage('applications'); setToast(exists ? 'Application updated.' : 'Application added.'); }
+  function addJobScoutApplication(match: JobScoutMatch) {
+    const duplicate = applications.some((application) => application.offerUrl === match.applyUrl || (application.company === match.company && application.position === match.title));
+    if (duplicate) {
+      setToast('This job is already in Applications.');
+      return;
+    }
+
+    const application: JobApplication = {
+      id: makeId(),
+      company: match.company,
+      companyId: undefined,
+      domain: safeDomain(match.company),
+      position: match.title,
+      category: settings.preferences.categories[0] || 'Other',
+      level: settings.preferences.levels[0] || 'Internship',
+      status: 'Saved',
+      dateApplied: today(),
+      lastContact: '',
+      nextStep: 'Review AI Job Scout match and apply.',
+      location: match.location,
+      workMode: match.workMode,
+      source: 'AI Job Scout',
+      offerUrl: match.applyUrl,
+      requirements: uniqueOptions(match.matchedSkills, match.gaps.map((gap) => `Gap: ${gap}`)).join('\n'),
+      benefits: '',
+      notes: [
+        'Added from AI Job Scout demo.',
+        `Match score: ${match.matchScore}%.`,
+        `Why it matched: ${match.matchReason}`,
+        `Matched tech: ${match.matchedSkills.join(', ') || '-'}.`,
+        `Gaps: ${match.gaps.join(', ') || '-'}.`
+      ].join('\n'),
+      cv: documents.find((document) => document.type === 'CV')?.name || ''
+    };
+
+    setApplications([application, ...applications]);
+    setSelectedApplication(application);
+    setToast('Job Scout match added to Applications.');
+  }
   function updateStatus(id: number, status: Status) { const next = applications.map((app) => app.id === id ? { ...app, status, lastContact: app.lastContact || today() } : app); setApplications(next); setSelectedApplication(next.find((app) => app.id === id) || null); setToast('Status updated.'); }
   function deleteApplication(id: number) { setApplications(applications.filter((app) => app.id !== id)); if (selectedApplication?.id === id) setSelectedApplication(null); setToast('Application removed.'); }
-  function resetDemo() { if (!confirm('Reset all demo data?')) return; setApplications(initialApplications); setCompanies(initialCompanies); setEvents(initialEvents); setDocuments(initialDocuments); setNotes(initialNotes); setSettings(initialSettings); setProfile(initialProfile); setToast('Demo data reset.'); }
+  function resetDemo() { if (!confirm('Reset all demo data?')) return; setApplications(initialApplications); setCompanies(initialCompanies); setEvents(initialEvents); setDocuments(initialDocuments); setNotes(initialNotes); setSettings(normalizeSettings(initialSettings)); setProfile(normalizeProfile(initialProfile)); setToast('Demo data reset.'); }
   function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications, companies, events, documents, notes }, setToast); }
   const shellClass = `app-shell ${theme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
   const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
@@ -2249,6 +2657,7 @@ function App() {
         onOpenSettings={openSettings}
         onLogout={logout}
         onExport={() => exportCsv(applications, setToast)}
+        onAddApplicationFromScout={addJobScoutApplication}
         categoryOptions={categoryOptions}
         levelOptions={levelOptions}
       >
@@ -2257,7 +2666,9 @@ function App() {
     );
   }
 
-  return <div className={shellClass}><Sidebar page={page} setPage={setPage} applications={applications} settings={settings} /><div className="workspace"><Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => setEditingApplication(null)} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} /><div className="content custom-scroll">{page === 'dashboard' ? <DashboardPage applications={applications} events={events} setPage={setPage} /> : null}{page === 'applications' ? <ApplicationsPage applications={applications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(applications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} /> : null}{page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}{page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}{page === 'calendar' ? <CalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} /> : null}{page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={() => exportCsv(applications, setToast)} setToast={setToast} /> : null}{page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}</div></div>{commonOverlays}</div>;
+  return <div className={shellClass}><Sidebar page={page} setPage={setPage} applications={applications} settings={settings} /><div className="workspace"><Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => setEditingApplication(null)} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} /><div className="content custom-scroll">{page === 'dashboard' ? <DashboardPage applications={applications} events={events} setPage={setPage} /> : null}{page === 'applications' ? <ApplicationsPage applications={applications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(applications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} /> : null}{page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}{page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}{page === 'calendar' ? <CalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} /> : null}{page === 'documents' ? <DocumentsPage documents={documents} setDocuments={setDocuments} onExport={() => exportCsv(applications, setToast)} setToast={setToast} /> : null}{page === 'ai' ? <AIToolsPage documents={documents} settings={settings} setToast={setToast} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}{page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}</div></div>{commonOverlays}</div>;
 }
 
 export default App;
+
+
