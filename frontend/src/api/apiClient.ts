@@ -70,7 +70,7 @@ const createHttpErrorMessage = async (response: Response, method: string, url: s
   const body = await readResponseMessage(response);
 
   if (response.status === 401) {
-    return 'Your session expired. Log in again to continue.';
+    return body || 'Your session expired. Log in again to continue.';
   }
 
   if (response.status === 403) {
@@ -83,6 +83,10 @@ const createHttpErrorMessage = async (response: Response, method: string, url: s
 
   if (response.status === 409) {
     return body || 'This item already exists.';
+  }
+
+  if (response.status === 503) {
+    return body || 'The requested service is not configured yet.';
   }
 
   if (response.status >= 500) {

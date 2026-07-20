@@ -66,11 +66,21 @@ public class AuthController : ControllerBase
             return BadRequest("Email and password are required.");
         }
 
+        if (!IsValidEmail(email))
+        {
+            return BadRequest("Enter a valid email address.");
+        }
+
         var user = await _dbContext.AppUsers.FirstOrDefaultAsync(x => x.Email == email);
 
-        if (user is null || !AuthTokenService.VerifyPassword(request.Password, user.PasswordHash))
+        if (user is null)
         {
-            return Unauthorized("Invalid email or password.");
+            return NotFound("No account exists for this email. Create an account first.");
+        }
+
+        if (!AuthTokenService.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            return Unauthorized("This account exists, but the password is incorrect.");
         }
 
         return Ok(await CreateAuthResponse(user));

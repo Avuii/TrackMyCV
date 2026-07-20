@@ -6,7 +6,7 @@ export const statusClass = (status: string) =>
     .toLowerCase()
     .replaceAll(' ', '-')
     .replaceAll('/', '')
-    .replaceAll('â€”', '')
+    .replace(/[\u2013\u2014]/g, '')
     .replaceAll('received', 'received');
 
 export function Toast({ message, onClose }: { message: string | null; onClose: () => void }) {

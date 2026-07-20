@@ -45,6 +45,17 @@ export type DocumentLinkInput = {
   tags?: string[];
 };
 
+export type TextDocumentInput = {
+  name: string;
+  type?: string;
+  category?: string;
+  content: string;
+  language?: string;
+  targetRole?: string;
+  notes?: string;
+  tags?: string[];
+};
+
 const toFormData = (input: DocumentUploadInput) => {
   const formData = new FormData();
   formData.append('file', input.file);
@@ -73,6 +84,16 @@ export const documentsApi = {
 
   async createLink(input: DocumentLinkInput) {
     return apiRequest<StoredDocument>('/api/documents/links', {
+      method: 'POST',
+      body: {
+        ...input,
+        tags: input.tags?.join(', ') ?? ''
+      }
+    });
+  },
+
+  async createText(input: TextDocumentInput) {
+    return apiRequest<StoredDocument>('/api/documents/text', {
       method: 'POST',
       body: {
         ...input,

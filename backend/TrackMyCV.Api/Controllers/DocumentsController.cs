@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrackMyCV.Api.Auth;
@@ -11,6 +12,7 @@ namespace TrackMyCV.Api.Controllers;
 public class DocumentsController : ControllerBase
 {
     private const long MaxFileBytes = 20_000_000;
+    private const int MaxTextDocumentCharacters = 60_000;
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -180,6 +182,68 @@ public class DocumentsController : ControllerBase
 
         _dbContext.UserDocuments.Add(document);
         await _dbContext.SaveChangesAsync();
+
+        return Ok(MapDocument(document));
+    }
+
+    [HttpPost("text")]
+    public async Task<ActionResult<DocumentDto>> CreateTextDocument(CreateTextDocumentRequest request, CancellationToken cancellationToken)
+    {
+        var userId = HttpContext.GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var name = TrimTo(request.Name?.Trim() ?? string.Empty, 220);
+        var content = request.Content?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(content))
+        {
+            return BadRequest("Document name and content are required.");
+        }
+
+        if (content.Length > MaxTextDocumentCharacters)
+        {
+            return BadRequest("Document content is too long.");
+        }
+
+        var documentId = Guid.NewGuid();
+        var userFolderName = userId.Value.ToString("N");
+        var storedFileName = $"{documentId:N}.txt";
+        var relativePath = Path.Combine(userFolderName, storedFileName);
+        var absoluteFolder = Path.Combine(GetUploadRoot(), userFolderName);
+        var absolutePath = Path.Combine(absoluteFolder, storedFileName);
+
+        Directory.CreateDirectory(absoluteFolder);
+        await System.IO.File.WriteAllTextAsync(absolutePath, content, cancellationToken);
+
+        var now = DateTime.UtcNow;
+        var document = new UserDocument
+        {
+            Id = documentId,
+            AppUserId = userId.Value,
+            Name = name,
+            Type = TrimTo(string.IsNullOrWhiteSpace(request.Type) ? "Cover letter" : request.Type.Trim(), 80),
+            Category = TrimTo(string.IsNullOrWhiteSpace(request.Category) ? "AI generated" : request.Category.Trim(), 100),
+            OriginalFileName = $"{name}.txt",
+            StoredFileName = storedFileName,
+            ContentType = "text/plain; charset=utf-8",
+            SizeBytes = Encoding.UTF8.GetByteCount(content),
+            RelativePath = relativePath,
+            Url = string.Empty,
+            Language = TrimTo(request.Language?.Trim() ?? string.Empty, 20),
+            TargetRole = TrimTo(request.TargetRole?.Trim() ?? string.Empty, 160),
+            Status = "Active",
+            Notes = request.Notes?.Trim() ?? string.Empty,
+            Tags = NormalizeTags(request.Tags),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        _dbContext.UserDocuments.Add(document);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(MapDocument(document));
     }
@@ -408,6 +472,25 @@ public sealed class CreateDocumentLinkRequest
     public string Type { get; set; } = string.Empty;
 
     public string Category { get; set; } = string.Empty;
+
+    public string? Notes { get; set; }
+
+    public string? Tags { get; set; }
+}
+
+public sealed class CreateTextDocumentRequest
+{
+    public string Name { get; set; } = string.Empty;
+
+    public string Type { get; set; } = "Cover letter";
+
+    public string Category { get; set; } = "AI generated";
+
+    public string Content { get; set; } = string.Empty;
+
+    public string? Language { get; set; }
+
+    public string? TargetRole { get; set; }
 
     public string? Notes { get; set; }
 

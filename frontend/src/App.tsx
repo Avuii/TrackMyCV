@@ -1,4 +1,4 @@
-import { type CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type Dispatch, FormEvent, type MouseEvent as ReactMouseEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
@@ -38,6 +38,7 @@ import {
   Moon,
   MoreHorizontal,
   Palette,
+  Paperclip,
   Pencil,
   PhoneCall,
   Pin,
@@ -60,17 +61,21 @@ import { useDocuments } from './features/documents/hooks/useDocuments';
 import { authApi, type AuthUser, type LoginInput, type RegisterInput } from './api/authApi';
 import { clearAuthToken, getAuthToken } from './api/apiClient';
 import type { ApplicationUpsertInput } from './api/applicationsApi';
-import type { StoredDocument } from './api/documentsApi';
+import { documentsApi, type StoredDocument } from './api/documentsApi';
+import { aiApi, type CoverLetterGenerateResponse, type CvReviewDto, type CvReviewRequest } from './api/aiApi';
+import { calendarEventsApi, type CalendarEventDto, type CalendarEventRequest } from './api/calendarEventsApi';
+import { notificationsApi, type NotificationSettingsDto, type NotificationSettingsRequest } from './api/notificationsApi';
 import type { ApplicationStatus as ApiApplicationStatus, JobApplication as ApiJobApplication } from './types';
 
-type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes';
-type Theme = 'light' | 'dark';
+type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes' | 'ai';
+type Theme = 'light' | 'dark' | 'system';
 type Status = 'Saved' | 'Applied' | 'In progress' | 'Interview' | 'Task / test' | 'Offer' | 'Rejected' | 'No response' | 'Ghosted' | 'Archived';
 type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
 type CalendarView = 'Month' | 'Week' | 'Day';
 type ProfileTab = 'profile' | 'appearance' | 'notifications' | 'preferences' | 'data';
 type DocKind = 'CV' | 'Cover letter' | 'Portfolio' | 'GitHub' | 'LinkedIn' | 'Job offer' | 'Task description' | 'Recruiter email' | 'Certificate' | 'Other';
 type EntityId = string | number;
+type AvatarVariant = 'neutral' | 'round' | 'initials';
 
 type JobApplication = {
   id: EntityId;
@@ -151,6 +156,15 @@ type ChecklistItem = {
   done: boolean;
 };
 
+type NoteAttachment = {
+  id: number;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string;
+  addedAt: string;
+};
+
 type NoteItem = {
   id: number;
   title: string;
@@ -165,6 +179,7 @@ type NoteItem = {
   body: string;
   pinned?: boolean;
   favorite?: boolean;
+  attachments?: NoteAttachment[];
   checklist: ChecklistItem[];
 };
 
@@ -174,6 +189,8 @@ type Profile = {
   title: string;
   location: string;
   workMode: WorkMode;
+  avatarVariant: AvatarVariant;
+  avatarImage: string;
 };
 
 type AppSettings = {
@@ -182,6 +199,8 @@ type AppSettings = {
   density: 'Comfortable' | 'Compact';
   accent: 'Taupe' | 'Champagne' | 'Dusty rose' | 'Soft brown' | 'Beige';
   notifications: {
+    email: string;
+    emailConfigured: boolean;
     interviews: boolean;
     followUps: boolean;
     deadlines: boolean;
@@ -230,6 +249,24 @@ const eventIconOptions = [
   { id: 'flag', label: 'Deadline', icon: Flag },
   { id: 'alert', label: 'Important', icon: AlertCircle }
 ];
+
+const eventIconMap: Record<string, typeof CalendarDays> = {
+  calendar: CalendarDays,
+  video: Video,
+  email: Mail,
+  mail: Mail,
+  phone: PhoneCall,
+  code: Code2,
+  interview: BriefcaseBusiness,
+  briefcase: BriefcaseBusiness,
+  message: MessageCircle,
+  coffee: Coffee,
+  followUp: Flag,
+  flag: Flag,
+  reminder: AlertCircle,
+  alert: AlertCircle
+};
+
 const eventColorOptions = [
   { id: 'taupe', label: 'Taupe', value: '#9a7658' },
   { id: 'rose', label: 'Rose', value: '#ca7374' },
@@ -240,6 +277,18 @@ const eventColorOptions = [
 ];
 const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 'Banking', 'Cybersecurity', 'Other'];
 const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Job offer', 'Task description', 'Recruiter email', 'Certificate', 'Other'];
+const avatarVariants: { id: AvatarVariant; label: string }[] = [
+  { id: 'neutral', label: 'Classic' },
+  { id: 'round', label: 'Round' },
+  { id: 'initials', label: 'Initials' }
+];
+const avatarVariantClasses: Record<AvatarVariant, string> = {
+  neutral: 'avatar-variant-0',
+  round: 'avatar-variant-1',
+  initials: 'avatar-variant-2'
+};
+const avatarImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const maxAvatarImageBytes = 2 * 1024 * 1024;
 
 type ViteImportMeta = ImportMeta & {
   env?: {
@@ -257,7 +306,9 @@ const initialProfile: Profile = {
   email: '',
   title: '',
   location: '',
-  workMode: 'Hybrid'
+  workMode: 'Hybrid',
+  avatarVariant: 'initials',
+  avatarImage: ''
 };
 
 const profileFromAuthUser = (user: AuthUser): Profile => ({
@@ -272,6 +323,8 @@ const initialSettings: AppSettings = {
   density: 'Comfortable',
   accent: 'Taupe',
   notifications: {
+    email: '',
+    emailConfigured: false,
     interviews: true,
     followUps: true,
     deadlines: false,
@@ -282,12 +335,63 @@ const initialSettings: AppSettings = {
   preferences: {
     categories: ['.NET', 'Cybersecurity', 'IAM', 'DevOps'],
     levels: ['Internship', 'Intern', 'Junior', 'Junior-friendly'],
-    locations: ['Remote', 'Warsaw', 'KrakĂłw'],
+    locations: ['Remote', 'Warsaw', 'Kraków'],
     workModes: ['Hybrid', 'Remote'],
     noResponseDays: 14,
     ghostedDays: 30,
     followUpDays: 7
   }
+};
+const initialTheme: Theme = 'system';
+
+const textEncodingFixes: [string, string][] = [
+  ['\u004b\u0072\u0061\u006b\u0102\u0142\u0077', 'Kraków'],
+  ['\u004b\u0072\u0061\u006b\u00c4\u201a\u0139\u201a\u0077', 'Kraków'],
+  ['\u0057\u0072\u006f\u0063\u0139\u201a\u0061\u0077', 'Wrocław'],
+  ['\u0047\u0064\u0061\u0139\u201e\u0073\u006b', 'Gdańsk'],
+  ['\u00c2\u00b7', '·'],
+  ['\u00e2\u20ac\u201d', '-'],
+  ['\u00e2\u20ac\u201c', '-'],
+  ['\u00e2\u20ac\u2122', "'"],
+  ['\u0102\u02d8\u00e2\u201a\u00ac\u00e2\u20ac\u0165', '-'],
+  ['\u0102\u02d8\u00e2\u201a\u00ac\u00e2\u20ac\u015b', '-'],
+  ['\u0102\u02d8\u00e2\u201a\u00ac\u00e2\u201e\u02d8', "'"]
+];
+
+const repairTextEncoding = (value: string) =>
+  textEncodingFixes.reduce((text, [broken, fixed]) => text.replaceAll(broken, fixed), value);
+
+function repairStoredText<T>(value: T): T {
+  if (typeof value === 'string') {
+    return repairTextEncoding(value) as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => repairStoredText(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, repairStoredText(item)])) as T;
+  }
+
+  return value;
+}
+
+const normalizeAppSettings = (value?: Partial<AppSettings> | null): AppSettings => {
+  const normalized = {
+    ...initialSettings,
+    ...(value ?? {}),
+    notifications: {
+      ...initialSettings.notifications,
+      ...(value?.notifications ?? {})
+    },
+    preferences: {
+      ...initialSettings.preferences,
+      ...(value?.preferences ?? {})
+    }
+  };
+
+  return repairStoredText(normalized);
 };
 
 const toListText = (value: string | string[] | null | undefined) => Array.isArray(value) ? value.join(', ') : value || '';
@@ -310,51 +414,59 @@ const splitTextList = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const apiApplicationToUi = (application: ApiJobApplication): JobApplication => ({
-  id: application.id,
-  company: application.company,
-  companyId: application.companyId,
-  domain: safeDomain(application.company),
-  position: application.position,
-  category: application.category || 'Other',
-  level: application.level || 'Internship',
-  status: normalizeStatus(application.status),
-  dateApplied: application.dateApplied,
-  lastContact: application.lastContact === '-' ? '' : application.lastContact,
-  nextStep: application.nextStep,
-  location: application.location,
-  workMode: normalizeWorkMode(application.workMode),
-  source: application.source,
-  offerUrl: application.offerUrl,
-  requirements: toListText(application.requirements),
-  benefits: toListText(application.benefits),
-  notes: application.notes,
-  cv: application.cv
-});
+const apiApplicationToUi = (application: ApiJobApplication): JobApplication => {
+  const cleanApplication = repairStoredText(application);
 
-const apiDocumentToUi = (document: StoredDocument): DocumentItem => ({
-  id: document.id,
-  name: document.name,
-  type: normalizeDocumentType(document.type),
-  category: document.category || 'General',
-  updated: document.updated,
-  usedIn: document.usedIn ?? document.usedInApplicationsCount ?? 0,
-  size: document.size,
-  url: document.url || '',
-  language: document.language || undefined,
-  targetRole: document.targetRole || undefined,
-  fileName: document.fileName || undefined,
-  createdAt: document.createdAt,
-  updatedAt: document.updatedAt,
-  usedInApplicationsCount: document.usedInApplicationsCount ?? document.usedIn ?? 0,
-  assignedApplications: document.assignedApplications ?? [],
-  tags: document.tags ?? [],
-  status: document.status === 'Archived' ? 'Archived' : 'Active',
-  notes: document.notes || undefined,
-  successRate: document.successRate ?? 0,
-  lastUsedAt: document.lastUsedAt || undefined,
-  isDefault: document.isDefault ?? false
-});
+  return {
+    id: cleanApplication.id,
+    company: cleanApplication.company,
+    companyId: cleanApplication.companyId,
+    domain: safeDomain(cleanApplication.company),
+    position: cleanApplication.position,
+    category: cleanApplication.category || 'Other',
+    level: cleanApplication.level || 'Internship',
+    status: normalizeStatus(cleanApplication.status),
+    dateApplied: cleanApplication.dateApplied,
+    lastContact: cleanApplication.lastContact === '-' ? '' : cleanApplication.lastContact,
+    nextStep: cleanApplication.nextStep,
+    location: cleanApplication.location,
+    workMode: normalizeWorkMode(cleanApplication.workMode),
+    source: cleanApplication.source,
+    offerUrl: cleanApplication.offerUrl,
+    requirements: toListText(cleanApplication.requirements),
+    benefits: toListText(cleanApplication.benefits),
+    notes: cleanApplication.notes,
+    cv: cleanApplication.cv
+  };
+};
+
+const apiDocumentToUi = (document: StoredDocument): DocumentItem => {
+  const cleanDocument = repairStoredText(document);
+
+  return {
+    id: cleanDocument.id,
+    name: cleanDocument.name,
+    type: normalizeDocumentType(cleanDocument.type),
+    category: cleanDocument.category || 'General',
+    updated: cleanDocument.updated,
+    usedIn: cleanDocument.usedIn ?? cleanDocument.usedInApplicationsCount ?? 0,
+    size: cleanDocument.size,
+    url: cleanDocument.url || '',
+    language: cleanDocument.language || undefined,
+    targetRole: cleanDocument.targetRole || undefined,
+    fileName: cleanDocument.fileName || undefined,
+    createdAt: cleanDocument.createdAt,
+    updatedAt: cleanDocument.updatedAt,
+    usedInApplicationsCount: cleanDocument.usedInApplicationsCount ?? cleanDocument.usedIn ?? 0,
+    assignedApplications: cleanDocument.assignedApplications ?? [],
+    tags: cleanDocument.tags ?? [],
+    status: cleanDocument.status === 'Archived' ? 'Archived' : 'Active',
+    notes: cleanDocument.notes || undefined,
+    successRate: cleanDocument.successRate ?? 0,
+    lastUsedAt: cleanDocument.lastUsedAt || undefined,
+    isDefault: cleanDocument.isDefault ?? false
+  };
+};
 
 const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput => ({
   companyId: application.companyId === undefined || application.companyId === null ? null : String(application.companyId),
@@ -376,17 +488,105 @@ const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput
   cv: application.cv
 });
 
+const applyNotificationSettingsDto = (settings: AppSettings, dto: NotificationSettingsDto): AppSettings => ({
+  ...settings,
+  notifications: {
+    ...settings.notifications,
+    email: dto.email,
+    emailConfigured: dto.emailConfigured,
+    interviews: dto.interviewReminders,
+    followUps: dto.followUpReminders,
+    deadlines: dto.applicationDeadlines,
+    weekly: dto.weeklySummary,
+    monthly: dto.monthlyReport,
+    reminderTime: dto.reminderTime
+  }
+});
+
+const notificationSettingsToApi = (settings: AppSettings, profile: Profile): NotificationSettingsRequest => ({
+  email: settings.notifications.email || profile.email,
+  interviewReminders: settings.notifications.interviews,
+  followUpReminders: settings.notifications.followUps,
+  applicationDeadlines: settings.notifications.deadlines,
+  weeklySummary: settings.notifications.weekly,
+  monthlyReport: settings.notifications.monthly,
+  reminderTime: settings.notifications.reminderTime
+});
+
+const apiTime = (time?: string) => `${minutesToTime(timeToMinutes(time))}:00`;
+
+const uiTime = (time?: string | null) => time ? minutesToTime(timeToMinutes(time.slice(0, 5))) : undefined;
+
+const calendarEventFromApi = (event: CalendarEventDto): CalendarEvent => normalizeCalendarEvent({
+  id: Number(event.clientEventId) || makeId(),
+  title: event.title,
+  company: event.company,
+  applicationId: event.applicationId || undefined,
+  date: event.eventDate,
+  time: uiTime(event.startTime) || '10:00',
+  endTime: uiTime(event.endTime) || addMinutesToTime(uiTime(event.startTime) || '10:00', 60),
+  type: event.eventType,
+  location: event.location,
+  meetingLink: event.meetingLink,
+  notes: event.detailedPlan,
+  icon: event.icon,
+  color: event.color
+});
+
+const calendarEventToApi = (event: CalendarEvent): CalendarEventRequest => {
+  const normalized = normalizeCalendarEvent(event);
+
+  return {
+    clientEventId: String(normalized.id),
+    title: normalized.title || 'Untitled event',
+    company: normalized.company || 'General',
+    applicationId: normalized.applicationId === undefined || normalized.applicationId === null ? '' : String(normalized.applicationId),
+    eventType: normalized.type || 'Calendar event',
+    eventDate: normalized.date,
+    startTime: apiTime(normalized.time),
+    endTime: normalized.endTime ? apiTime(normalized.endTime) : null,
+    location: normalized.location || '',
+    meetingLink: normalized.meetingLink || '',
+    detailedPlan: normalized.notes || '',
+    icon: normalized.icon || DEFAULT_EVENT_ICON,
+    color: getEventColor(normalized.color)
+  };
+};
+
 const appInitialCompanies: Company[] = [];
 const appInitialApplications: JobApplication[] = [];
 const appInitialEvents: CalendarEvent[] = [];
 const appInitialDocuments: DocumentItem[] = [];
 const appInitialNotes: NoteItem[] = [];
+const maxNoteAttachmentBytes = 5 * 1024 * 1024;
+const markdownNoteSnippet = [
+  '## Section title',
+  '',
+  '- First item',
+  '- Second item',
+  '',
+  '**Important:** add details here.'
+].join('\n');
+const codeNoteSnippet = [
+  '```ts',
+  '// Paste code here',
+  'const nextStep = "follow-up";',
+  '```'
+].join('\n');
+const mermaidNoteSnippet = [
+  '```mermaid',
+  'flowchart TD',
+  '  A[Application sent] --> B{Response?}',
+  '  B -->|Yes| C[Interview]',
+  '  B -->|No| D[Follow-up]',
+  '```'
+].join('\n');
 
 const inspirationCards = [
   { title: 'Stay consistent', text: 'Small steps every day lead to big changes.', image: publicAsset('assets/bed-coffe.jpg') },
   { title: 'Slow progress counts', text: 'One thoughtful application is still progress.', image: publicAsset('assets/cofee-photo2.webp') },
   { title: 'Keep it soft', text: 'You do not need chaos to move forward.', image: publicAsset('assets/candle-vanilla.jpg') },
-  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up â€” all count.', image: publicAsset('assets/croissant-bow.jpg') },
+  { title: 'Tiny wins matter', text: 'A saved offer, a sent CV, a follow-up - all count.', image: publicAsset('assets/croissant-bow.jpg') },
   { title: 'Protect your energy', text: 'Not every rejection says something about you.', image: publicAsset('assets/cat-bed.jpg') },
   { title: 'One clean step', text: 'Today can be only one application. That is enough.', image: publicAsset('assets/cozy-home.jpg') },
   { title: 'Stay curious', text: 'Every offer teaches you what to learn next.', image: publicAsset('assets/desk-photo2.jpg') },
@@ -407,23 +607,25 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'statistics', label: 'Statistics', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'documents', label: 'Documents', icon: FileText },
-  { id: 'notes', label: 'Notes', icon: StickyNote }
+  { id: 'notes', label: 'Notes', icon: StickyNote },
+  { id: 'ai', label: 'AI Tools', icon: Sparkles }
 ];
 
 const pageLabels: Record<Page, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Dashboard', subtitle: 'Hereâ€™s an overview of your recruitment progress.' },
+  dashboard: { title: 'Dashboard', subtitle: "Here's an overview of your recruitment progress." },
   applications: { title: 'Applications', subtitle: 'Manage your job applications and recruitment stages.' },
   companies: { title: 'Companies', subtitle: 'Track companies, previous applications and recruitment history.' },
   statistics: { title: 'Statistics', subtitle: 'Analyze your application progress and discover what works best.' },
   calendar: { title: 'Calendar', subtitle: 'Plan interviews, follow-ups and recruitment tasks.' },
   documents: { title: 'Documents', subtitle: 'Manage CV versions, cover letters and application files.' },
-  notes: { title: 'Notes', subtitle: 'Keep recruitment notes, interview questions and company research in one place.' }
+  notes: { title: 'Notes', subtitle: 'Keep recruitment notes, interview questions and company research in one place.' },
+  ai: { title: 'AI Tools', subtitle: 'Review CVs and generate cover letters from your saved documents.' }
 };
 
 function readStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    return raw ? repairStoredText(JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
   }
@@ -466,7 +668,6 @@ function clearSharedWorkspaceStorage() {
 
 function formatDate(value: string) {
   if (!value) return '-';
-  if (!value) return 'â€”';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
@@ -505,7 +706,6 @@ function formatWeekRange(start: Date) {
   const end = addDays(start, 6);
   const formatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
   return [formatter.format(start), formatter.format(end)].join(' - ');
-  return `${formatter.format(start)} â€“ ${formatter.format(end)}`;
 }
 
 function formatWeekday(date: Date) {
@@ -550,7 +750,19 @@ const DAY_HOUR_HEIGHT = 64;
 const DEFAULT_EVENT_ICON = eventIconOptions[0].id;
 const DEFAULT_EVENT_COLOR = eventColorOptions[0].value;
 
-type EventCssStyle = CSSProperties & { '--event-color': string };
+type EventCssStyle = CSSProperties & {
+  '--event-color': string;
+  '--event-bg'?: string;
+  '--event-border'?: string;
+  '--event-icon-color'?: string;
+};
+
+type EventColorStyles = {
+  accentColor: string;
+  backgroundColor: string;
+  borderColor: string;
+  iconColor: string;
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -576,12 +788,39 @@ function addMinutesToTime(time: string | undefined, minutes: number) {
   return minutesToTime(timeToMinutes(time || '10:00') + minutes);
 }
 
+function isHexColor(color?: string) {
+  return /^#[0-9a-f]{6}$/i.test(color || '');
+}
+
+function hexToRgba(color: string, alpha: number) {
+  const normalized = isHexColor(color) ? color : DEFAULT_EVENT_COLOR;
+  const value = normalized.replace('#', '');
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 function getEventColor(color?: string) {
-  return eventColorOptions.find((option) => option.value === color)?.value || DEFAULT_EVENT_COLOR;
+  const option = eventColorOptions.find((item) => item.value === color || item.id === color);
+  if (option) return option.value;
+  return isHexColor(color) ? color as string : DEFAULT_EVENT_COLOR;
+}
+
+function getEventColorStyles(color?: string): EventColorStyles {
+  const accentColor = getEventColor(color);
+
+  return {
+    accentColor,
+    backgroundColor: hexToRgba(accentColor, 0.13),
+    borderColor: hexToRgba(accentColor, 0.36),
+    iconColor: accentColor
+  };
 }
 
 function getEventIconComponent(icon?: string) {
-  return eventIconOptions.find((option) => option.id === icon)?.icon || CalendarDays;
+  return icon ? eventIconMap[icon] || CalendarDays : CalendarDays;
 }
 
 function normalizeCalendarEvent(event: CalendarEvent): CalendarEvent {
@@ -612,7 +851,14 @@ function formatEventTime(event: CalendarEvent) {
 }
 
 function eventColorStyle(event: CalendarEvent): EventCssStyle {
-  return { '--event-color': getEventColor(event.color) };
+  const colors = getEventColorStyles(event.color);
+
+  return {
+    '--event-color': colors.accentColor,
+    '--event-bg': colors.backgroundColor,
+    '--event-border': colors.borderColor,
+    '--event-icon-color': colors.iconColor
+  };
 }
 
 function getDayEventLayouts(events: CalendarEvent[]) {
@@ -665,12 +911,155 @@ function getDayEventLayouts(events: CalendarEvent[]) {
   return layouts;
 }
 
+function isSameIsoDay(date: string, compare: Date) {
+  return date === toIsoDate(compare);
+}
+
+function getCurrentMinutes(date = new Date()) {
+  return (date.getHours() * 60) + date.getMinutes();
+}
+
+function EventIcon({ icon, size = 16 }: { icon?: string; size?: number }) {
+  const Icon = getEventIconComponent(icon);
+  return <Icon size={size} />;
+}
+
+function CurrentTimeIndicator({ date }: { date: string }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  if (!isSameIsoDay(date, now)) {
+    return null;
+  }
+
+  const minutes = getCurrentMinutes(now);
+  const top = (minutes / 60) * DAY_HOUR_HEIGHT;
+
+  return (
+    <div className="current-time-indicator" style={{ top }} aria-label={`Current time ${minutesToTime(minutes)}`}>
+      <span className="current-time-dot" />
+      <span className="current-time-label">{minutesToTime(minutes)}</span>
+      <span className="current-time-line" />
+    </div>
+  );
+}
+
+type CalendarEventCardVariant = 'month' | 'week' | 'day' | 'upcoming' | 'mobile';
+
+function CalendarEventCard({
+  event,
+  variant,
+  onEdit,
+  onDelete,
+  style
+}: {
+  event: CalendarEvent;
+  variant: CalendarEventCardVariant;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  style?: CSSProperties;
+}) {
+  const normalized = normalizeCalendarEvent(event);
+  const colorStyle = eventColorStyle(normalized);
+  const mergedStyle = { ...colorStyle, ...style } as EventCssStyle;
+  const location = normalized.location || 'Online';
+  const meta = [normalized.company, location].filter(Boolean).join(' · ');
+  const open = (clickEvent: ReactMouseEvent) => {
+    clickEvent.stopPropagation();
+    onEdit?.();
+  };
+
+  if (variant === 'month') {
+    return (
+      <button className="calendar-event-card month-event-card" type="button" title={normalized.title || 'Untitled event'} style={mergedStyle} onClick={open}>
+        <span className="calendar-event-glyph"><EventIcon icon={normalized.icon} size={12} /></span>
+        <span className="calendar-event-time">{normalized.time}</span>
+        <strong>{normalized.title || 'Untitled event'}</strong>
+      </button>
+    );
+  }
+
+  if (variant === 'week') {
+    return (
+      <button className="calendar-event-card week-event-block" type="button" title={normalized.title || 'Untitled event'} style={mergedStyle} onClick={open}>
+        <span className="calendar-event-header"><EventIcon icon={normalized.icon} size={13} /> {formatEventTime(normalized)}</span>
+        <strong>{normalized.title || 'Untitled event'}</strong>
+        <small>{meta}</small>
+      </button>
+    );
+  }
+
+  if (variant === 'day') {
+    return (
+      <button className="calendar-event-card day-event-block" type="button" title={normalized.title || 'Untitled event'} style={mergedStyle} onClick={open}>
+        <span className="day-event-icon"><EventIcon icon={normalized.icon} size={14} /></span>
+        <span className="day-event-time">{formatEventTime(normalized)}</span>
+        <strong>{normalized.title || 'Untitled event'}</strong>
+        <small>{meta}</small>
+      </button>
+    );
+  }
+
+  if (variant === 'mobile') {
+    return (
+      <div className="mobile-calendar-event calendar-event-card" style={mergedStyle}>
+        <button type="button" onClick={open}>
+          <span className="mobile-calendar-icon"><EventIcon icon={normalized.icon} size={15} /></span>
+          <div><strong>{normalized.title || 'Untitled event'}</strong><small>{formatEventTime(normalized)} · {meta}</small></div>
+        </button>
+        <button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button>
+        <button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button>
+      </div>
+    );
+  }
+
+  return (
+    <article className="event-card compact-event calendar-event-card" style={mergedStyle}>
+      <span className="event-icon"><EventIcon icon={normalized.icon} size={17} /></span>
+      <div className="event-card-content">
+        <strong title={normalized.title || 'Untitled event'}>{normalized.title || 'Untitled event'}</strong>
+        <p>{formatDate(normalized.date)}, {formatEventTime(normalized)}</p>
+        <small>{meta || 'Online'}</small>
+      </div>
+      <div className="event-card-actions">
+        <button className="ghost-icon" type="button" onClick={onEdit} aria-label="Edit event"><Pencil size={16} /></button>
+        <button className="ghost-icon danger" type="button" onClick={onDelete} aria-label="Delete event"><Trash2 size={16} /></button>
+      </div>
+    </article>
+  );
+}
+
 function makeId() {
   return Date.now() + Math.floor(Math.random() * 1000);
 }
 
 function getInitials(name: string) {
   return name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+function normalizeAvatarVariant(value?: string): AvatarVariant {
+  return avatarVariants.some((variant) => variant.id === value) ? (value as AvatarVariant) : 'initials';
+}
+
+function normalizeTheme(value?: string): Theme {
+  return value === 'dark' || value === 'system' ? value : 'light';
+}
+
+function ProfileAvatar({ profile, className = '', iconSize = 18 }: { profile: Profile; className?: string; iconSize?: number }) {
+  const variant = normalizeAvatarVariant(profile.avatarVariant);
+  const variantClass = avatarVariantClasses[variant] || avatarVariantClasses.initials;
+  const initials = getInitials(profile.name);
+  const content = profile.avatarImage ? <img src={profile.avatarImage} alt="" /> : variant === 'initials' ? initials : <User size={iconSize} />;
+
+  return (
+    <span className={`profile-avatar ${variantClass} ${profile.avatarImage ? 'has-image' : ''} ${className}`} aria-label="Profile avatar">
+      {content}
+    </span>
+  );
 }
 
 function safeDomain(company: string, domain?: string) {
@@ -743,7 +1132,7 @@ function exportCsv(applications: JobApplication[], setToast: (value: string) => 
   const header = ['Company', 'Position', 'Category', 'Level', 'Status', 'Date applied', 'Last contact', 'Next step', 'Location', 'Work mode', 'Source', 'Offer URL'];
   const rows = applications.map((app) => [app.company, app.position, app.category, app.level, app.status, app.dateApplied, app.lastContact, app.nextStep, app.location, app.workMode, app.source, app.offerUrl]);
   const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -753,8 +1142,271 @@ function exportCsv(applications: JobApplication[], setToast: (value: string) => 
   setToast('CSV exported.');
 }
 
+function detectCsvDelimiter(input: string) {
+  let commas = 0;
+  let semicolons = 0;
+  let inQuotes = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    const next = input[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') index += 1;
+      else inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (!inQuotes && (char === '\n' || char === '\r')) break;
+    if (!inQuotes && char === ',') commas += 1;
+    if (!inQuotes && char === ';') semicolons += 1;
+  }
+
+  return semicolons > commas ? ';' : ',';
+}
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+  const input = repairTextEncoding(text.replace(/^\uFEFF/, ''));
+  const delimiter = detectCsvDelimiter(input);
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    const next = input[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      row.push(cell.trim());
+      cell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') {
+        index += 1;
+      }
+
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+
+  return rows;
+}
+
+const normalizeCsvHeader = (value: string) =>
+  repairTextEncoding(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ą]/g, 'a')
+    .replace(/[ć]/g, 'c')
+    .replace(/[ę]/g, 'e')
+    .replace(/[ł]/g, 'l')
+    .replace(/[ń]/g, 'n')
+    .replace(/[ó]/g, 'o')
+    .replace(/[ś]/g, 's')
+    .replace(/[źż]/g, 'z')
+    .replace(/[^a-z0-9]/g, '');
+
+function csvIndex(headers: string[], aliases: string[]) {
+  const normalizedAliases = aliases.map(normalizeCsvHeader);
+  return headers.findIndex((header) => normalizedAliases.includes(normalizeCsvHeader(header)));
+}
+
+function csvValue(row: string[], indexes: Record<string, number>, key: string) {
+  const index = indexes[key];
+  return index === undefined || index < 0 ? '' : repairTextEncoding(row[index] ?? '').trim();
+}
+
+function parseCsvDate(value: string, fallback = '') {
+  const clean = value.trim();
+  if (!clean) return fallback;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    return clean;
+  }
+
+  const match = clean.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (!match) {
+    throw new Error(`Unsupported date format: ${clean}. Use YYYY-MM-DD or DD.MM.YYYY.`);
+  }
+
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function normalizeImportedStatus(value: string): Status {
+  const clean = repairTextEncoding(value).trim();
+  if (statuses.includes(clean as Status)) return clean as Status;
+
+  const normalized = normalizeCsvHeader(clean);
+  const aliases: Record<string, Status> = {
+    saved: 'Saved',
+    zapisane: 'Saved',
+    applied: 'Applied',
+    wyslane: 'Applied',
+    sent: 'Applied',
+    inprogress: 'In progress',
+    wtoku: 'In progress',
+    interview: 'Interview',
+    rozmowa: 'Interview',
+    tasktest: 'Task / test',
+    taskortest: 'Task / test',
+    zadanie: 'Task / test',
+    test: 'Task / test',
+    offer: 'Offer',
+    oferta: 'Offer',
+    rejected: 'Rejected',
+    odrzucone: 'Rejected',
+    noresponse: 'No response',
+    brakodpowiedzi: 'No response',
+    ghosted: 'Ghosted',
+    archived: 'Archived',
+    archiwum: 'Archived'
+  };
+
+  return aliases[normalized] ?? 'Applied';
+}
+
+function normalizeImportedWorkMode(value: string): WorkMode {
+  const clean = repairTextEncoding(value).trim();
+  if (workModes.includes(clean as WorkMode)) return clean as WorkMode;
+
+  const normalized = normalizeCsvHeader(clean);
+  const aliases: Record<string, WorkMode> = {
+    remote: 'Remote',
+    zdalnie: 'Remote',
+    hybrid: 'Hybrid',
+    hybrydowo: 'Hybrid',
+    onsite: 'On-site',
+    onside: 'On-site',
+    stacjonarnie: 'On-site',
+    office: 'On-site'
+  };
+
+  return aliases[normalized] ?? 'Remote';
+}
+
+function parseApplicationsCsv(text: string): JobApplication[] {
+  const rows = parseCsv(text);
+
+  if (rows.length < 2) {
+    return [];
+  }
+
+  const headers = rows[0];
+  const indexes = {
+    company: csvIndex(headers, ['Company', 'Company name', 'Firma']),
+    position: csvIndex(headers, ['Position', 'Role', 'Stanowisko']),
+    category: csvIndex(headers, ['Category', 'Kategoria']),
+    level: csvIndex(headers, ['Level', 'Poziom']),
+    status: csvIndex(headers, ['Status']),
+    dateApplied: csvIndex(headers, ['Date applied', 'Applied at', 'Data aplikacji']),
+    lastContact: csvIndex(headers, ['Last contact', 'Ostatni kontakt']),
+    nextStep: csvIndex(headers, ['Next step', 'Następny krok']),
+    location: csvIndex(headers, ['Location', 'Lokalizacja']),
+    workMode: csvIndex(headers, ['Work mode', 'Tryb pracy']),
+    source: csvIndex(headers, ['Source', 'Źródło', 'Zrodlo']),
+    offerUrl: csvIndex(headers, ['Offer URL', 'Offer link', 'URL', 'Link']),
+    requirements: csvIndex(headers, ['Requirements', 'Wymagania']),
+    benefits: csvIndex(headers, ['Benefits', 'Benefity']),
+    notes: csvIndex(headers, ['Notes', 'Notatki']),
+    cv: csvIndex(headers, ['CV', 'CV version', 'CV name'])
+  };
+
+  if (indexes.company < 0 || indexes.position < 0) {
+    throw new Error('CSV must include Company and Position columns.');
+  }
+
+  return rows.slice(1).map((row, rowIndex) => {
+    const company = csvValue(row, indexes, 'company');
+    const position = csvValue(row, indexes, 'position');
+
+    if (!company || !position) {
+      throw new Error(`Row ${rowIndex + 2}: Company and Position are required.`);
+    }
+
+    const dateApplied = parseCsvDate(csvValue(row, indexes, 'dateApplied'), today());
+    const lastContact = parseCsvDate(csvValue(row, indexes, 'lastContact'));
+
+    return {
+      id: makeId(),
+      company,
+      companyId: null,
+      domain: safeDomain(company),
+      position,
+      category: csvValue(row, indexes, 'category') || 'Other',
+      level: csvValue(row, indexes, 'level') || 'Junior',
+      status: normalizeImportedStatus(csvValue(row, indexes, 'status')),
+      dateApplied,
+      lastContact,
+      nextStep: csvValue(row, indexes, 'nextStep') || 'Waiting',
+      location: csvValue(row, indexes, 'location') || 'Remote',
+      workMode: normalizeImportedWorkMode(csvValue(row, indexes, 'workMode')),
+      source: csvValue(row, indexes, 'source') || 'Other',
+      offerUrl: csvValue(row, indexes, 'offerUrl'),
+      requirements: csvValue(row, indexes, 'requirements'),
+      benefits: csvValue(row, indexes, 'benefits'),
+      notes: csvValue(row, indexes, 'notes'),
+      cv: csvValue(row, indexes, 'cv')
+    };
+  });
+}
+
+function readTextFile(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(new Error('CSV file could not be read.'));
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(new Error(`${file.name} could not be loaded.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function downloadDataUrl(dataUrl: string, fileName: string) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = fileName;
+  link.click();
+}
+
 function downloadJson(filename: string, data: unknown, setToast: (value: string) => void) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -874,7 +1526,7 @@ function PasswordRequirements({ password }: { password: string }) {
   );
 }
 
-function LoginPage({ onLogin, onRegister }: { onLogin: (input: LoginInput) => Promise<void>; onRegister: (input: RegisterInput) => Promise<void> }) {
+function LoginPage({ onLogin, onRegister, resolvedTheme }: { onLogin: (input: LoginInput) => Promise<void>; onRegister: (input: RegisterInput) => Promise<void>; resolvedTheme: 'light' | 'dark' }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -920,7 +1572,7 @@ function LoginPage({ onLogin, onRegister }: { onLogin: (input: LoginInput) => Pr
     }
   }
   return (
-    <main className="login-page">
+    <main className={`login-page ${resolvedTheme === 'dark' ? 'dark' : ''} ${mode === 'register' ? 'register-mode' : 'login-mode'}`}>
       <section className="login-card">
         <Logo />
         <div className="login-copy"><span className="eyebrow">Private workspace</span><h1>Track applications without chaos.</h1><p>Create your account, upload your CV, save applications and keep recruitment notes in one place.</p></div>
@@ -951,7 +1603,7 @@ function Sidebar({ page, setPage, applications, settings }: { page: Page; setPag
     return () => window.clearInterval(interval);
   }, []);
   return (
-    <aside className="sidebar custom-scroll">
+    <aside className={`sidebar custom-scroll ${settings.showMotivation ? 'with-motivation' : 'without-motivation'}`}>
       <Logo />
       <nav className="nav-list" aria-label="Main navigation">
         {navItems.map((item) => {
@@ -972,7 +1624,7 @@ function Sidebar({ page, setPage, applications, settings }: { page: Page; setPag
   );
 }
 
-function Topbar({ page, profile, theme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
+function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage }: { page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
   const [open, setOpen] = useState(false);
   const isDashboard = page === 'dashboard';
   const firstName = profile.name.split(' ')[0] || 'User';
@@ -989,9 +1641,9 @@ function Topbar({ page, profile, theme, setTheme, onOpenApplication, onOpenSetti
       <div className="topbar-actions">
         <button className="icon-button" type="button" aria-label="Search" onClick={() => setPage('applications')}><Search size={19} /></button>
         <button className="icon-button with-dot" type="button" aria-label="Notifications" onClick={() => openSettings('notifications')}><Bell size={19} /></button>
-        <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button>
+        <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>{resolvedTheme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button>
         <div className="profile-wrap">
-          <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><span className="avatar-soft"><User size={18} /></span><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
+          <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><ProfileAvatar profile={profile} className="avatar-soft" iconSize={18} /><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
           {open ? <div className="profile-menu"><div className="profile-menu-header"><strong>{profile.name}</strong><span>{profile.email}</span></div><button type="button" onClick={() => openSettings('profile')}><User size={17} /> Profile</button><button type="button" onClick={() => openSettings('appearance')}><Palette size={17} /> Appearance</button><button type="button" onClick={() => openSettings('notifications')}><Bell size={17} /> Notifications</button><button type="button" onClick={() => openSettings('preferences')}><SlidersHorizontal size={17} /> Preferences</button><button type="button" onClick={() => openSettings('data')}><Download size={17} /> Data & export</button><button type="button" className="danger-link" onClick={onLogout}><LogOut size={17} /> Log out</button></div> : null}
         </div>
         <button className="primary-button" type="button" onClick={onOpenApplication}><Plus size={18} /> Add application</button>
@@ -1129,7 +1781,7 @@ function SuccessRateCard({ applications }: { applications: JobApplication[] }) {
 
 function UpcomingCard({ events, onOpenCalendar }: { events: CalendarEvent[]; onOpenCalendar: () => void }) {
   const upcoming = [...events].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).slice(0, 3);
-  return <section className="panel-card upcoming-card"><div className="mini-title"><CalendarDays size={17} /><h2>Upcoming</h2></div>{upcoming.map((event) => <div className="event-row" key={event.id}><span className="event-icon"><CalendarDays size={15} /></span><div><strong>{event.title} â€” {event.company}</strong><small>{formatDate(event.date)}, {event.time}</small></div></div>)}<button className="mini-link with-arrow" type="button" onClick={onOpenCalendar}>View calendar <ChevronDown className="chevron-right" size={16} /></button></section>;
+  return <section className="panel-card upcoming-card"><div className="mini-title"><CalendarDays size={17} /><h2>Upcoming</h2></div>{upcoming.map((event) => <div className="event-row" key={event.id}><span className="event-icon"><CalendarDays size={15} /></span><div><strong>{event.title} - {event.company}</strong><small>{formatDate(event.date)}, {event.time}</small></div></div>)}<button className="mini-link with-arrow" type="button" onClick={onOpenCalendar}>View calendar <ChevronDown className="chevron-right" size={16} /></button></section>;
 }
 
 function ApplicationsTable({
@@ -1576,7 +2228,7 @@ function ApplicationDetailsModal({
   return (
     <BaseModal
       title="Application details"
-      subtitle={`${application.company} Â· ${application.position}`}
+      subtitle={`${application.company} · ${application.position}`}
       onClose={onClose}
     >
       <div className="application-details-modal custom-scroll">
@@ -1649,9 +2301,10 @@ function BarList({ rows }: { rows: [string, string][] }) {
   return <div className="bar-chart-list">{rows.map(([label, value]) => <div className="bar-row" key={label}><span>{label}</span><div><span style={{ width: `${(Number(value) / max) * 100}%` }} /></div><strong>{value}</strong></div>)}</div>;
 }
 
-function CalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
+function CalendarPage({ events, applications, setEvents, setToast, onSyncNotificationEvent, onDeleteNotificationEvent }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void; onSyncNotificationEvent?: (event: CalendarEvent) => void; onDeleteNotificationEvent?: (id: number) => void }) {
   const [view, setView] = useState<CalendarView>('Month');
   const [modal, setModal] = useState<CalendarEvent | null>(null);
+  const dayScheduleRef = useRef<HTMLDivElement | null>(null);
   const sorted = events.map(normalizeCalendarEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
   const [dayDate, setDayDate] = useState(() => toDate(today()));
@@ -1662,14 +2315,25 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
   const selectedDayEvents = sorted.filter((event) => event.date === selectedDayIso);
   const dayLayouts = getDayEventLayouts(selectedDayEvents);
   const dayTimelineHeight = DAY_HOUR_HEIGHT * 24;
+  const nowMinutes = getCurrentMinutes();
+  const upcomingEvents = sorted.filter((event) => `${event.date}${event.time}` >= `${today()}${minutesToTime(nowMinutes)}`).slice(0, 5);
+
+  useEffect(() => {
+    if (view !== 'Day' || selectedDayIso !== today()) return;
+
+    const scrollTarget = Math.max(0, (getCurrentMinutes() / 60) * DAY_HOUR_HEIGHT - 150);
+    dayScheduleRef.current?.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+  }, [view, selectedDayIso]);
+
   function save(event: CalendarEvent) {
     const normalized = normalizeCalendarEvent(event);
     if (events.some((item) => item.id === normalized.id)) setEvents(events.map((item) => item.id === normalized.id ? normalized : item));
     else setEvents([normalized, ...events]);
     setModal(null);
     setToast('Calendar event saved.');
+    onSyncNotificationEvent?.(normalized);
   }
-  function remove(id: number) { setEvents(events.filter((event) => event.id !== id)); setToast('Calendar event removed.'); }
+  function remove(id: number) { setEvents(events.filter((event) => event.id !== id)); setToast('Calendar event removed.'); onDeleteNotificationEvent?.(id); }
   function newEvent(date = today(), time = '10:00') {
     setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date, time, endTime: addMinutesToTime(time, 60), type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
   }
@@ -1685,19 +2349,31 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
             <div className="calendar-header-row">
               <div><h2>{formatMonthYear(monthDate)}</h2><p>Monthly overview</p></div>
               <div className="calendar-nav-controls">
-                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))} aria-label="Previous month">â€ą</button>
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, -1))} aria-label="Previous month"><ChevronLeft size={18} /></button>
                 <button className="secondary-button today-button" type="button" onClick={() => setMonthDate(startOfMonth(today()))}>Today</button>
-                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))} aria-label="Next month">â€ş</button>
+                <button className="ghost-icon calendar-nav-button" type="button" onClick={() => setMonthDate(addMonths(monthDate, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
               </div>
             </div>
             <div className="calendar-grid-head">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}</div>
-            <div className="calendar-grid-days">{monthCells.map((cell) => { const dayEvents = sorted.filter((event) => event.date === cell.iso); return <button className={`calendar-day ${dayEvents.length ? 'has-event' : ''} ${!cell.isCurrentMonth ? 'muted-day' : ''}`} type="button" key={cell.iso} onClick={() => dayEvents[0] ? setModal(dayEvents[0]) : newEvent(cell.iso)}><span>{cell.day}</span>{dayEvents.slice(0, 2).map((event) => <small key={event.id}>{event.title}</small>)}</button>; })}</div>
+            <div className="calendar-grid-days">{monthCells.map((cell) => {
+              const dayEvents = sorted.filter((event) => event.date === cell.iso);
+              const hiddenCount = Math.max(0, dayEvents.length - 3);
+              return (
+                <div className={`calendar-day ${dayEvents.length ? 'has-event' : ''} ${!cell.isCurrentMonth ? 'muted-day' : ''}`} role="button" tabIndex={0} key={cell.iso} onClick={() => newEvent(cell.iso)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') newEvent(cell.iso); }}>
+                  <span className="calendar-day-number">{cell.day}</span>
+                  <div className="month-events-stack">
+                    {dayEvents.slice(0, 3).map((event) => <CalendarEventCard key={event.id} event={event} variant="month" onEdit={() => setModal(event)} />)}
+                    {hiddenCount ? <button className="month-more-events" type="button" onClick={(event) => { event.stopPropagation(); setView('Day'); setDayDate(toDate(cell.iso)); }}>+{hiddenCount} more</button> : null}
+                  </div>
+                </div>
+              );
+            })}</div>
           </section>
         ) : view === 'Week' ? (
           <section className="panel-card calendar-card week-calendar">
             <div className="calendar-header-row">
               <div><h2>Week view</h2><p>{formatWeekRange(weekStart)}</p></div>
-              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">â€ą</button><button className="secondary-button today-button" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">â€ş</button></div>
+              <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week"><ChevronLeft size={18} /></button><button className="secondary-button today-button" type="button" onClick={() => setWeekStart(startOfWeek(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week"><ChevronRight size={18} /></button></div>
             </div>
             <div className="week-grid custom-scroll">
               {weekDays.map((day) => {
@@ -1710,10 +2386,7 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
                       <strong>{day.getDate()}</strong>
                     </button>
                     <div className="week-events">
-                      {dayEvents.map((event) => {
-                        const EventIcon = getEventIconComponent(event.icon);
-                        return <button className="week-event-block" key={event.id} type="button" style={eventColorStyle(event)} onClick={() => setModal(event)}><span>{formatEventTime(event)}</span><strong>{event.title}</strong><small>{event.company}</small><span className="event-corner-icon"><EventIcon size={13} /></span></button>;
-                      })}
+                      {dayEvents.map((event) => <CalendarEventCard key={event.id} event={event} variant="week" onEdit={() => setModal(event)} />)}
                       <button className={`week-add-event ${dayEvents.length ? 'compact' : 'empty'}`} type="button" onClick={() => newEvent(iso)}>
                         <Plus size={14} />
                         <span>Add event</span>
@@ -1730,36 +2403,32 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
               <div><h2>Day view</h2><p>{formatDate(selectedDayIso)}</p></div>
               <div className="calendar-nav-controls"><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setDayDate(addDays(dayDate, -1))} aria-label="Previous day"><ChevronLeft size={18} /></button><button className="secondary-button today-button" type="button" onClick={() => setDayDate(toDate(today()))}>Today</button><button className="ghost-icon calendar-nav-button" type="button" onClick={() => setDayDate(addDays(dayDate, 1))} aria-label="Next day"><ChevronRight size={18} /></button></div>
             </div>
-            <div className="day-schedule custom-scroll" style={{ '--day-hour-height': `${DAY_HOUR_HEIGHT}px` } as CSSProperties}>
+            <div ref={dayScheduleRef} className="day-schedule custom-scroll" style={{ '--day-hour-height': `${DAY_HOUR_HEIGHT}px` } as CSSProperties}>
               <div className="day-time-rail" style={{ height: dayTimelineHeight }}>
                 {dayHours.map((hour) => <span className="day-time-label" key={hour}>{minutesToTime(hour * 60)}</span>)}
               </div>
               <div className="day-track" style={{ height: dayTimelineHeight }}>
                 {dayHours.map((hour) => <button className="day-hour-button" key={hour} type="button" style={{ top: hour * DAY_HOUR_HEIGHT, height: DAY_HOUR_HEIGHT }} onClick={() => newEvent(selectedDayIso, minutesToTime(hour * 60))}><span>Add plan</span></button>)}
                 {!dayLayouts.length ? <div className="day-empty-note">Choose an hour to add your first plan for this day.</div> : null}
+                <CurrentTimeIndicator date={selectedDayIso} />
                 {dayLayouts.map((layout) => {
-                  const EventIcon = getEventIconComponent(layout.event.icon);
                   const style = {
-                    ...eventColorStyle(layout.event),
                     top: layout.top,
                     height: layout.height,
                     left: `calc(${layout.left}% + 4px)`,
                     width: `calc(${layout.width}% - 8px)`
-                  } as EventCssStyle;
-                  return (
-                    <button className="day-event-block" key={layout.event.id} type="button" style={style} onClick={() => setModal(layout.event)}>
-                      <span className="day-event-icon"><EventIcon size={14} /></span>
-                      <span className="day-event-time">{formatEventTime(layout.event)}</span>
-                      <strong>{layout.event.title || 'Untitled event'}</strong>
-                      <small>{layout.event.company || layout.event.location}</small>
-                    </button>
-                  );
+                  };
+                  return <CalendarEventCard key={layout.event.id} event={layout.event} variant="day" style={style} onEdit={() => setModal(layout.event)} />;
                 })}
               </div>
             </div>
           </section>
         )}
-        <section className="panel-card event-panel"><div className="mini-title"><CalendarDays size={18} /><h2>Upcoming events</h2></div>{sorted.slice(0, 5).map((event) => <EventCard key={event.id} event={event} compact onEdit={() => setModal(event)} onDelete={() => remove(event.id)} />)}</section>
+        <section className="panel-card event-panel">
+          <div className="mini-title"><CalendarDays size={18} /><h2>Upcoming events</h2></div>
+          {upcomingEvents.map((event) => <CalendarEventCard key={event.id} event={event} variant="upcoming" onEdit={() => setModal(event)} onDelete={() => remove(event.id)} />)}
+          {!upcomingEvents.length ? <p className="empty-panel-note">No upcoming events yet.</p> : null}
+        </section>
       </div>
       {modal ? <EventModal event={modal} applications={applications} onClose={() => setModal(null)} onSave={save} /> : null}
     </section>
@@ -1767,9 +2436,7 @@ function CalendarPage({ events, applications, setEvents, setToast }: { events: C
 }
 
 function EventCard({ event, onEdit, onDelete, compact = false }: { event: CalendarEvent; onEdit: () => void; onDelete: () => void; compact?: boolean }) {
-  const normalized = normalizeCalendarEvent(event);
-  const EventIcon = getEventIconComponent(normalized.icon);
-  return <div className={`event-card ${compact ? 'compact-event' : ''}`} style={eventColorStyle(normalized)}><span className="event-icon"><Clock size={16} /></span><div><strong>{normalized.title}</strong><p>{normalized.company}</p><small>{formatDate(normalized.date)}, {formatEventTime(normalized)} - {normalized.location}</small></div><div className="event-card-actions"><button className="ghost-icon" type="button" onClick={onEdit}><Pencil size={16} /></button><button className="ghost-icon danger" type="button" onClick={onDelete}><Trash2 size={16} /></button></div><span className="event-corner-icon"><EventIcon size={16} /></span></div>;
+  return <CalendarEventCard event={event} variant={compact ? 'upcoming' : 'week'} onEdit={onEdit} onDelete={onDelete} />;
 }
 
 function EventModal({ event, applications, onClose, onSave }: { event: CalendarEvent; applications: JobApplication[]; onClose: () => void; onSave: (event: CalendarEvent) => void }) {
@@ -1844,7 +2511,7 @@ function LegacyDocumentsPage({ documents, setDocuments, onExport, setToast }: { 
   }
   function addLink(doc: DocumentItem) { setDocuments([doc, ...documents]); setLinkModal(false); setToast('Link saved.'); }
   function remove(id: EntityId) { setDocuments(documents.filter((doc) => doc.id !== id)); setToast('Document removed.'); }
-  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} /><button className="secondary-button" type="button" onClick={() => fileInput.current?.click()}><Upload size={17} /> Upload</button><input ref={fileInput} type="file" hidden onChange={(e) => upload(e.target.files)} /><button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button></div><div className="document-grid">{filtered.map((doc) => <article className="panel-card document-card" key={doc.id}><div className="document-icon"><FileText size={24} /></div><div><h2>{doc.name}</h2><p>{doc.type} Â· {doc.category}</p></div><div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.size}</span></div><div className="document-actions"><button className="ghost-icon" type="button" onClick={() => doc.url && window.open(doc.url, '_blank')}><Eye size={17} /></button><button className="ghost-icon" type="button" onClick={() => setToast('Preview/download is mocked for local files.')}><Download size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(doc.id)}><Trash2 size={17} /></button></div></article>)}</div><section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span><span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span></section>{linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}</section>;
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search documents..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><CustomSelect label="Type" value={type} options={['All', ...documentTypes]} onChange={setType} /><button className="secondary-button" type="button" onClick={() => fileInput.current?.click()}><Upload size={17} /> Upload</button><input ref={fileInput} type="file" hidden onChange={(e) => upload(e.target.files)} /><button className="secondary-button" type="button" onClick={() => setLinkModal(true)}><LinkIcon size={17} /> Add link</button><button className="secondary-button" type="button" onClick={onExport}><Download size={17} /> Export CSV</button></div><div className="document-grid">{filtered.map((doc) => <article className="panel-card document-card" key={doc.id}><div className="document-icon"><FileText size={24} /></div><div><h2>{doc.name}</h2><p>{doc.type} · {doc.category}</p></div><div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.size}</span></div><div className="document-actions"><button className="ghost-icon" type="button" onClick={() => doc.url && window.open(doc.url, '_blank')}><Eye size={17} /></button><button className="ghost-icon" type="button" onClick={() => setToast('Preview/download is mocked for local files.')}><Download size={17} /></button><button className="ghost-icon danger" type="button" onClick={() => remove(doc.id)}><Trash2 size={17} /></button></div></article>)}</div><section className="panel-card insight-strip"><Sparkles size={18} /><span>Most used CV: <strong>CV_NET_Intern_2026.pdf</strong></span><span>Best response rate: <strong>CV_Cybersecurity_IAM_2026.pdf</strong></span></section>{linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}</section>;
 }
 
 type DocumentsPageProps = {
@@ -2147,6 +2814,200 @@ function DocumentLinkModal({ onClose, onSave }: { onClose: () => void; onSave: (
   return <BaseModal title="Add link" subtitle="Save portfolio, GitHub, LinkedIn or another resource." onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-grid"><TextField label="Name" value={name} onChange={(value) => { setName(value); setError(''); }} placeholder="Portfolio" /><TextField label="URL" value={url} onChange={(value) => { setUrl(value); setError(''); }} placeholder="https://portfolio.example" /><div className="form-field"><span>Type</span><CustomSelect value={type} options={documentTypes} onChange={(v) => setType(v as DocKind)} /></div></div>{error ? <p className="form-error" role="alert">{error}</p> : null}<ModalFooter onClose={onClose} submitLabel="Save link" /></form></BaseModal>;
 }
 
+function renderInlineMarkdown(text: string) {
+  const tokens: React.ReactNode[] = [];
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
+  let lastIndex = 0;
+
+  text.replace(pattern, (match, _token, offset) => {
+    if (offset > lastIndex) tokens.push(text.slice(lastIndex, offset));
+
+    if (match.startsWith('`')) {
+      tokens.push(<code key={`${match}-${offset}`}>{match.slice(1, -1)}</code>);
+    } else if (match.startsWith('**')) {
+      tokens.push(<strong key={`${match}-${offset}`}>{match.slice(2, -2)}</strong>);
+    } else {
+      const link = match.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+      tokens.push(link ? <a key={`${match}-${offset}`} href={link[2]} target="_blank" rel="noreferrer">{link[1]}</a> : match);
+    }
+
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  if (lastIndex < text.length) tokens.push(text.slice(lastIndex));
+  return tokens.length ? tokens : text;
+}
+
+function parseMermaidNode(raw: string) {
+  const clean = raw.trim().replace(/;$/, '');
+  const match = clean.match(/^([A-Za-z0-9_]+)(?:\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\})?$/);
+  const id = match?.[1] || clean.replace(/[^A-Za-z0-9_]/g, '') || `node${Math.random().toString(36).slice(2)}`;
+  const label = match?.[2] || match?.[3] || match?.[4] || id;
+  return { id, label };
+}
+
+function parseMermaidDiagram(source: string) {
+  const nodes = new Map<string, { id: string; label: string }>();
+  const edges: Array<{ from: string; to: string; label?: string }> = [];
+
+  source.split(/\r?\n/).forEach((line) => {
+    const clean = line.trim();
+    if (!clean || clean.startsWith('%%') || /^(flowchart|graph)\b/i.test(clean)) return;
+
+    const edge = clean.match(/^(.+?)\s*(?:--(?:\|([^|]+)\|)?>|---|==>|-.->)\s*(.+?)\s*;?$/);
+    if (!edge) return;
+
+    const from = parseMermaidNode(edge[1]);
+    const to = parseMermaidNode(edge[3]);
+    nodes.set(from.id, from);
+    nodes.set(to.id, to);
+    edges.push({ from: from.id, to: to.id, label: edge[2] });
+  });
+
+  return { nodes: Array.from(nodes.values()), edges };
+}
+
+function MermaidPreview({ source }: { source: string }) {
+  const diagram = parseMermaidDiagram(source);
+
+  if (!diagram.nodes.length || !diagram.edges.length) {
+    return (
+      <pre className="markdown-code-block mermaid-source">
+        <code>{source || 'Mermaid diagram source'}</code>
+      </pre>
+    );
+  }
+
+  const columns = Math.min(3, Math.max(1, diagram.nodes.length));
+  const nodeWidth = 164;
+  const nodeHeight = 58;
+  const gapX = 54;
+  const gapY = 54;
+  const width = columns * nodeWidth + (columns - 1) * gapX + 36;
+  const rows = Math.ceil(diagram.nodes.length / columns);
+  const height = rows * nodeHeight + (rows - 1) * gapY + 36;
+  const positions = new Map(diagram.nodes.map((node, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return [node.id, { x: 18 + column * (nodeWidth + gapX), y: 18 + row * (nodeHeight + gapY) }];
+  }));
+
+  return (
+    <div className="mermaid-preview">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Mermaid diagram preview">
+        <defs>
+          <marker id="mermaid-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" />
+          </marker>
+        </defs>
+        {diagram.edges.map((edge, index) => {
+          const from = positions.get(edge.from);
+          const to = positions.get(edge.to);
+          if (!from || !to) return null;
+          const x1 = from.x + nodeWidth;
+          const y1 = from.y + nodeHeight / 2;
+          const x2 = to.x;
+          const y2 = to.y + nodeHeight / 2;
+          const middleX = (x1 + x2) / 2;
+          const middleY = (y1 + y2) / 2;
+
+          return (
+            <g key={`${edge.from}-${edge.to}-${index}`}>
+              <path className="mermaid-edge" d={`M ${x1} ${y1} C ${middleX} ${y1}, ${middleX} ${y2}, ${x2} ${y2}`} markerEnd="url(#mermaid-arrow)" />
+              {edge.label ? <text className="mermaid-edge-label" x={middleX} y={middleY - 8}>{edge.label}</text> : null}
+            </g>
+          );
+        })}
+        {diagram.nodes.map((node) => {
+          const position = positions.get(node.id);
+          if (!position) return null;
+          return (
+            <g key={node.id}>
+              <rect className="mermaid-node" x={position.x} y={position.y} width={nodeWidth} height={nodeHeight} rx="14" />
+              <text className="mermaid-node-label" x={position.x + nodeWidth / 2} y={position.y + nodeHeight / 2 + 5}>{node.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function MarkdownPreview({ text }: { text: string }) {
+  const blocks: React.ReactNode[] = [];
+  const lines = text.split(/\r?\n/);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (!line.trim()) continue;
+
+    const fence = line.match(/^```(\w+)?\s*$/);
+    if (fence) {
+      const language = fence[1]?.toLowerCase() || 'text';
+      const codeLines: string[] = [];
+      index += 1;
+      while (index < lines.length && !/^```\s*$/.test(lines[index])) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      const code = codeLines.join('\n');
+      blocks.push(language === 'mermaid' ? <MermaidPreview key={index} source={code} /> : <pre className="markdown-code-block" key={index}><span>{language}</span><code>{code}</code></pre>);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      const content = renderInlineMarkdown(heading[2]);
+      blocks.push(level === 1 ? <h1 key={index}>{content}</h1> : level === 2 ? <h2 key={index}>{content}</h2> : <h3 key={index}>{content}</h3>);
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^[-*]\s+/.test(lines[index])) {
+        items.push(lines[index].replace(/^[-*]\s+/, ''));
+        index += 1;
+      }
+      index -= 1;
+      blocks.push(<ul key={index}>{items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>)}</ul>);
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index])) {
+        items.push(lines[index].replace(/^\d+\.\s+/, ''));
+        index += 1;
+      }
+      index -= 1;
+      blocks.push(<ol key={index}>{items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>)}</ol>);
+      continue;
+    }
+
+    if (/^>\s+/.test(line)) {
+      blocks.push(<blockquote key={index}>{renderInlineMarkdown(line.replace(/^>\s+/, ''))}</blockquote>);
+      continue;
+    }
+
+    if (/^---+$/.test(line.trim())) {
+      blocks.push(<hr key={index} />);
+      continue;
+    }
+
+    const paragraph = [line];
+    while (index + 1 < lines.length && lines[index + 1].trim() && !/^(#{1,3})\s+/.test(lines[index + 1]) && !/^(```|[-*]\s+|\d+\.\s+|>\s+|---+$)/.test(lines[index + 1])) {
+      index += 1;
+      paragraph.push(lines[index]);
+    }
+    blocks.push(<p key={index}>{renderInlineMarkdown(paragraph.join(' '))}</p>);
+  }
+
+  return blocks.length ? <div className="markdown-preview">{blocks}</div> : <div className="markdown-preview empty-markdown">Nothing to preview yet.</div>;
+}
+
 function LegacyNotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes: (notes: NoteItem[]) => void; setToast: (value: string) => void }) {
   const [selectedId, setSelectedId] = useState(notes[0]?.id || 0);
   const selected = notes.find((note) => note.id === selectedId) || notes[0];
@@ -2156,7 +3017,440 @@ function LegacyNotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; set
   function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selected.checklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
   function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selected.checklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
   function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selected.checklist.filter((item) => item.id !== id) }); }
-  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." /></div><button className="primary-button" type="button" onClick={addNote}><Plus size={17} /> Add note</button></div><div className="notes-layout"><aside className="notes-list panel-card custom-scroll">{notes.map((note) => <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}><strong>{note.title}</strong><span>{note.company} Â· {note.tag}</span><small>{formatDate(note.updated)}</small></button>)}</aside>{selected ? <section className="panel-card note-editor"><div className="note-editor-head"><TextField label="Title" value={selected.title} onChange={(v) => patchNote({ title: v })} /><button className="ghost-icon danger" type="button" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button></div><div className="form-grid"><TextField label="Company" value={selected.company} onChange={(v) => patchNote({ company: v })} /><TextField label="Application" value={selected.application} onChange={(v) => patchNote({ application: v })} /><TextField label="Tag" value={selected.tag} onChange={(v) => patchNote({ tag: v })} /></div><label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value })} /></label><div className="checklist-panel"><div className="checklist-header"><h3>Checklist</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>{selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}</div><div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this mockup.</div></section> : <section className="panel-card empty-state"><StickyNote size={28} /><strong>No note selected</strong><span>Add a note to start writing.</span></section>}</div></section>;
+  return <section className="page-section"><div className="toolbar"><div className="search-field wide"><Search size={18} /><input placeholder="Search notes..." /></div><button className="primary-button" type="button" onClick={addNote}><Plus size={17} /> Add note</button></div><div className="notes-layout"><aside className="notes-list panel-card custom-scroll">{notes.map((note) => <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}><strong>{note.title}</strong><span>{note.company} · {note.tag}</span><small>{formatDate(note.updated)}</small></button>)}</aside>{selected ? <section className="panel-card note-editor"><div className="note-editor-head"><TextField label="Title" value={selected.title} onChange={(v) => patchNote({ title: v })} /><button className="ghost-icon danger" type="button" onClick={() => deleteNote(selected.id)}><Trash2 size={18} /></button></div><div className="form-grid"><TextField label="Company" value={selected.company} onChange={(v) => patchNote({ company: v })} /><TextField label="Application" value={selected.application} onChange={(v) => patchNote({ application: v })} /><TextField label="Tag" value={selected.tag} onChange={(v) => patchNote({ tag: v })} /></div><label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value })} /></label><div className="checklist-panel"><div className="checklist-header"><h3>Checklist</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>{selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}</div><div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this mockup.</div></section> : <section className="panel-card empty-state"><StickyNote size={28} /><strong>No note selected</strong><span>Add a note to start writing.</span></section>}</div></section>;
+}
+
+type SaveCoverLetterInput = {
+  name: string;
+  content: string;
+  language: string;
+  targetRole: string;
+  companyName: string;
+  jobTitle: string;
+};
+
+function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast, onSaveCoverLetter }: { documents: DocumentItem[]; documentsLoading?: boolean; onRefreshDocuments?: () => void; setToast: (value: string) => void; onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void> }) {
+  const cvDocuments = documents.filter((document) => document.type === 'CV' && document.status !== 'Archived');
+  const cvOptions = cvDocuments.map((document) => ({
+    id: String(document.id),
+    label: `${document.name}${document.fileName ? ` (${document.fileName})` : ` (${document.size})`}`
+  }));
+  const generatedCoverLetters = documents
+    .filter((document) => document.type === 'Cover letter' && document.status !== 'Archived')
+    .filter((document) => document.category.toLowerCase() === 'ai generated' || document.tags?.some((tag) => tag.toLowerCase() === 'ai'))
+    .sort((first, second) => (second.updatedAt || second.updated).localeCompare(first.updatedAt || first.updated))
+    .slice(0, 4);
+  const [activeTool, setActiveTool] = useState<'review' | 'cover'>('review');
+  const [reviews, setReviews] = useState<CvReviewDto[]>([]);
+  const [selectedReview, setSelectedReview] = useState<CvReviewDto | null>(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [savingCover, setSavingCover] = useState(false);
+  const [error, setError] = useState('');
+  const [reviewForm, setReviewForm] = useState<CvReviewRequest>({
+    documentId: '',
+    reviewType: 'general',
+    language: 'en',
+    jobTitle: '',
+    experienceLevel: '',
+    jobDescription: ''
+  });
+  const [coverForm, setCoverForm] = useState({
+    documentId: '',
+    companyName: '',
+    jobTitle: '',
+    jobDescription: '',
+    language: 'en' as 'en' | 'pl',
+    tone: 'professional' as 'professional' | 'natural' | 'formal',
+    length: 'standard' as 'short' | 'standard' | 'detailed',
+    additionalContext: ''
+  });
+  const [coverResult, setCoverResult] = useState<CoverLetterGenerateResponse | null>(null);
+  const [editableCoverLetter, setEditableCoverLetter] = useState('');
+  const selectedReviewCvLabel = cvOptions.find((option) => option.id === reviewForm.documentId)?.label || cvOptions[0]?.label || '';
+  const selectedCoverCvLabel = cvOptions.find((option) => option.id === coverForm.documentId)?.label || cvOptions[0]?.label || '';
+
+  useEffect(() => {
+    if (!cvDocuments.length) return;
+    const firstCvId = String(cvDocuments[0].id);
+    setReviewForm((current) => current.documentId ? current : { ...current, documentId: firstCvId });
+    setCoverForm((current) => current.documentId ? current : { ...current, documentId: firstCvId });
+  }, [cvDocuments.length]);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingReviews(true);
+    aiApi.getCvReviews()
+      .then((items) => {
+        if (!active) return;
+        setReviews(items);
+        setSelectedReview((current) => current ?? items.find((item) => item.status === 'Completed') ?? items[0] ?? null);
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        setError(requestError instanceof Error ? requestError.message : 'AI activity could not be loaded.');
+      })
+      .finally(() => {
+        if (active) setLoadingReviews(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function setReview<K extends keyof CvReviewRequest>(key: K, value: CvReviewRequest[K]) {
+    setReviewForm((current) => ({ ...current, [key]: value }));
+    setError('');
+  }
+
+  function setCover<K extends keyof typeof coverForm>(key: K, value: typeof coverForm[K]) {
+    setCoverForm((current) => ({ ...current, [key]: value }));
+    setError('');
+  }
+
+  function cvIdFromLabel(label: string) {
+    return cvOptions.find((option) => option.label === label)?.id || cvOptions[0]?.id || '';
+  }
+
+  async function runReview(event: FormEvent) {
+    event.preventDefault();
+
+    if (!reviewForm.documentId) {
+      setError('Upload a CV in Documents before running AI review.');
+      return;
+    }
+
+    if (reviewForm.reviewType === 'job-match' && !reviewForm.jobDescription?.trim()) {
+      setError('Paste a job description for Job Match Review.');
+      return;
+    }
+
+    setReviewBusy(true);
+    setError('');
+
+    try {
+      const review = await aiApi.createCvReview(reviewForm);
+      setReviews((current) => [review, ...current.filter((item) => item.id !== review.id)]);
+      setSelectedReview(review);
+      setToast('CV review completed.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'CV review could not be completed.');
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  async function deleteReview(id: string) {
+    try {
+      await aiApi.deleteCvReview(id);
+      setReviews((current) => current.filter((item) => item.id !== id));
+      if (selectedReview?.id === id) setSelectedReview(null);
+      setToast('AI review removed.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'AI review could not be removed.');
+    }
+  }
+
+  async function generateCoverLetter(event?: FormEvent) {
+    event?.preventDefault();
+
+    if (!coverForm.documentId) {
+      setError('Upload a CV in Documents before generating a cover letter.');
+      return;
+    }
+
+    if (!coverForm.companyName.trim() || !coverForm.jobTitle.trim() || !coverForm.jobDescription.trim()) {
+      setError('Company, job title and job description are required.');
+      return;
+    }
+
+    setCoverBusy(true);
+    setError('');
+
+    try {
+      const response = await aiApi.generateCoverLetter(coverForm);
+      setCoverResult(response);
+      setEditableCoverLetter(response.coverLetter);
+      setToast('Cover letter generated.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Cover letter could not be generated.');
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
+  async function copyCoverLetter() {
+    if (!editableCoverLetter.trim()) return;
+    await navigator.clipboard?.writeText(editableCoverLetter);
+    setToast('Cover letter copied.');
+  }
+
+  function downloadCoverLetter() {
+    const blob = new Blob([editableCoverLetter], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = coverResult?.suggestedFileName || 'cover-letter.txt';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function saveCoverLetter() {
+    if (!coverResult || !editableCoverLetter.trim()) return;
+
+    setSavingCover(true);
+    setError('');
+
+    try {
+      await onSaveCoverLetter({
+        name: (coverResult.suggestedFileName || 'Cover letter.txt').replace(/\.txt$/i, ''),
+        content: editableCoverLetter,
+        language: coverForm.language,
+        targetRole: coverForm.jobTitle,
+        companyName: coverForm.companyName,
+        jobTitle: coverForm.jobTitle
+      });
+      setToast('Cover letter saved in Documents.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Cover letter could not be saved.');
+    } finally {
+      setSavingCover(false);
+    }
+  }
+
+  return (
+    <section className="page-section ai-tools-page">
+      <div className="ai-privacy-note panel-card">
+        <Sparkles size={20} />
+        <div>
+          <strong>AI privacy notice</strong>
+          <p>The content of your CV and job description will be sent to the configured AI provider to generate the requested result.</p>
+        </div>
+      </div>
+
+      <div className="ai-tool-grid">
+        <button className={`ai-tool-card panel-card ${activeTool === 'review' ? 'active' : ''}`} type="button" onClick={() => setActiveTool('review')}>
+          <span><FileText size={22} /></span>
+          <div><h2>AI CV Review</h2><p>Analyze your CV, identify strengths and weaknesses, check ATS compatibility and compare it with a job offer.</p></div>
+          <strong>Review CV</strong>
+        </button>
+        <button className={`ai-tool-card panel-card ${activeTool === 'cover' ? 'active' : ''}`} type="button" onClick={() => setActiveTool('cover')}>
+          <span><Edit3 size={22} /></span>
+          <div><h2>AI Cover Letter Generator</h2><p>Generate a personalized cover letter based on your CV and a selected job offer.</p></div>
+          <strong>Generate cover letter</strong>
+        </button>
+      </div>
+
+      {!cvDocuments.length ? (
+        <div className="panel-card empty-state">
+          <FileText size={28} />
+          <strong>No CV documents yet</strong>
+          <span>Upload a document marked as CV in Documents before using AI Tools.</span>
+          <button className="secondary-button" type="button" onClick={onRefreshDocuments} disabled={documentsLoading}>Refresh documents</button>
+        </div>
+      ) : null}
+
+      {error ? <p className="form-error ai-error" role="alert">{error}</p> : null}
+
+      <div className="ai-workspace-grid">
+        <section className="panel-card ai-form-panel">
+          {activeTool === 'review' ? (
+            <form className="modal-form compact-ai-form" onSubmit={runReview}>
+              <div className="mini-title"><FileText size={18} /><h2>AI CV Review</h2></div>
+              <div className="form-grid">
+                <div className="form-field"><span>CV document</span><CustomSelect value={selectedReviewCvLabel} options={cvOptions.map((option) => option.label)} onChange={(value) => setReview('documentId', cvIdFromLabel(value))} /></div>
+                <div className="form-field"><span>Analysis type</span><CustomSelect value={reviewForm.reviewType} options={['general', 'job-match']} onChange={(value) => setReview('reviewType', value as CvReviewRequest['reviewType'])} /></div>
+                <div className="form-field"><span>Report language</span><CustomSelect value={reviewForm.language} options={['en', 'pl']} onChange={(value) => setReview('language', value as CvReviewRequest['language'])} /></div>
+                <TextField label="Job title" value={reviewForm.jobTitle || ''} onChange={(value) => setReview('jobTitle', value)} placeholder="Junior .NET Developer" />
+                <TextField label="Experience level" value={reviewForm.experienceLevel || ''} onChange={(value) => setReview('experienceLevel', value)} placeholder="Junior" />
+              </div>
+              <TextAreaField label="Job description" value={reviewForm.jobDescription || ''} onChange={(value) => setReview('jobDescription', value)} placeholder="Required for Job Match Review." />
+              <button className="primary-button" type="submit" disabled={reviewBusy || !cvDocuments.length}>{reviewBusy ? 'Analyzing...' : 'Run review'}</button>
+            </form>
+          ) : (
+            <form className="modal-form compact-ai-form" onSubmit={generateCoverLetter}>
+              <div className="mini-title"><Edit3 size={18} /><h2>AI Cover Letter Generator</h2></div>
+              <div className="form-grid">
+                <div className="form-field"><span>CV document</span><CustomSelect value={selectedCoverCvLabel} options={cvOptions.map((option) => option.label)} onChange={(value) => setCover('documentId', cvIdFromLabel(value))} /></div>
+                <TextField label="Company name" value={coverForm.companyName} onChange={(value) => setCover('companyName', value)} placeholder="Example Company" />
+                <TextField label="Job title" value={coverForm.jobTitle} onChange={(value) => setCover('jobTitle', value)} placeholder="Junior .NET Developer" />
+                <div className="form-field"><span>Language</span><CustomSelect value={coverForm.language} options={['en', 'pl']} onChange={(value) => setCover('language', value as 'en' | 'pl')} /></div>
+                <div className="form-field"><span>Tone</span><CustomSelect value={coverForm.tone} options={['professional', 'natural', 'formal']} onChange={(value) => setCover('tone', value as typeof coverForm.tone)} /></div>
+                <div className="form-field"><span>Length</span><CustomSelect value={coverForm.length} options={['short', 'standard', 'detailed']} onChange={(value) => setCover('length', value as typeof coverForm.length)} /></div>
+              </div>
+              <TextAreaField label="Job description" value={coverForm.jobDescription} onChange={(value) => setCover('jobDescription', value)} placeholder="Paste the job offer here." />
+              <TextAreaField label="Additional context" value={coverForm.additionalContext} onChange={(value) => setCover('additionalContext', value)} placeholder="Optional details you want to include, only if true." />
+              <button className="primary-button" type="submit" disabled={coverBusy || !cvDocuments.length}>{coverBusy ? 'Generating...' : coverResult ? 'Generate again' : 'Generate'}</button>
+            </form>
+          )}
+        </section>
+
+        <section className="panel-card ai-result-panel">
+          {activeTool === 'review' ? <CvReviewReport review={selectedReview} busy={reviewBusy} onRerun={() => setActiveTool('review')} /> : (
+            <CoverLetterEditor
+              result={coverResult}
+              value={editableCoverLetter}
+              onChange={setEditableCoverLetter}
+              busy={coverBusy}
+              saving={savingCover}
+              onCopy={copyCoverLetter}
+              onDownload={downloadCoverLetter}
+              onSave={saveCoverLetter}
+              onGenerateAgain={() => void generateCoverLetter()}
+            />
+          )}
+        </section>
+      </div>
+
+      <section className="panel-card ai-activity-panel">
+        <div className="mini-title"><Clock size={18} /><h2>Recent AI Activity</h2></div>
+        {loadingReviews ? <AiSkeleton /> : reviews.length || generatedCoverLetters.length ? (
+          <div className="ai-activity-list">
+            {reviews.slice(0, 8).map((review) => (
+              <div key={review.id} className={`ai-activity-item ${selectedReview?.id === review.id ? 'active' : ''}`}>
+                <button className="ai-activity-select" type="button" onClick={() => { setSelectedReview(review); setActiveTool('review'); }}>
+                  <span><FileText size={16} /></span>
+                  <div><strong>{review.documentName}</strong><small>{review.reviewType} - {formatDate(review.createdAt.slice(0, 10))} - {review.status}</small></div>
+                  {review.overallScore !== null && review.overallScore !== undefined ? <em>{review.overallScore}</em> : null}
+                </button>
+                <button className="ghost-icon danger" type="button" aria-label="Delete AI review" onClick={(event) => { event.stopPropagation(); void deleteReview(review.id); }}><Trash2 size={15} /></button>
+              </div>
+            ))}
+            {generatedCoverLetters.map((document) => (
+              <div key={`cover-${document.id}`} className="ai-activity-item">
+                <button className="ai-activity-select" type="button" onClick={() => { setActiveTool('cover'); setToast('Saved cover letter is available in Documents.'); }}>
+                  <span><Edit3 size={16} /></span>
+                  <div><strong>{document.name}</strong><small>cover letter - {formatDate((document.updatedAt || document.updated).slice(0, 10))} - saved in Documents</small></div>
+                  <em>DOC</em>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : <p className="empty-panel-note">No AI activity yet.</p>}
+      </section>
+    </section>
+  );
+}
+
+function AiSkeleton() {
+  return <div className="ai-skeleton"><span /><span /><span /></div>;
+}
+
+function ScoreBar({ label, score, note }: { label: string; score: number; note?: string }) {
+  return (
+    <div className="score-row">
+      <div><strong>{label}</strong>{note ? <small>{note}</small> : null}</div>
+      <span>{score}/100</span>
+      <div className="score-track" aria-label={`${label} score ${score} out of 100`}><i style={{ width: `${clamp(score, 0, 100)}%` }} /></div>
+    </div>
+  );
+}
+
+function CvReviewReport({ review, busy, onRerun }: { review: CvReviewDto | null; busy: boolean; onRerun: () => void }) {
+  if (busy) {
+    return <div className="ai-result-empty"><AiSkeleton /><strong>Analyzing CV...</strong><span>Reading your document and preparing a structured report.</span></div>;
+  }
+
+  if (!review) {
+    return <div className="ai-result-empty"><Sparkles size={28} /><strong>No report selected</strong><span>Run a CV review or choose an item from Recent AI Activity.</span></div>;
+  }
+
+  if (review.status !== 'Completed' || !review.result) {
+    return <div className="ai-result-empty"><AlertCircle size={28} /><strong>{review.status}</strong><span>{review.errorMessage || 'This report is not available.'}</span></div>;
+  }
+
+  const result = review.result;
+
+  return (
+    <div className="cv-review-report">
+      <header className="ai-report-header">
+        <div>
+          <span className="eyebrow">{review.reviewType}</span>
+          <h2>{review.documentName}</h2>
+          <p>{formatDate(review.createdAt.slice(0, 10))}{review.jobTitle ? ` - ${review.jobTitle}` : ''}</p>
+        </div>
+        <button className="secondary-button" type="button" onClick={onRerun}><Sparkles size={16} /> Run again</button>
+      </header>
+
+      <div className="ai-score-hero">
+        <strong>{result.overallScore}</strong>
+        <span>Overall Score</span>
+        <p>{result.summary}</p>
+      </div>
+
+      <section className="ai-report-section">
+        <h3>Category Scores</h3>
+        {result.categoryScores.map((score) => <ScoreBar key={score.name} label={score.name} score={score.score} note={score.note} />)}
+      </section>
+
+      <section className="ai-report-grid">
+        <div><h3>Strengths</h3>{result.strengths.map((item) => <span className="ai-tag positive" key={item}><CheckCircle2 size={14} /> {item}</span>)}</div>
+        <div><h3>Recommended Actions</h3>{result.recommendedActions.map((item) => <span className="ai-tag" key={item}><CheckSquare size={14} /> {item}</span>)}</div>
+      </section>
+
+      <section className="ai-report-section">
+        <h3>Issues to Improve</h3>
+        {result.issues.map((issue, index) => (
+          <details className="ai-accordion" key={`${issue.title}-${index}`}>
+            <summary><span className={`priority priority-${issue.priority.toLowerCase()}`}>{issue.priority || 'Priority'}</span><strong>{issue.title}</strong><small>{issue.section}</small></summary>
+            <p>{issue.description}</p>
+            <small>Suggested fix: {issue.suggestedFix}</small>
+          </details>
+        ))}
+      </section>
+
+      <section className="ai-report-section">
+        <h3>ATS Compatibility</h3>
+        <ScoreBar label="ATS" score={result.atsCompatibility.score} note={result.atsCompatibility.summary} />
+        <div className="ai-tag-list">{result.atsCompatibility.improvements.map((item) => <span className="ai-tag" key={item}>{item}</span>)}</div>
+      </section>
+
+      {result.missingKeywords.length ? <section className="ai-report-section"><h3>Missing Keywords</h3><div className="ai-tag-list">{result.missingKeywords.map((keyword) => <span className="ai-tag warning" key={keyword}>{keyword}</span>)}</div></section> : null}
+
+      <section className="ai-report-section">
+        <h3>Section Review</h3>
+        {result.sectionReviews.map((section) => (
+          <details className="ai-accordion" key={section.section}>
+            <summary><strong>{section.section}</strong><span>{section.score}/100</span></summary>
+            <p>{section.summary}</p>
+            <div className="ai-tag-list">{section.suggestions.map((item) => <span className="ai-tag" key={item}>{item}</span>)}</div>
+          </details>
+        ))}
+      </section>
+
+      {result.jobMatchScore !== null && result.jobMatchScore !== undefined ? <ScoreBar label="Job Match" score={result.jobMatchScore} /> : null}
+    </div>
+  );
+}
+
+function CoverLetterEditor({ result, value, onChange, busy, saving, onCopy, onDownload, onSave, onGenerateAgain }: { result: CoverLetterGenerateResponse | null; value: string; onChange: (value: string) => void; busy: boolean; saving: boolean; onCopy: () => void; onDownload: () => void; onSave: () => void; onGenerateAgain: () => void }) {
+  if (busy) {
+    return <div className="ai-result-empty"><AiSkeleton /><strong>Generating cover letter...</strong><span>Using your CV and the selected offer.</span></div>;
+  }
+
+  if (!result) {
+    return <div className="ai-result-empty"><Edit3 size={28} /><strong>No cover letter yet</strong><span>Generate a draft, edit it here, then save it to Documents.</span></div>;
+  }
+
+  return (
+    <div className="cover-letter-editor">
+      <div className="ai-report-header">
+        <div><span className="eyebrow">Editable draft</span><h2>{result.suggestedFileName}</h2></div>
+        <div className="event-card-actions">
+          <button className="ghost-icon" type="button" onClick={onCopy} aria-label="Copy cover letter"><Copy size={16} /></button>
+          <button className="ghost-icon" type="button" onClick={onDownload} aria-label="Download cover letter"><Download size={16} /></button>
+        </div>
+      </div>
+      {result.warnings.length ? <div className="ai-warning-list">{result.warnings.map((warning) => <span key={warning}><AlertCircle size={14} /> {warning}</span>)}</div> : null}
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} />
+      <div className="modal-footer inline-footer">
+        <button className="secondary-button" type="button" onClick={onGenerateAgain}>Generate again</button>
+        <button className="primary-button" type="button" onClick={onSave} disabled={saving || !value.trim()}>{saving ? 'Saving...' : 'Save as document'}</button>
+      </div>
+    </div>
+  );
 }
 
 function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes: (notes: NoteItem[]) => void; setToast: (value: string) => void }) {
@@ -2164,15 +3458,20 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [noteMenuOpen, setNoteMenuOpen] = useState(false);
+  const [noteBodyMode, setNoteBodyMode] = useState<'write' | 'preview'>('write');
   const noteActionsRef = useRef<HTMLDivElement | null>(null);
+  const attachmentInput = useRef<HTMLInputElement | null>(null);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const noteTypes = Array.from(new Set(notes.map((note) => note.type || note.tag).filter(Boolean)));
   const filteredNotes = notes
     .filter((note) => {
-      const haystack = `${note.title} ${note.company} ${note.application} ${note.tag} ${note.type ?? ''} ${note.tags?.join(' ') ?? ''} ${note.body}`.toLowerCase();
+      const haystack = `${note.title} ${note.company} ${note.application} ${note.tag} ${note.type ?? ''} ${note.tags?.join(' ') ?? ''} ${note.attachments?.map((attachment) => attachment.name).join(' ') ?? ''} ${note.body}`.toLowerCase();
       return haystack.includes(query.toLowerCase()) && (typeFilter === 'All' || (note.type || note.tag) === typeFilter);
     })
     .sort((first, second) => Number(Boolean(second.pinned)) - Number(Boolean(first.pinned)) || Number(Boolean(second.favorite)) - Number(Boolean(first.favorite)) || second.updated.localeCompare(first.updated));
   const selected = notes.find((note) => note.id === selectedId) || filteredNotes[0] || notes[0];
+  const selectedChecklist = selected?.checklist ?? [];
+  const selectedAttachments = selected?.attachments ?? [];
   useEffect(() => {
     setNoteMenuOpen(false);
   }, [selectedId]);
@@ -2192,14 +3491,38 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
     if (!selected) return;
     setNotes(notes.map((note) => note.id === selected.id ? { ...note, ...patch, updated: today(), lastEdited: today() } : note));
   }
+  function patchNoteBody(body: string) {
+    patchNote({ body, preview: body.slice(0, 120) });
+  }
+  function insertNoteSnippet(snippet: string) {
+    if (!selected) return;
+
+    setNoteBodyMode('write');
+
+    const textarea = bodyTextareaRef.current;
+    const body = selected.body || '';
+    const start = textarea?.selectionStart ?? body.length;
+    const end = textarea?.selectionEnd ?? body.length;
+    const prefix = start > 0 && !body.slice(0, start).endsWith('\n') ? '\n\n' : '';
+    const suffix = end < body.length && !body.slice(end).startsWith('\n') ? '\n\n' : '';
+    const insertion = `${prefix}${snippet}${suffix}`;
+    const nextBody = `${body.slice(0, start)}${insertion}${body.slice(end)}`;
+
+    patchNoteBody(nextBody);
+    window.setTimeout(() => {
+      bodyTextareaRef.current?.focus();
+      const cursor = start + insertion.length;
+      bodyTextareaRef.current?.setSelectionRange(cursor, cursor);
+    }, 0);
+  }
   function addNote() {
-    const note: NoteItem = { id: makeId(), title: 'New recruitment note', company: 'General', application: 'General', tag: 'General', type: 'General', tags: ['General'], updated: today(), lastEdited: today(), preview: 'Start writing here.', body: 'Start writing here.', pinned: false, favorite: false, checklist: [{ id: makeId(), text: 'First checklist item', done: false }] };
+    const note: NoteItem = { id: makeId(), title: 'New recruitment note', company: 'General', application: 'General', tag: 'General', type: 'General', tags: ['General'], updated: today(), lastEdited: today(), preview: 'Start writing here.', body: 'Start writing here.', pinned: false, favorite: false, attachments: [], checklist: [{ id: makeId(), text: 'First checklist item', done: false }] };
     setNotes([note, ...notes]);
     setSelectedId(note.id);
     setToast('Note added.');
   }
   function duplicateNote(note: NoteItem) {
-    const copy = { ...note, id: makeId(), title: `${note.title} copy`, pinned: false, updated: today(), lastEdited: today() };
+    const copy = { ...note, id: makeId(), title: `${note.title} copy`, pinned: false, attachments: (note.attachments ?? []).map((attachment) => ({ ...attachment, id: makeId() })), updated: today(), lastEdited: today() };
     setNotes([copy, ...notes]);
     setSelectedId(copy.id);
     setToast('Note duplicated.');
@@ -2231,11 +3554,49 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
     patchNote({ favorite: !selected.favorite });
     setToast(selected.favorite ? 'Removed from favorites.' : 'Added to favorites.');
   }
-  function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selected.checklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
-  function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selected.checklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
-  function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selected.checklist.filter((item) => item.id !== id) }); }
-  const doneCount = selected?.checklist.filter((item) => item.done).length ?? 0;
-  const totalCount = selected?.checklist.length ?? 0;
+  async function addAttachments(files: FileList | null) {
+    if (!selected || !files?.length) return;
+
+    const selectedFiles = Array.from(files);
+    const oversized = selectedFiles.find((file) => file.size > maxNoteAttachmentBytes);
+
+    if (oversized) {
+      setToast(`${oversized.name} is too large. Maximum size is ${formatFileSize(maxNoteAttachmentBytes)}.`);
+      if (attachmentInput.current) attachmentInput.current.value = '';
+      return;
+    }
+
+    try {
+      const nextAttachments = await Promise.all(selectedFiles.map(async (file) => ({
+        id: makeId(),
+        name: repairTextEncoding(file.name),
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        dataUrl: await readFileAsDataUrl(file),
+        addedAt: today()
+      })));
+      patchNote({ attachments: [...selectedAttachments, ...nextAttachments] });
+      setToast(nextAttachments.length === 1 ? 'Attachment added.' : `${nextAttachments.length} attachments added.`);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Attachment could not be added.');
+    } finally {
+      if (attachmentInput.current) attachmentInput.current.value = '';
+    }
+  }
+  function removeAttachment(id: number) {
+    if (!selected) return;
+    patchNote({ attachments: selectedAttachments.filter((attachment) => attachment.id !== id) });
+    setToast('Attachment removed.');
+  }
+  function openAttachment(attachment: NoteAttachment) {
+    const opened = window.open(attachment.dataUrl, '_blank');
+    if (!opened) downloadDataUrl(attachment.dataUrl, attachment.name);
+  }
+  function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selectedChecklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
+  function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selectedChecklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
+  function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selectedChecklist.filter((item) => item.id !== id) }); }
+  const doneCount = selectedChecklist.filter((item) => item.done).length;
+  const totalCount = selectedChecklist.length;
   return (
     <section className="page-section">
       <div className="toolbar">
@@ -2249,7 +3610,7 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
             <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}>
               <strong>{note.pinned ? 'Pinned · ' : ''}{note.title}</strong>
               <span>{note.company} · {note.type || note.tag}</span>
-              <small>{formatDate(note.lastEdited || note.updated)}</small>
+              <small>{formatDate(note.lastEdited || note.updated)}{note.attachments?.length ? ` · ${note.attachments.length} attachments` : ''}</small>
             </button>
           ))}
           {!filteredNotes.length ? <div className="empty-state inline-empty"><StickyNote size={24} /><strong>No matching notes</strong><span>Clear search or change the filter.</span></div> : null}
@@ -2267,7 +3628,6 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
                     <div className="note-actions-menu" role="menu">
                       <button type="button" role="menuitem" onClick={() => { duplicateNote(selected); setNoteMenuOpen(false); }}><Copy size={16} /> Duplicate note</button>
                       <button type="button" role="menuitem" onClick={() => void copyNoteBody(selected)}><FileText size={16} /> Copy note body</button>
-                      <button className="danger-link" type="button" role="menuitem" onClick={() => deleteNote(selected.id)}><Trash2 size={16} /> Delete note</button>
                     </div>
                   ) : null}
                 </div>
@@ -2280,10 +3640,51 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
               <TextField label="Type" value={selected.type || selected.tag} onChange={(value) => patchNote({ type: value, tag: value })} />
               <TextField label="Tags" value={(selected.tags ?? [selected.tag]).join(', ')} onChange={(value) => patchNote({ tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) })} />
             </div>
-            <label className="form-field full-field"><span>Note body</span><textarea value={selected.body} onChange={(event) => patchNote({ body: event.target.value, preview: event.target.value.slice(0, 120) })} /></label>
+            <section className="note-body-panel full-field">
+              <div className="note-body-toolbar">
+                <span className="setting-label">Note body</span>
+                <div className="segmented-inline note-view-toggle">
+                  <button type="button" className={noteBodyMode === 'write' ? 'selected' : ''} onClick={() => setNoteBodyMode('write')}>Write</button>
+                  <button type="button" className={noteBodyMode === 'preview' ? 'selected' : ''} onClick={() => setNoteBodyMode('preview')}><Eye size={15} /> Preview</button>
+                </div>
+                <div className="note-code-actions">
+                  <button className="secondary-button small" type="button" onClick={() => insertNoteSnippet(markdownNoteSnippet)}><FileText size={15} /> Markdown</button>
+                  <button className="secondary-button small" type="button" onClick={() => insertNoteSnippet(codeNoteSnippet)}><Code2 size={15} /> Code</button>
+                  <button className="secondary-button small" type="button" onClick={() => insertNoteSnippet(mermaidNoteSnippet)}><Table2 size={15} /> Mermaid</button>
+                </div>
+              </div>
+              {noteBodyMode === 'write' ? (
+                <textarea ref={bodyTextareaRef} value={selected.body} onChange={(event) => patchNoteBody(event.target.value)} />
+              ) : (
+                <MarkdownPreview text={selected.body} />
+              )}
+            </section>
+            <section className="note-attachments-panel">
+              <div className="checklist-header">
+                <h3><Paperclip size={17} /> Attachments ({selectedAttachments.length})</h3>
+                <button className="secondary-button small" type="button" onClick={() => attachmentInput.current?.click()}><Upload size={15} /> Add files</button>
+                <input ref={attachmentInput} type="file" multiple hidden onChange={(event) => void addAttachments(event.target.files)} />
+              </div>
+              {selectedAttachments.length ? (
+                <div className="note-attachments-list">
+                  {selectedAttachments.map((attachment) => (
+                    <div className="note-attachment-row" key={attachment.id}>
+                      <span className="attachment-icon"><FileText size={17} /></span>
+                      <div>
+                        <strong>{attachment.name}</strong>
+                        <small>{formatFileSize(attachment.size)} · added {formatDate(attachment.addedAt)}</small>
+                      </div>
+                      <button className="ghost-icon" type="button" aria-label={`Open ${attachment.name}`} onClick={() => openAttachment(attachment)}><ExternalLink size={16} /></button>
+                      <button className="ghost-icon" type="button" aria-label={`Download ${attachment.name}`} onClick={() => downloadDataUrl(attachment.dataUrl, attachment.name)}><Download size={16} /></button>
+                      <button className="ghost-icon danger" type="button" aria-label={`Remove ${attachment.name}`} onClick={() => removeAttachment(attachment.id)}><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="note-attachments-empty">No attachments yet. Add files up to {formatFileSize(maxNoteAttachmentBytes)} each.</p>}
+            </section>
             <div className="checklist-panel">
               <div className="checklist-header"><h3>Checklist ({doneCount}/{totalCount})</h3><button className="secondary-button small" type="button" onClick={addChecklistItem}><Plus size={15} /> Add item</button></div>
-              {selected.checklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}
+              {selectedChecklist.map((item) => <div className="checklist-row" key={item.id}><button className={`check-box ${item.done ? 'checked' : ''}`} type="button" onClick={() => updateChecklist(item.id, { done: !item.done })}>{item.done ? <Check size={14} /> : null}</button><input value={item.text} onChange={(event) => updateChecklist(item.id, { text: event.target.value })} /><button className="ghost-icon danger" type="button" onClick={() => deleteChecklist(item.id)}><Trash2 size={15} /></button></div>)}
             </div>
             <div className="note-save-hint"><CheckCircle2 size={16} /> Changes are saved automatically in this workspace.</div>
           </section>
@@ -2313,38 +3714,204 @@ function ApplicationModal({ application, companies, documents, categoryOptions, 
   return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="Example Company" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder=".NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>CV version</span><CustomSelect value={form.cv || 'No CV selected'} options={['No CV selected', ...cvOptions, 'Other']} onChange={(v) => set('cv', v)} /></div></div><TextAreaField label="Requirements" value={form.requirements} onChange={(v) => set('requirements', v)} placeholder="C#, SQL, Git..." /><TextAreaField label="Benefits" value={form.benefits} onChange={(v) => set('benefits', v)} placeholder="Hybrid work, mentoring..." /><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} placeholder="What should you remember?" /><ModalFooter onClose={onClose} submitLabel={application ? 'Save changes' : 'Save application'} /></form></BaseModal>;
 }
 
-function ProfileCustomizationModal({ profile, setProfile, settings, setSettings, activeTab, setActiveTab, theme, setTheme, onClose, onExport, onBackup, onReset }: { profile: Profile; setProfile: (profile: Profile) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void; activeTab: ProfileTab; setActiveTab: (tab: ProfileTab) => void; theme: Theme; setTheme: (theme: Theme) => void; onClose: () => void; onExport: () => void; onBackup: () => void; onReset: () => void }) {
+function ProfileCustomizationModal({ profile, setProfile, settings, setSettings, activeTab, setActiveTab, theme, setTheme, onClose, onImportCsv, onExport, onBackup, onReset, onSaveSettings, onSendNotificationTest }: { profile: Profile; setProfile: (profile: Profile) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void; activeTab: ProfileTab; setActiveTab: (tab: ProfileTab) => void; theme: Theme; setTheme: (theme: Theme) => void; onClose: () => void; onImportCsv: (file: File) => void; onExport: () => void; onBackup: () => void; onReset: () => void; onSaveSettings?: (settings: AppSettings, profile: Profile) => void | Promise<void>; onSendNotificationTest?: (settings: AppSettings, profile: Profile) => void | Promise<void> }) {
+  const originalSettings = useRef(settings);
+  const originalTheme = useRef(theme);
   const [draftProfile, setDraftProfile] = useState(profile);
   const [draftSettings, setDraftSettings] = useState(settings);
   const [draftTheme, setDraftTheme] = useState(theme);
   const tabs: { id: ProfileTab; label: string; icon: typeof User }[] = [{ id: 'profile', label: 'Profile', icon: User }, { id: 'appearance', label: 'Appearance', icon: Palette }, { id: 'notifications', label: 'Notifications', icon: Bell }, { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal }, { id: 'data', label: 'Data', icon: Database }];
+  useEffect(() => {
+    setSettings(draftSettings);
+  }, [draftSettings, setSettings]);
+
+  useEffect(() => {
+    setTheme(draftTheme);
+  }, [draftTheme, setTheme]);
+
+  function cancel() {
+    setSettings(originalSettings.current);
+    setTheme(originalTheme.current);
+    onClose();
+  }
+
   function save() {
     setProfile(draftProfile);
     setSettings(draftSettings);
     setTheme(draftTheme);
+    void onSaveSettings?.(draftSettings, draftProfile);
     onClose();
   }
-  return <div className="modal-backdrop"><section className="settings-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>Profile & customization</h2><p>Manage your profile, preferences and app settings.</p></div><button className="close-button" type="button" onClick={onClose}><X size={20} /></button></header><div className="settings-body"><aside className="settings-tabs">{tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => setActiveTab(tab.id)}><Icon size={17} /> {tab.label}</button>; })}</aside><main className="settings-content custom-scroll">{activeTab === 'profile' ? <ProfileTab profile={draftProfile} setProfile={setDraftProfile} /> : null}{activeTab === 'appearance' ? <AppearanceTab theme={draftTheme} setTheme={setDraftTheme} settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'notifications' ? <NotificationsTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'preferences' ? <PreferencesTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'data' ? <DataTab onExport={onExport} onBackup={onBackup} onReset={onReset} /> : null}</main></div><footer className="modal-footer"><button className="secondary-button" type="button" onClick={onClose}>Cancel</button><button className="primary-button" type="button" onClick={save}><CheckCircle2 size={17} /> Save changes</button></footer></section></div>;
+  return <div className="modal-backdrop"><section className="settings-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>Profile & customization</h2><p>Manage your profile, preferences and app settings.</p></div><button className="close-button" type="button" onClick={cancel}><X size={20} /></button></header><div className="settings-body"><aside className="settings-tabs">{tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => setActiveTab(tab.id)}><Icon size={17} /> {tab.label}</button>; })}</aside><main className="settings-content custom-scroll">{activeTab === 'profile' ? <ProfileTab profile={draftProfile} setProfile={setDraftProfile} /> : null}{activeTab === 'appearance' ? <AppearanceTab theme={draftTheme} setTheme={setDraftTheme} settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'notifications' ? <NotificationsTab settings={draftSettings} setSettings={setDraftSettings} onSendTest={() => onSendNotificationTest?.(draftSettings, draftProfile)} /> : null}{activeTab === 'preferences' ? <PreferencesTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'data' ? <DataTab onImportCsv={onImportCsv} onExport={onExport} onBackup={onBackup} onReset={onReset} /> : null}</main></div><footer className="modal-footer"><button className="secondary-button" type="button" onClick={cancel}>Cancel</button><button className="primary-button" type="button" onClick={save}><CheckCircle2 size={17} /> Save changes</button></footer></section></div>;
 }
 
-function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: (profile: Profile) => void }) {
-  const [avatarVariant, setAvatarVariant] = useState(0);
-  const avatarLabels = ['Neutral icon', 'Soft circle', 'Initials'];
-  return <div className="tab-content"><div className="profile-photo-row"><span className={`profile-photo avatar-variant-${avatarVariant}`}>{avatarVariant === 2 ? getInitials(profile.name) : <User size={31} />}</span><div><h3>Profile photo</h3><p>Avatar variant: {avatarLabels[avatarVariant]}.</p><button className="text-button strong" type="button" onClick={() => setAvatarVariant((avatarVariant + 1) % avatarLabels.length)}>Change avatar</button></div></div><div className="form-grid"><TextField label="Full name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} /><TextField label="Email address" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} /><TextField label="Job search title" value={profile.title} onChange={(v) => setProfile({ ...profile, title: v })} /><TextField label="Preferred location" value={profile.location} onChange={(v) => setProfile({ ...profile, location: v })} /><div className="form-field"><span>Preferred work mode</span><CustomSelect value={profile.workMode} options={workModes} onChange={(v) => setProfile({ ...profile, workMode: v as WorkMode })} /></div></div></div>;
+function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dispatch<SetStateAction<Profile>> }) {
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const [avatarError, setAvatarError] = useState('');
+  const currentVariant = normalizeAvatarVariant(profile.avatarVariant);
+  const currentVariantLabel = avatarVariants.find((variant) => variant.id === currentVariant)?.label || 'Initials';
+
+  function patchProfile(patch: Partial<Profile>) {
+    setProfile((current) => ({ ...current, ...patch }));
+  }
+
+  function uploadAvatar(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+
+    if (!avatarImageTypes.includes(file.type)) {
+      setAvatarError('Choose a PNG, JPG or WebP image.');
+      return;
+    }
+
+    if (file.size > maxAvatarImageBytes) {
+      setAvatarError('Choose an image up to 2 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        setAvatarError('This image could not be loaded. Try another file.');
+        return;
+      }
+
+      patchProfile({ avatarImage: reader.result });
+      setAvatarError('');
+    };
+    reader.onerror = () => setAvatarError('This image could not be loaded. Try another file.');
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="tab-content">
+      <div className="profile-photo-row">
+        <ProfileAvatar profile={profile} className="profile-photo" iconSize={31} />
+        <div className="profile-photo-copy">
+          <h3>Profile photo</h3>
+          <p>{profile.avatarImage ? `Custom photo. Frame: ${currentVariantLabel}.` : `Avatar variant: ${currentVariantLabel}.`}</p>
+          <div className="avatar-actions">
+            <button className="secondary-button small" type="button" onClick={() => fileInput.current?.click()}>
+              <Upload size={15} /> Upload photo
+            </button>
+            {profile.avatarImage ? (
+              <button className="text-button strong danger-text" type="button" onClick={() => patchProfile({ avatarImage: '' })}>
+                Remove photo
+              </button>
+            ) : null}
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+            onChange={(event) => {
+              uploadAvatar(event.target.files);
+              event.currentTarget.value = '';
+            }}
+          />
+          {avatarError ? <p className="form-error avatar-error" role="alert">{avatarError}</p> : null}
+        </div>
+      </div>
+      <div className="setting-group">
+        <span className="setting-label">Avatar frame</span>
+        <div className="segmented-row avatar-frame-row">
+          {avatarVariants.map((variant) => (
+            <button
+              key={variant.id}
+              className={currentVariant === variant.id ? 'selected' : ''}
+              type="button"
+              onClick={() => patchProfile({ avatarVariant: variant.id })}
+            >
+              {variant.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="form-grid">
+        <TextField label="Full name" value={profile.name} onChange={(v) => patchProfile({ name: v })} />
+        <TextField label="Email address" value={profile.email} onChange={(v) => patchProfile({ email: v })} />
+        <TextField label="Job search title" value={profile.title} onChange={(v) => patchProfile({ title: v })} />
+        <TextField label="Preferred location" value={profile.location} onChange={(v) => patchProfile({ location: v })} />
+        <div className="form-field">
+          <span>Preferred work mode</span>
+          <CustomSelect value={profile.workMode} options={workModes} onChange={(v) => patchProfile({ workMode: v as WorkMode })} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AppearanceTab({ theme, setTheme, settings, setSettings }: { theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
-  return <div className="tab-content"><div className="setting-group"><span className="setting-label">Theme</span><div className="segmented-row"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Sun size={16} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Moon size={16} /> Dark</button><button type="button" onClick={() => setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}><Monitor size={16} /> System</button></div></div><div className="setting-group"><span className="setting-label">Accent color</span><div className="color-row">{(['Taupe', 'Champagne', 'Dusty rose', 'Soft brown', 'Beige'] as AppSettings['accent'][]).map((color) => <button className={`color-dot ${settings.accent === color ? 'selected' : ''} ${color.toLowerCase().replaceAll(' ', '-')}`} type="button" key={color} onClick={() => setSettings({ ...settings, accent: color })}><span />{color}</button>)}</div></div><div className="setting-group"><span className="setting-label">Layout density</span><div className="segmented-row"><button className={settings.density === 'Comfortable' ? 'selected' : ''} type="button" onClick={() => setSettings({ ...settings, density: 'Comfortable' })}>Comfortable</button><button className={settings.density === 'Compact' ? 'selected' : ''} type="button" onClick={() => setSettings({ ...settings, density: 'Compact' })}>Compact</button></div></div><ToggleRow title="Show motivational card in sidebar" text="Display cozy inspiration card at the bottom of the sidebar." checked={settings.showMotivation} onChange={(value) => setSettings({ ...settings, showMotivation: value })} /><ToggleRow title="Enable subtle animations" text="Smooth transitions for cards, modals and page changes." checked={settings.animations} onChange={(value) => setSettings({ ...settings, animations: value })} /></div>;
+  const accents: AppSettings['accent'][] = ['Taupe', 'Champagne', 'Dusty rose', 'Soft brown', 'Beige'];
+
+  return (
+    <div className="tab-content">
+      <div className="setting-group">
+        <span className="setting-label">Theme</span>
+        <div className="segmented-row">
+          <button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Sun size={16} /> Light</button>
+          <button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Moon size={16} /> Dark</button>
+          <button className={theme === 'system' ? 'selected' : ''} type="button" onClick={() => setTheme('system')}><Monitor size={16} /> System</button>
+        </div>
+      </div>
+      <div className="setting-group">
+        <span className="setting-label">Accent color</span>
+        <div className="color-row">
+          {accents.map((color) => (
+            <button
+              className={`color-dot ${settings.accent === color ? 'selected' : ''} ${color.toLowerCase().replaceAll(' ', '-')}`}
+              type="button"
+              key={color}
+              onClick={() => setSettings({ ...settings, accent: color })}
+              aria-pressed={settings.accent === color}
+            >
+              <span />
+              {color}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="setting-group">
+        <span className="setting-label">Layout density</span>
+        <div className="segmented-row">
+          <button className={settings.density === 'Comfortable' ? 'selected' : ''} type="button" onClick={() => setSettings({ ...settings, density: 'Comfortable' })}>Comfortable</button>
+          <button className={settings.density === 'Compact' ? 'selected' : ''} type="button" onClick={() => setSettings({ ...settings, density: 'Compact' })}>Compact</button>
+        </div>
+      </div>
+      <ToggleRow title="Show motivational card in sidebar" text="Display cozy inspiration card at the bottom of the sidebar." checked={settings.showMotivation} onChange={(value) => setSettings({ ...settings, showMotivation: value })} />
+      <ToggleRow title="Enable subtle animations" text="Smooth transitions for cards, modals and page changes." checked={settings.animations} onChange={(value) => setSettings({ ...settings, animations: value })} />
+    </div>
+  );
 }
 
 function ToggleRow({ title, text, checked, onChange }: { title: string; text: string; checked: boolean; onChange: (value: boolean) => void }) {
   return <div className="toggle-row"><div><strong>{title}</strong><span>{text}</span></div><button className={`toggle ${checked ? 'on' : ''}`} type="button" onClick={() => onChange(!checked)}><span /></button></div>;
 }
 
-function NotificationsTab({ settings, setSettings }: { settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
+function NotificationsTab({ settings, setSettings, onSendTest }: { settings: AppSettings; setSettings: (settings: AppSettings) => void; onSendTest?: () => void | Promise<void> }) {
   const n = settings.notifications;
   function patch(patchValue: Partial<AppSettings['notifications']>) { setSettings({ ...settings, notifications: { ...n, ...patchValue } }); }
-  return <div className="tab-content narrow-settings"><ToggleRow title="Interview reminders" text="Remind me 24h and 1h before each interview." checked={n.interviews} onChange={(value) => patch({ interviews: value })} /><ToggleRow title="Follow-up reminders" text="Remind me to follow up after no response." checked={n.followUps} onChange={(value) => patch({ followUps: value })} /><ToggleRow title="Application deadlines" text="Alerts for deadlines set on offers." checked={n.deadlines} onChange={(value) => patch({ deadlines: value })} /><ToggleRow title="Weekly recruitment summary" text="Every Monday overview of the past week." checked={n.weekly} onChange={(value) => patch({ weekly: value })} /><ToggleRow title="Monthly statistics report" text="First of each month recruitment statistics." checked={n.monthly} onChange={(value) => patch({ monthly: value })} /><div className="form-field slim"><span>Default reminder time</span><CustomSelect value={n.reminderTime} options={['15 minutes before', '1 hour before', '1 day before']} onChange={(value) => patch({ reminderTime: value })} /></div></div>;
+  return (
+    <div className="tab-content narrow-settings">
+      <div className="notification-email-card">
+        <TextField label="Notification email" value={n.email} onChange={(value) => patch({ email: value })} placeholder="example@mail.com" />
+        <button className="secondary-button" type="button" disabled={!n.email.trim() || !onSendTest} onClick={() => { void onSendTest?.(); }}>
+          <Mail size={16} /> Send test email
+        </button>
+        <span className={`sender-status ${n.emailConfigured ? 'ready' : 'pending'}`}>
+          <span />
+          {n.emailConfigured ? 'Sender ready' : 'Sender not configured'}
+        </span>
+      </div>
+      <ToggleRow title="Interview reminders" text="Remind me 24h and 1h before each interview." checked={n.interviews} onChange={(value) => patch({ interviews: value })} />
+      <ToggleRow title="Follow-up reminders" text="Remind me to follow up after no response." checked={n.followUps} onChange={(value) => patch({ followUps: value })} />
+      <ToggleRow title="Application deadlines" text="Alerts for deadlines set on offers." checked={n.deadlines} onChange={(value) => patch({ deadlines: value })} />
+      <ToggleRow title="Weekly recruitment summary" text="Every Monday overview of the past week." checked={n.weekly} onChange={(value) => patch({ weekly: value })} />
+      <ToggleRow title="Monthly statistics report" text="First of each month recruitment statistics." checked={n.monthly} onChange={(value) => patch({ monthly: value })} />
+      <div className="form-field slim"><span>Default reminder time</span><CustomSelect value={n.reminderTime} options={['15 minutes before', '1 hour before', '1 day before']} onChange={(value) => patch({ reminderTime: value })} /></div>
+    </div>
+  );
 }
 
 function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
@@ -2364,7 +3931,7 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   }
   const categoryItems = uniqueOptions(categories, prefs.categories);
   const levelItems = uniqueOptions(levels, prefs.levels);
-  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'KrakĂłw', 'WrocĹ‚aw', 'GdaĹ„sk'], prefs.locations);
+  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'Kraków', 'Wrocław', 'Gdańsk'], prefs.locations);
   return <div className="tab-content"><PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" /><PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" /><PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" /><PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} /><div className="rules-grid"><TextField label="Mark as no response after" value={String(prefs.noResponseDays)} onChange={(v) => patch({ noResponseDays: Number(v) || 0 })} /><TextField label="Mark as ghosted after" value={String(prefs.ghostedDays)} onChange={(v) => patch({ ghostedDays: Number(v) || 0 })} /><TextField label="Suggest follow-up after" value={String(prefs.followUpDays)} onChange={(v) => patch({ followUpDays: Number(v) || 0 })} /></div></div>;
 }
 
@@ -2372,8 +3939,28 @@ function PreferenceGroup({ title, items, selected, onToggle, addValue, setAddVal
   return <div className="preference-group"><span className="setting-label">{title}</span><div className="preference-pills">{items.map((item) => <button key={item} className={selected.includes(item) ? 'selected' : ''} type="button" onClick={() => onToggle(item)}>{item}</button>)}</div>{setAddValue && onAdd ? <div className="add-custom-row"><input value={addValue || ''} placeholder={addPlaceholder || 'Add custom'} onChange={(event) => setAddValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); onAdd(); } }} /><button className="secondary-button small" type="button" onClick={onAdd}><Plus size={15} /> Add</button></div> : null}</div>;
 }
 
-function DataTab({ onExport, onBackup, onReset }: { onExport: () => void; onBackup: () => void; onReset: () => void }) {
-  return <div className="data-actions"><button className="data-action" type="button" onClick={() => alert('Import CSV will be connected to backend later.')}><span className="blue"><Upload size={20} /></span><div><strong>Import CSV</strong><p>Planned import flow for application data.</p></div></button><button className="data-action" type="button" onClick={onExport}><span className="green"><Download size={20} /></span><div><strong>Export CSV</strong><p>Download all applications as a CSV file.</p></div></button><button className="data-action" type="button" onClick={onBackup}><span className="beige"><Database size={20} /></span><div><strong>Backup data</strong><p>Save a complete JSON backup of local workspace data.</p></div></button><button className="data-action" type="button" onClick={onReset}><span className="danger"><Trash2 size={20} /></span><div><strong>Reset local data</strong><p>Clear local companies, events, notes and preferences.</p></div></button></div>;
+function DataTab({ onImportCsv, onExport, onBackup, onReset }: { onImportCsv: (file: File) => void; onExport: () => void; onBackup: () => void; onReset: () => void }) {
+  const csvInput = useRef<HTMLInputElement | null>(null);
+
+  function importCsv(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    onImportCsv(file);
+    if (csvInput.current) csvInput.current.value = '';
+  }
+
+  return (
+    <div className="data-actions">
+      <button className="data-action" type="button" onClick={() => csvInput.current?.click()}>
+        <span className="blue"><Upload size={20} /></span>
+        <div><strong>Import CSV</strong><p>Add applications from a CSV file.</p></div>
+      </button>
+      <input ref={csvInput} type="file" accept=".csv,text/csv" hidden onChange={(event) => importCsv(event.target.files)} />
+      <button className="data-action" type="button" onClick={onExport}><span className="green"><Download size={20} /></span><div><strong>Export CSV</strong><p>Download all applications as a CSV file.</p></div></button>
+      <button className="data-action" type="button" onClick={onBackup}><span className="beige"><Database size={20} /></span><div><strong>Backup data</strong><p>Save a complete JSON backup of local workspace data.</p></div></button>
+      <button className="data-action" type="button" onClick={onReset}><span className="danger"><Trash2 size={20} /></span><div><strong>Reset local data</strong><p>Clear local companies, events, notes and preferences.</p></div></button>
+    </div>
+  );
 }
 
 function Toast({ message }: { message: string }) {
@@ -2397,12 +3984,32 @@ function useIsMobile(breakpoint = 900) {
   return isMobile;
 }
 
+function useResolvedTheme(theme: Theme): 'light' | 'dark' {
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const update = () => setSystemTheme(media.matches ? 'dark' : 'light');
+
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  return theme === 'system' ? systemTheme : theme;
+}
+
 type MobileLayoutProps = {
   shellClass: string;
   page: Page;
   setPage: (page: Page) => void;
   profile: Profile;
   theme: Theme;
+  resolvedTheme: 'light' | 'dark';
   setTheme: (theme: Theme) => void;
   settings: AppSettings;
   applications: JobApplication[];
@@ -2431,6 +4038,9 @@ type MobileLayoutProps = {
   onArchiveDocument?: (id: EntityId) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
+  onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>;
+  onSyncNotificationEvent?: (event: CalendarEvent) => void;
+  onDeleteNotificationEvent?: (id: number) => void;
   categoryOptions: string[];
   levelOptions: string[];
   children?: React.ReactNode;
@@ -2442,6 +4052,7 @@ function MobileLayout({
   setPage,
   profile,
   theme,
+  resolvedTheme,
   setTheme,
   settings,
   applications,
@@ -2470,6 +4081,9 @@ function MobileLayout({
   onArchiveDocument,
   onDownloadDocument,
   onPreviewDocument,
+  onSaveCoverLetter,
+  onSyncNotificationEvent,
+  onDeleteNotificationEvent,
   categoryOptions,
   levelOptions,
   children
@@ -2486,7 +4100,7 @@ function MobileLayout({
       <MobileHeader
         page={page}
         profile={profile}
-        theme={theme}
+        resolvedTheme={resolvedTheme}
         setTheme={setTheme}
         onOpenSettings={onOpenSettings}
       />
@@ -2515,13 +4129,14 @@ function MobileLayout({
         ) : null}
 
         {page === 'calendar' ? (
-          <MobileCalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} />
+          <MobileCalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={onSyncNotificationEvent} onDeleteNotificationEvent={onDeleteNotificationEvent} />
         ) : null}
 
         {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
+        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} /> : null}
       </main>
 
       <FloatingActionButton onClick={openAddApplication} label="Add application" />
@@ -2536,6 +4151,7 @@ function MobileLayout({
           onLogout={onLogout}
           onExport={onExport}
           theme={theme}
+          resolvedTheme={resolvedTheme}
           setTheme={setTheme}
           settings={settings}
         />
@@ -2546,7 +4162,7 @@ function MobileLayout({
   );
 }
 
-function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
+function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings }: { page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
   const meta = pageLabels[page];
   const firstName = profile.name.split(' ')[0] || 'User';
 
@@ -2555,11 +4171,11 @@ function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page
       <div className="mobile-header-top">
         <Logo />
         <div className="mobile-header-actions">
-          <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>
+            {resolvedTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           <button className="mobile-avatar-button" type="button" onClick={() => onOpenSettings('profile')} aria-label="Open profile">
-            <span>{getInitials(firstName)}</span>
+            <ProfileAvatar profile={profile} className="mobile-avatar-preview" iconSize={17} />
           </button>
         </div>
       </div>
@@ -2609,11 +4225,12 @@ function FloatingActionButton({ onClick, label }: { onClick: () => void; label: 
   );
 }
 
-function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onExport, theme, setTheme, settings }: { page: Page; setPage: (page: Page) => void; onClose: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; onExport: () => void; theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings }) {
+function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onExport, theme, resolvedTheme, setTheme, settings }: { page: Page; setPage: (page: Page) => void; onClose: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; onExport: () => void; theme: Theme; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; settings: AppSettings }) {
   const items: { id: Page; label: string; icon: typeof Building2; description: string }[] = [
     { id: 'companies', label: 'Companies', icon: Building2, description: 'Company history and contacts' },
     { id: 'statistics', label: 'Statistics', icon: BarChart3, description: 'Progress and response rates' },
-    { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' }
+    { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' },
+    { id: 'ai', label: 'AI Tools', icon: Sparkles, description: 'CV review and cover letters' }
   ];
 
   return (
@@ -2637,10 +4254,10 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
         </button>
         <button type="button" onClick={() => { onOpenSettings('appearance'); onClose(); }}>
           <span className="mobile-more-icon"><Palette size={19} /></span>
-          <div><strong>Appearance</strong><small>{theme} Â· {settings.accent}</small></div>
+          <div><strong>Appearance</strong><small>{theme} · {settings.accent}</small></div>
         </button>
-        <button type="button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
-          <span className="mobile-more-icon">{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</span>
+        <button type="button" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>
+          <span className="mobile-more-icon">{resolvedTheme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</span>
           <div><strong>Switch theme</strong><small>Change between light and dark mode</small></div>
         </button>
         <button type="button" onClick={onExport}>
@@ -2732,7 +4349,7 @@ function MobileActionItem({ application, onClick }: { application: JobApplicatio
       <CompanyLogo name={application.company} domain={application.domain} />
       <div>
         <strong>{application.nextStep || application.status}</strong>
-        <span>{application.company} Â· {application.position}</span>
+        <span>{application.company} · {application.position}</span>
       </div>
       <StatusBadge status={application.status} />
     </button>
@@ -2871,7 +4488,7 @@ function MobileApplicationCard({ application, onOpen, onEdit, onDelete, onStatus
             <CompanyLogo name={application.company} domain={application.domain} />
             <div>
               <strong>{application.company}</strong>
-              <span>{application.location} Â· {application.workMode}</span>
+              <span>{application.location} · {application.workMode}</span>
             </div>
           </div>
           <StatusBadge status={application.status} />
@@ -2919,7 +4536,7 @@ function MobileFiltersSheet({ status, setStatus, category, setCategory, level, s
 
 function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
   return (
-    <MobileBottomSheet title="Application details" subtitle={`${application.company} Â· ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
+    <MobileBottomSheet title="Application details" subtitle={`${application.company} · ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
       <div className="mobile-detail-hero">
         <CompanyLogo name={application.company} domain={application.domain} large />
         <div>
@@ -2958,7 +4575,7 @@ function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { a
   );
 }
 
-function MobileCalendarPage({ events, applications, setEvents, setToast }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void }) {
+function MobileCalendarPage({ events, applications, setEvents, setToast, onSyncNotificationEvent, onDeleteNotificationEvent }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void; onSyncNotificationEvent?: (event: CalendarEvent) => void; onDeleteNotificationEvent?: (id: number) => void }) {
   const [modal, setModal] = useState<CalendarEvent | null>(null);
   const sorted = events.map(normalizeCalendarEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const grouped = sorted.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
@@ -2973,11 +4590,13 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
     else setEvents([normalized, ...events]);
     setModal(null);
     setToast('Calendar event saved.');
+    onSyncNotificationEvent?.(normalized);
   }
 
   function remove(id: number) {
     setEvents(events.filter((event) => event.id !== id));
     setToast('Calendar event removed.');
+    onDeleteNotificationEvent?.(id);
   }
 
   function addEvent() {
@@ -2995,10 +4614,11 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
           <section className="mobile-agenda-group" key={date}>
             <h2>{formatDate(date)}</h2>
             {dayEvents.map((event) => (
-              <div className="mobile-calendar-event" key={event.id}>
+              <div className="mobile-calendar-event calendar-event-card" key={event.id} style={eventColorStyle(event)}>
                 <button type="button" onClick={() => setModal(event)}>
-                  <span>{formatEventTime(event)}</span>
-                  <div><strong>{event.title}</strong><small>{event.company} Â· {event.location}</small></div>
+                  <span className="mobile-calendar-icon"><EventIcon icon={event.icon} size={15} /></span>
+                  <small className="mobile-calendar-time">{formatEventTime(event)}</small>
+                  <div><strong>{event.title}</strong><small>{event.company} · {event.location}</small></div>
                 </button>
                 <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
                 <button className="ghost-icon danger" type="button" onClick={() => remove(event.id)}><Trash2 size={16} /></button>
@@ -3016,11 +4636,12 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
 function MobileAgendaItem({ event }: { event: CalendarEvent }) {
   const normalized = normalizeCalendarEvent(event);
   return (
-    <div className="mobile-agenda-item">
-      <span>{formatEventTime(normalized)}</span>
+    <div className="mobile-agenda-item calendar-event-card" style={eventColorStyle(normalized)}>
+      <span><EventIcon icon={normalized.icon} size={15} /></span>
       <div>
         <strong>{event.title}</strong>
-        <small>{formatDate(event.date)} Â· {event.company}</small>
+        <small>{formatEventTime(normalized)}</small>
+        <small>{formatDate(event.date)} · {event.company}</small>
       </div>
     </div>
   );
@@ -3048,7 +4669,7 @@ function App() {
   const [events, setEvents] = useState<CalendarEvent[]>(appInitialEvents);
   const [documents, setDocuments] = useState<DocumentItem[]>(appInitialDocuments);
   const [notes, setNotes] = useState<NoteItem[]>(appInitialNotes);
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const [page, setPage] = useState<Page>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<ProfileTab>('profile');
@@ -3074,7 +4695,7 @@ function App() {
     setEvents(appInitialEvents);
     setDocuments(appInitialDocuments);
     setNotes(appInitialNotes);
-    setTheme('light');
+    setTheme(initialTheme);
     setSelectedApplication(null);
     setEditingApplication(undefined);
     setSettingsOpen(false);
@@ -3083,21 +4704,32 @@ function App() {
   function loadUserWorkspace(user: AuthUser) {
     const authProfile = profileFromAuthUser(user);
     const savedProfile = readUserStorage(user.id, STORAGE.profile, authProfile);
+    const savedEvents = readUserStorage(user.id, STORAGE.events, appInitialEvents).map(normalizeCalendarEvent);
+    const savedSettings = normalizeAppSettings(readUserStorage(user.id, STORAGE.settings, initialSettings));
 
     setAuthUser(user);
     setProfile({
       ...authProfile,
       ...savedProfile,
       email: user.email,
-      name: savedProfile.name?.trim() || authProfile.name
+      name: savedProfile.name?.trim() || authProfile.name,
+      avatarVariant: normalizeAvatarVariant(savedProfile.avatarVariant),
+      avatarImage: savedProfile.avatarImage || ''
     });
-    setSettings(readUserStorage(user.id, STORAGE.settings, initialSettings));
+    setSettings({
+      ...savedSettings,
+      notifications: {
+        ...savedSettings.notifications,
+        email: savedSettings.notifications.email || user.email
+      }
+    });
     setApplications(readUserStorage(user.id, STORAGE.applications, appInitialApplications));
     setCompanies(readUserStorage(user.id, STORAGE.companies, appInitialCompanies));
-    setEvents(readUserStorage(user.id, STORAGE.events, appInitialEvents).map(normalizeCalendarEvent));
+    setEvents(savedEvents);
     setDocuments(readUserStorage(user.id, STORAGE.documents, appInitialDocuments));
     setNotes(readUserStorage(user.id, STORAGE.notes, appInitialNotes));
-    setTheme(readUserStorage(user.id, STORAGE.theme, 'light'));
+    setTheme(normalizeTheme(readUserStorage(user.id, STORAGE.theme, initialTheme)));
+    void syncNotificationEvents(savedEvents);
   }
 
   useEffect(() => {
@@ -3139,6 +4771,56 @@ function App() {
     if (!authUser) return;
     writeUserStorage(authUser.id, STORAGE.theme, theme);
   }, [authUser, theme]);
+
+  useEffect(() => {
+    if (!authUser || !isLoggedIn) return;
+
+    let active = true;
+
+    notificationsApi.getSettings()
+      .then((dto) => {
+        if (!active) return;
+        setSettings((current) => applyNotificationSettingsDto(normalizeAppSettings(current), dto));
+      })
+      .catch((error) => {
+        if (!active) return;
+        setToast(error instanceof Error ? error.message : 'Notification settings could not be loaded.');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser?.id, isLoggedIn]);
+
+  useEffect(() => {
+    if (!authUser || !isLoggedIn) return;
+
+    let active = true;
+    const localEvents = readUserStorage(authUser.id, STORAGE.events, appInitialEvents).map(normalizeCalendarEvent);
+
+    calendarEventsApi.getAll()
+      .then((items) => {
+        if (!active) return;
+        const remoteEvents = items.map(calendarEventFromApi);
+
+        if (remoteEvents.length || !localEvents.length) {
+          setEvents(remoteEvents);
+          return;
+        }
+
+        setEvents(localEvents);
+        void syncNotificationEvents(localEvents);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setToast(error instanceof Error ? error.message : 'Calendar events could not be loaded.');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser?.id, isLoggedIn]);
+
   useEffect(() => { if (!toast) return; const timeout = window.setTimeout(() => setToast(''), 2400); return () => window.clearTimeout(timeout); }, [toast]);
 
   useEffect(() => {
@@ -3184,6 +4866,73 @@ function App() {
     setLoggedIn(false);
     clearWorkspaceState();
   }
+
+  async function updateNotificationSettings(nextSettings: AppSettings, nextProfile: Profile) {
+    const dto = await notificationsApi.updateSettings(notificationSettingsToApi(nextSettings, nextProfile));
+    setSettings((current) => applyNotificationSettingsDto(normalizeAppSettings(current), dto));
+    return dto;
+  }
+
+  async function saveNotificationSettings(nextSettings: AppSettings, nextProfile: Profile) {
+    if (!authUser) return;
+
+    try {
+      await updateNotificationSettings(nextSettings, nextProfile);
+      setToast('Notification settings saved.');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Notification settings could not be saved.');
+    }
+  }
+
+  async function sendNotificationTestEmail(nextSettings: AppSettings, nextProfile: Profile) {
+    if (!authUser) return;
+
+    try {
+      await updateNotificationSettings(nextSettings, nextProfile);
+      const response = await notificationsApi.sendTestEmail();
+      setToast(response.message || 'Test email sent.');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Test email could not be sent.');
+    }
+  }
+
+  async function syncNotificationEvents(eventsForUser: CalendarEvent[], showErrors = false) {
+    if (!getAuthToken() || !eventsForUser.length) return;
+
+    const results = await Promise.allSettled(
+      eventsForUser.map((event) => calendarEventsApi.upsert(calendarEventToApi(event)))
+    );
+
+    if (showErrors && results.some((result) => result.status === 'rejected')) {
+      setToast('Calendar event could not be synced.');
+    }
+  }
+
+  function syncNotificationEvent(event: CalendarEvent) {
+    if (!getAuthToken()) return;
+
+    void calendarEventsApi.upsert(calendarEventToApi(event))
+      .then((savedEvent) => {
+        const nextEvent = calendarEventFromApi(savedEvent);
+        setEvents((current) => current.some((item) => item.id === nextEvent.id)
+          ? current.map((item) => item.id === nextEvent.id ? nextEvent : item)
+          : [nextEvent, ...current]);
+      })
+      .catch((error) => {
+        setToast(error instanceof Error ? error.message : 'Calendar event could not be synced.');
+      });
+  }
+
+  async function deleteNotificationEvent(id: number) {
+    if (!getAuthToken()) return;
+
+    try {
+      await calendarEventsApi.remove(id);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Calendar event could not be removed.');
+    }
+  }
+
   function openSettings(tab: ProfileTab = 'profile') { setSettingsTab(tab); setSettingsOpen(true); }
   async function saveApplication(app: JobApplication) {
     try {
@@ -3230,6 +4979,19 @@ function App() {
       tags: doc.tags?.length ? doc.tags : ['Link']
     });
   }
+  async function saveCoverLetterDocument(input: SaveCoverLetterInput) {
+    await documentsApi.createText({
+      name: input.name,
+      type: 'Cover letter',
+      category: 'AI generated',
+      content: input.content,
+      language: input.language,
+      targetRole: input.targetRole,
+      notes: `Generated for ${input.companyName} - ${input.jobTitle}`,
+      tags: ['AI', 'Cover letter']
+    });
+    await documentsApiState.loadDocuments();
+  }
   async function archiveDocument(id: EntityId) {
     await documentsApiState.archiveDocument(id);
   }
@@ -3264,12 +5026,53 @@ function App() {
     setEvents(appInitialEvents);
     setDocuments(appInitialDocuments);
     setNotes(appInitialNotes);
-    setSettings(initialSettings);
-    setProfile(initialProfile);
+    setSettings(normalizeAppSettings(initialSettings));
+    setProfile(authUser ? profileFromAuthUser(authUser) : initialProfile);
     setToast('Local workspace cleared.');
   }
+
+  async function importApplicationsCsv(file: File) {
+    try {
+      const text = await readTextFile(file);
+      const importedApplications = parseApplicationsCsv(text);
+
+      if (!importedApplications.length) {
+        setToast('No applications found in this CSV file.');
+        return;
+      }
+
+      const confirmed = confirm(`Import ${importedApplications.length} applications from ${file.name}?`);
+      if (!confirmed) return;
+
+      let created = 0;
+      let failed = 0;
+
+      for (const application of importedApplications) {
+        try {
+          await applicationsApi.createApplication(uiApplicationToApi(application));
+          created += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (created) {
+        await applicationsApi.loadApplications();
+      }
+
+      if (failed) {
+        setToast(`Imported ${created} applications. ${failed} rows could not be saved.`);
+      } else {
+        setToast(`Imported ${created} applications.`);
+      }
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'CSV could not be imported.');
+    }
+  }
+
   function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications: liveApplications, companies, events, documents: liveDocuments, notes }, setToast); }
-  const shellClass = `app-shell ${theme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
+  const resolvedTheme = useResolvedTheme(theme);
+  const shellClass = `app-shell theme-${theme} ${resolvedTheme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
   const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
   const levelOptions = uniqueOptions(levels, settings.preferences.levels);
 
@@ -3277,7 +5080,7 @@ function App() {
 
   if (authLoading) {
     return (
-      <main className="login-page">
+      <main className={`login-page ${resolvedTheme === 'dark' ? 'dark' : ''}`}>
         <section className="login-card">
           <Logo />
           <div className="empty-state"><BriefcaseBusiness size={28} /><strong>Checking session</strong><span>Connecting to the local API.</span></div>
@@ -3286,11 +5089,11 @@ function App() {
     );
   }
 
-  if (!isLoggedIn) return <LoginPage onLogin={login} onRegister={register} />;
+  if (!isLoggedIn) return <LoginPage onLogin={login} onRegister={register} resolvedTheme={resolvedTheme} />;
 
   const commonOverlays = (
     <>
-      {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onExport={() => exportCsv(liveApplications, setToast)} onBackup={backup} onReset={resetWorkspace} /> : null}
+      {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onImportCsv={importApplicationsCsv} onExport={() => exportCsv(liveApplications, setToast)} onBackup={backup} onReset={resetWorkspace} onSaveSettings={saveNotificationSettings} onSendNotificationTest={sendNotificationTestEmail} /> : null}
       {editingApplication !== undefined ? <ApplicationModal application={editingApplication || undefined} companies={companies} documents={liveDocuments} categoryOptions={categoryOptions} levelOptions={levelOptions} onClose={() => setEditingApplication(undefined)} onSave={saveApplication} /> : null}
       {toast ? <Toast message={toast} /> : null}
     </>
@@ -3304,6 +5107,7 @@ function App() {
         setPage={setPage}
         profile={profile}
         theme={theme}
+        resolvedTheme={resolvedTheme}
         setTheme={setTheme}
         settings={settings}
         applications={liveApplications}
@@ -3332,6 +5136,9 @@ function App() {
         onArchiveDocument={archiveDocument}
         onDownloadDocument={downloadDocument}
         onPreviewDocument={previewDocument}
+        onSaveCoverLetter={saveCoverLetterDocument}
+        onSyncNotificationEvent={syncNotificationEvent}
+        onDeleteNotificationEvent={deleteNotificationEvent}
         categoryOptions={categoryOptions}
         levelOptions={levelOptions}
       >
@@ -3344,7 +5151,7 @@ function App() {
     <div className={shellClass}>
       <Sidebar page={page} setPage={setPage} applications={liveApplications} settings={settings} />
       <div className="workspace">
-        <Topbar page={page} profile={profile} theme={theme} setTheme={setTheme} onOpenApplication={() => { setPage('applications'); setEditingApplication(null); }} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} />
+        <Topbar page={page} profile={profile} resolvedTheme={resolvedTheme} setTheme={setTheme} onOpenApplication={() => { setPage('applications'); setEditingApplication(null); }} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} />
         <div className="content custom-scroll">
           {page === 'dashboard' ? <DashboardPage applications={liveApplications} events={events} setPage={setPage} /> : null}
           {page === 'applications' ? (
@@ -3358,8 +5165,9 @@ function App() {
           ) : null}
           {page === 'companies' ? <CompaniesPage companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
-          {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} /> : null}
+          {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
           {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
+          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>
       </div>

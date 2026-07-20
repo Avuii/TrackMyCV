@@ -225,6 +225,81 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.ToTable("JobApplications");
                 });
 
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.CvReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DocumentName")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("nvarchar(220)");
+
+                    b.Property<string>("ErrorMessage")
+                        .IsRequired()
+                        .HasMaxLength(700)
+                        .HasColumnType("nvarchar(700)");
+
+                    b.Property<string>("ExperienceLevel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int?>("JobMatchScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int?>("OverallScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReviewType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("CvReviews");
+                });
+
             modelBuilder.Entity("TrackMyCV.Domain.Entities.UserDocument", b =>
                 {
                     b.Property<Guid>("Id")
@@ -322,6 +397,181 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.ToTable("UserDocuments");
                 });
 
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.NotificationCalendarEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApplicationId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ClientEventId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Company")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DetailedPlan")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<TimeOnly?>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<DateOnly>("EventDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("MeetingLink")
+                        .IsRequired()
+                        .HasMaxLength(700)
+                        .HasColumnType("nvarchar(700)");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("nvarchar(220)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "ClientEventId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationCalendarEvents");
+                });
+
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.NotificationEmailLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NotificationKey")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("nvarchar(220)");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<DateTime>("SentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "NotificationType", "NotificationKey")
+                        .IsUnique();
+
+                    b.ToTable("NotificationEmailLogs");
+                });
+
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.UserNotificationSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("ApplicationDeadlines")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<bool>("FollowUpReminders")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("InterviewReminders")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("MonthlyReport")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ReminderTime")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("WeeklySummary")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId")
+                        .IsUnique();
+
+                    b.ToTable("UserNotificationSettings");
+                });
+
             modelBuilder.Entity("TrackMyCV.Domain.Entities.AuthSession", b =>
                 {
                     b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
@@ -349,11 +599,63 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.CvReview", b =>
+                {
+                    b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
+                        .WithMany("CvReviews")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TrackMyCV.Domain.Entities.UserDocument", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.NotificationCalendarEvent", b =>
+                {
+                    b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
+                        .WithMany("NotificationCalendarEvents")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.NotificationEmailLog", b =>
+                {
+                    b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
+                        .WithMany("NotificationEmailLogs")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+                });
+
             modelBuilder.Entity("TrackMyCV.Domain.Entities.UserDocument", b =>
                 {
                     b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
                         .WithMany("Documents")
                         .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.UserNotificationSettings", b =>
+                {
+                    b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
+                        .WithOne("NotificationSettings")
+                        .HasForeignKey("TrackMyCV.Domain.Entities.UserNotificationSettings", "AppUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -367,6 +669,14 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.Navigation("AuthSessions");
 
                     b.Navigation("Documents");
+
+                    b.Navigation("CvReviews");
+
+                    b.Navigation("NotificationCalendarEvents");
+
+                    b.Navigation("NotificationEmailLogs");
+
+                    b.Navigation("NotificationSettings");
                 });
 
             modelBuilder.Entity("TrackMyCV.Domain.Entities.Company", b =>

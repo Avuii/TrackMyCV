@@ -24,6 +24,14 @@ public class AppDbContext : DbContext
 
     public DbSet<UserDocument> UserDocuments => Set<UserDocument>();
 
+    public DbSet<UserNotificationSettings> UserNotificationSettings => Set<UserNotificationSettings>();
+
+    public DbSet<NotificationCalendarEvent> NotificationCalendarEvents => Set<NotificationCalendarEvent>();
+
+    public DbSet<NotificationEmailLog> NotificationEmailLogs => Set<NotificationEmailLog>();
+
+    public DbSet<CvReview> CvReviews => Set<CvReview>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -149,6 +157,149 @@ public class AppDbContext : DbContext
                 .IsRequired();
 
             entity.HasIndex(x => x.AppUserId);
+        });
+
+        modelBuilder.Entity<CvReview>(entity =>
+        {
+            entity.HasOne(x => x.AppUser)
+                .WithMany(x => x.CvReviews)
+                .HasForeignKey(x => x.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Document)
+                .WithMany()
+                .HasForeignKey(x => x.DocumentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(x => x.DocumentName)
+                .HasMaxLength(220)
+                .IsRequired();
+
+            entity.Property(x => x.ReviewType)
+                .HasMaxLength(40)
+                .IsRequired();
+
+            entity.Property(x => x.Language)
+                .HasMaxLength(10)
+                .IsRequired();
+
+            entity.Property(x => x.JobTitle)
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(x => x.ExperienceLevel)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(x => x.Status)
+                .HasMaxLength(30)
+                .IsRequired();
+
+            entity.Property(x => x.ResultJson)
+                .IsRequired();
+
+            entity.Property(x => x.ErrorMessage)
+                .HasMaxLength(700)
+                .IsRequired();
+
+            entity.HasIndex(x => x.AppUserId);
+            entity.HasIndex(x => x.DocumentId);
+        });
+
+        modelBuilder.Entity<UserNotificationSettings>(entity =>
+        {
+            entity.HasOne(x => x.AppUser)
+                .WithOne(x => x.NotificationSettings)
+                .HasForeignKey<UserNotificationSettings>(x => x.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(x => x.Email)
+                .HasMaxLength(320)
+                .IsRequired();
+
+            entity.Property(x => x.ReminderTime)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.HasIndex(x => x.AppUserId)
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<NotificationCalendarEvent>(entity =>
+        {
+            entity.HasOne(x => x.AppUser)
+                .WithMany(x => x.NotificationCalendarEvents)
+                .HasForeignKey(x => x.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(x => x.ClientEventId)
+                .HasMaxLength(120)
+                .IsRequired();
+
+            entity.Property(x => x.Title)
+                .HasMaxLength(220)
+                .IsRequired();
+
+            entity.Property(x => x.Company)
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(x => x.ApplicationId)
+                .HasMaxLength(120)
+                .IsRequired();
+
+            entity.Property(x => x.EventType)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.Location)
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(x => x.MeetingLink)
+                .HasMaxLength(700)
+                .IsRequired();
+
+            entity.Property(x => x.DetailedPlan)
+                .IsRequired();
+
+            entity.Property(x => x.Icon)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(x => x.Color)
+                .HasMaxLength(40)
+                .IsRequired();
+
+            entity.HasIndex(x => new { x.AppUserId, x.ClientEventId })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<NotificationEmailLog>(entity =>
+        {
+            entity.HasOne(x => x.AppUser)
+                .WithMany(x => x.NotificationEmailLogs)
+                .HasForeignKey(x => x.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(x => x.NotificationType)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(x => x.NotificationKey)
+                .HasMaxLength(220)
+                .IsRequired();
+
+            entity.Property(x => x.RecipientEmail)
+                .HasMaxLength(320)
+                .IsRequired();
+
+            entity.Property(x => x.Subject)
+                .HasMaxLength(240)
+                .IsRequired();
+
+            entity.HasIndex(x => new { x.AppUserId, x.NotificationType, x.NotificationKey })
+                .IsUnique();
         });
 
         modelBuilder.Entity<Company>(entity =>

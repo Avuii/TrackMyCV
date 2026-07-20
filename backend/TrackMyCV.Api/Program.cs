@@ -1,4 +1,7 @@
 using TrackMyCV.Api.Auth;
+using TrackMyCV.Api.Ai;
+using TrackMyCV.Api.Notifications;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TrackMyCV.Infrastructure;
 using TrackMyCV.Infrastructure.Data;
@@ -11,6 +14,36 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
+builder.Services.PostConfigure<OpenAiOptions>(options =>
+{
+    options.ApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? options.ApiKey;
+    options.Model = Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? options.Model;
+});
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHostedService<NotificationBackgroundService>();
+builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
+builder.Services.AddScoped<ICvReviewService, CvReviewService>();
+builder.Services.AddScoped<ICoverLetterGeneratorService, CoverLetterGeneratorService>();
+builder.Services.AddHttpClient<IAiProvider, OpenAiProvider>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("ai", context =>
+    {
+        var userKey = context.Items.TryGetValue(AuthHttpContextExtensions.UserIdItemKey, out var value) && value is Guid userId
+            ? userId.ToString("N")
+            : context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+
+        return RateLimitPartition.GetFixedWindowLimiter(userKey, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 8,
+            Window = TimeSpan.FromMinutes(10),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+});
 
 builder.Services.AddCors(options =>
 {
@@ -70,6 +103,8 @@ app.UseCors("Frontend");
 app.UseHttpsRedirection();
 
 app.UseMiddleware<TokenAuthenticationMiddleware>();
+
+app.UseRateLimiter();
 
 app.MapControllers();
 

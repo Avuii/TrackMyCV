@@ -425,3 +425,59 @@ Current limitations:
 
 Created by Katarzyna Stańczyk.
 
+---
+
+## AI Tools
+
+TrackMyCV includes an authenticated AI Tools module with:
+
+- AI CV Review: general CV analysis and job-match review against a pasted job offer.
+- AI Cover Letter Generator: generates an editable cover letter from a selected CV and job description.
+- Recent AI Activity: saved CV review history.
+
+AI requests are executed only by the ASP.NET Core backend. The frontend never receives or stores the OpenAI API key.
+
+### OpenAI Configuration
+
+Backend configuration supports:
+
+```json
+{
+  "OpenAI": {
+    "ApiKey": "",
+    "Model": "gpt-5-mini",
+    "TimeoutSeconds": 90
+  }
+}
+```
+
+Use environment variables for real values:
+
+```bash
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5-mini
+```
+
+Do not commit a real API key. `.env.example` contains placeholders only.
+
+### AI Endpoints
+
+- `POST /api/ai/cv-reviews`
+- `GET /api/ai/cv-reviews`
+- `GET /api/ai/cv-reviews/{id}`
+- `DELETE /api/ai/cv-reviews/{id}`
+- `POST /api/ai/cover-letters/generate`
+- `POST /api/documents/text`
+
+All AI endpoints require the TrackMyCV auth token. Users can analyze only their own documents.
+
+### Document Formats
+
+AI CV text extraction supports uploaded CV documents in:
+
+- PDF, when the PDF contains readable text
+- DOCX
+- TXT
+- RTF
+
+Scanned PDFs without embedded text should be converted to a text-based PDF or DOCX before analysis.
