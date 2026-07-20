@@ -3617,28 +3617,32 @@ function AIToolsPage({
     const now = new Date().toISOString();
 
     if (!hasJobSources) {
-      setScoutRuns((current) => [{
+      const blockedRun: JobScoutRun = {
         id: `scout-run-${Date.now()}`,
         startedAt: now,
         completedAt: now,
         status: 'blocked',
         newMatches: 0,
         message: 'No legal job source provider is configured yet. Connect API, RSS or company careers providers before running discovery.'
-      }, ...current].slice(0, 12));
+      };
+
+      setScoutRuns((current) => [blockedRun, ...current].slice(0, 12));
       setScoutTab('history');
       setToast('AI Job Scout needs job source providers before searching.');
       setScoutBusy(false);
       return;
     }
 
-    setScoutRuns((current) => [{
+    const completedRun: JobScoutRun = {
       id: `scout-run-${Date.now()}`,
       startedAt: now,
       completedAt: now,
       status: 'completed',
       newMatches: 0,
       message: 'Search completed. No new matching jobs were returned by configured providers.'
-    }, ...current].slice(0, 12));
+    };
+
+    setScoutRuns((current) => [completedRun, ...current].slice(0, 12));
     setScoutTab('new');
     setScoutBusy(false);
   }
@@ -3682,6 +3686,23 @@ function AIToolsPage({
           <div><h2>AI Cover Letter Generator</h2><p>Generate a personalized cover letter based on your CV and a selected job offer.</p></div>
           <strong>Generate cover letter</strong>
         </button>
+        <article className={`ai-tool-card ai-tool-card-actions-card panel-card ${activeTool === 'scout' ? 'active' : ''}`}>
+          <span><BriefcaseBusiness size={22} /></span>
+          <div>
+            <h2>AI Job Scout</h2>
+            <p>Find new job opportunities matching your experience, skills and career preferences.</p>
+            <div className="ai-tool-card-meta">
+              <small>{scoutNewMatches.length} new matches</small>
+              <small>Last search: {lastScoutRun ? formatDate(lastScoutRun.completedAt.slice(0, 10)) : 'Never'}</small>
+              <small>Next search: {hasJobSources ? scoutFrequency : 'After source setup'}</small>
+            </div>
+          </div>
+          <div className="ai-tool-card-actions">
+            <button className="secondary-button small" type="button" onClick={() => { setActiveTool('scout'); setScoutTab('new'); }}>View matches</button>
+            <button className="primary-button small" type="button" onClick={() => { setActiveTool('scout'); void runJobScout(); }} disabled={scoutBusy}>{scoutBusy ? 'Searching...' : 'Search now'}</button>
+            <button className="secondary-button small" type="button" onClick={() => onOpenSettings?.('preferences')}>Configure preferences</button>
+          </div>
+        </article>
       </div>
 
       {!cvDocuments.length ? (
@@ -3710,7 +3731,7 @@ function AIToolsPage({
               <TextAreaField label="Job description" value={reviewForm.jobDescription || ''} onChange={(value) => setReview('jobDescription', value)} placeholder="Required for Job Match Review." />
               <button className="primary-button ai-form-action" type="submit" disabled={reviewBusy || !cvDocuments.length}>{reviewBusy ? 'Analyzing...' : 'Run review'}</button>
             </form>
-          ) : (
+          ) : activeTool === 'cover' ? (
             <form className="modal-form compact-ai-form" onSubmit={generateCoverLetter}>
               <div className="mini-title"><Edit3 size={18} /><h2>AI Cover Letter Generator</h2></div>
               <div className="form-grid">
@@ -3726,11 +3747,26 @@ function AIToolsPage({
               <TextAreaField label="Additional context" value={coverForm.additionalContext} onChange={(value) => setCover('additionalContext', value)} placeholder="Optional details you want to include, only if true." />
               <button className="primary-button" type="submit" disabled={coverBusy || !cvDocuments.length || Boolean(coverProfileMissing.length)}>{coverBusy ? 'Generating...' : coverResult ? 'Generate again' : 'Generate'}</button>
             </form>
+          ) : (
+            <JobScoutForm
+              preferenceSummary={scoutPreferenceSummary}
+              configuredSources={jobScoutConfiguredSources}
+              hasJobSources={hasJobSources}
+              minScore={scoutMinScore}
+              frequency={scoutFrequency}
+              useCvContext={scoutUseCvContext}
+              busy={scoutBusy}
+              onMinScoreChange={setScoutMinScore}
+              onFrequencyChange={setScoutFrequency}
+              onUseCvContextChange={setScoutUseCvContext}
+              onSearch={() => void runJobScout()}
+              onOpenPreferences={() => onOpenSettings?.('preferences')}
+            />
           )}
         </section>
 
         <section className="panel-card ai-result-panel">
-          {activeTool === 'review' ? <CvReviewReport review={selectedReview} busy={reviewBusy} onRerun={() => setActiveTool('review')} /> : (
+          {activeTool === 'review' ? <CvReviewReport review={selectedReview} busy={reviewBusy} onRerun={() => setActiveTool('review')} /> : activeTool === 'cover' ? (
             <CoverLetterEditor
               result={coverResult}
               value={editableCoverLetter}
@@ -3749,6 +3785,20 @@ function AIToolsPage({
               onDownload={downloadCoverLetter}
               onSave={saveCoverLetter}
               onGenerateAgain={() => void generateCoverLetter()}
+            />
+          ) : (
+            <JobScoutPanel
+              activeTab={scoutTab}
+              matches={scoutMatches}
+              runs={scoutRuns}
+              minScore={scoutMinScore}
+              hasJobSources={hasJobSources}
+              onTabChange={setScoutTab}
+              onSave={(match) => updateScoutMatchStatus(match.id, 'saved')}
+              onIgnore={(match) => updateScoutMatchStatus(match.id, 'ignored')}
+              onAdd={(match) => void addScoutMatchToApplications(match)}
+              onSearch={() => void runJobScout()}
+              onOpenPreferences={() => onOpenSettings?.('preferences')}
             />
           )}
         </section>
@@ -3781,6 +3831,235 @@ function AIToolsPage({
         ) : <p className="empty-panel-note">No AI activity yet.</p>}
       </section>
     </section>
+  );
+}
+
+function JobScoutForm({
+  preferenceSummary,
+  configuredSources,
+  hasJobSources,
+  minScore,
+  frequency,
+  useCvContext,
+  busy,
+  onMinScoreChange,
+  onFrequencyChange,
+  onUseCvContextChange,
+  onSearch,
+  onOpenPreferences
+}: {
+  preferenceSummary: { roles: string[]; locations: string; workModes: string };
+  configuredSources: string[];
+  hasJobSources: boolean;
+  minScore: number;
+  frequency: JobScoutFrequency;
+  useCvContext: boolean;
+  busy: boolean;
+  onMinScoreChange: (value: number) => void;
+  onFrequencyChange: (value: JobScoutFrequency) => void;
+  onUseCvContextChange: (value: boolean) => void;
+  onSearch: () => void;
+  onOpenPreferences: () => void;
+}) {
+  return (
+    <form className="modal-form compact-ai-form job-scout-form" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
+      <div className="mini-title"><BriefcaseBusiness size={18} /><h2>AI Job Scout</h2></div>
+      <p className="ai-helper-text">Cyclically checks connected job sources, deduplicates offers and asks AI only to score and explain real matches.</p>
+
+      <div className={`job-source-notice ${hasJobSources ? 'ready' : 'blocked'}`}>
+        <Sparkles size={18} />
+        <div>
+          <strong>{hasJobSources ? `${configuredSources.length} source providers active` : 'Source providers not configured yet'}</strong>
+          <span>{hasJobSources ? configuredSources.join(', ') : 'Connect legal APIs, RSS feeds or company careers providers before running discovery.'}</span>
+        </div>
+      </div>
+
+      <div className="job-scout-summary-grid">
+        <div>
+          <span>Roles</span>
+          <strong>{preferenceSummary.roles.length ? preferenceSummary.roles.join(', ') : 'No roles selected'}</strong>
+        </div>
+        <div>
+          <span>Locations</span>
+          <strong>{preferenceSummary.locations}</strong>
+        </div>
+        <div>
+          <span>Work modes</span>
+          <strong>{preferenceSummary.workModes}</strong>
+        </div>
+      </div>
+
+      <div className="form-grid">
+        <NumberStepper label="Notify above match score" value={minScore} onChange={onMinScoreChange} min={0} max={100} unit="%" />
+        <div className="form-field"><span>Search schedule</span><CustomSelect value={frequency} options={['Manual', 'Daily', 'Weekdays', 'Weekly']} onChange={(value) => onFrequencyChange(value as JobScoutFrequency)} /></div>
+      </div>
+
+      <div className="job-scout-consent">
+        <div>
+          <strong>Use full CV context</strong>
+          <span>Off by default. Job Scout can score from profile preferences only until you explicitly allow CV content.</span>
+        </div>
+        <button className={`toggle ${useCvContext ? 'on' : ''}`} type="button" aria-pressed={useCvContext} onClick={() => onUseCvContextChange(!useCvContext)}><span /></button>
+      </div>
+
+      <div className="job-scout-actions">
+        <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Searching...' : 'Search now'}</button>
+        <button className="secondary-button" type="button" onClick={onOpenPreferences}><SlidersHorizontal size={16} /> Configure preferences</button>
+      </div>
+    </form>
+  );
+}
+
+function JobScoutPanel({
+  activeTab,
+  matches,
+  runs,
+  minScore,
+  hasJobSources,
+  onTabChange,
+  onSave,
+  onIgnore,
+  onAdd,
+  onSearch,
+  onOpenPreferences
+}: {
+  activeTab: JobScoutTab;
+  matches: JobScoutMatch[];
+  runs: JobScoutRun[];
+  minScore: number;
+  hasJobSources: boolean;
+  onTabChange: (tab: JobScoutTab) => void;
+  onSave: (match: JobScoutMatch) => void;
+  onIgnore: (match: JobScoutMatch) => void;
+  onAdd: (match: JobScoutMatch) => void;
+  onSearch: () => void;
+  onOpenPreferences: () => void;
+}) {
+  const counts: Record<JobScoutTab, number> = {
+    new: matches.filter((match) => match.status === 'new').length,
+    saved: matches.filter((match) => match.status === 'saved').length,
+    ignored: matches.filter((match) => match.status === 'ignored').length,
+    added: matches.filter((match) => match.status === 'added').length,
+    history: runs.length
+  };
+  const visibleMatches = activeTab === 'history' ? [] : matches.filter((match) => match.status === activeTab);
+  const emptyCopy: Record<Exclude<JobScoutTab, 'history'>, { title: string; text: string }> = {
+    new: {
+      title: 'No new matches yet',
+      text: hasJobSources ? `Run a search to find jobs scoring at least ${minScore}%.` : 'Connect source providers first, then Job Scout will show only real offers above your threshold.'
+    },
+    saved: {
+      title: 'No saved matches',
+      text: 'Saved offers will stay here until you apply, ignore them or add them to Applications.'
+    },
+    ignored: {
+      title: 'No ignored matches',
+      text: 'Ignored offers are kept separately so duplicates stay quiet.'
+    },
+    added: {
+      title: 'No jobs added yet',
+      text: 'When a match looks promising, add it to Applications to continue tracking the process.'
+    }
+  };
+
+  return (
+    <div className="job-scout-panel">
+      <div className="ai-report-header">
+        <div>
+          <h2>AI Job Scout</h2>
+          <p>Real job discovery pipeline with AI scoring, deduplication and application handoff.</p>
+        </div>
+        <button className="secondary-button small" type="button" onClick={onOpenPreferences}><SlidersHorizontal size={15} /> Preferences</button>
+      </div>
+
+      <div className="job-scout-tabs" role="tablist" aria-label="AI Job Scout views">
+        {jobScoutTabs.map((tab) => (
+          <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" role="tab" aria-selected={activeTab === tab.id} onClick={() => onTabChange(tab.id)}>
+            {tab.label}
+            <span>{counts[tab.id]}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'history' ? (
+        runs.length ? (
+          <div className="job-scout-run-list">
+            {runs.map((run) => (
+              <article key={run.id} className={`job-scout-run ${run.status}`}>
+                <div>
+                  <strong>{run.status === 'blocked' ? 'Provider setup needed' : run.status === 'failed' ? 'Search failed' : 'Search completed'}</strong>
+                  <span>{formatDateTime(run.completedAt)}</span>
+                  <p>{run.message}</p>
+                </div>
+                <em>{run.newMatches} new matches</em>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="job-scout-empty">
+            <Clock size={28} />
+            <strong>No search history yet</strong>
+            <span>Search runs will appear here with provider status, dedupe count and new matches.</span>
+            <button className="primary-button" type="button" onClick={onSearch}>Search now</button>
+          </div>
+        )
+      ) : visibleMatches.length ? (
+        <div className="job-scout-list">
+          {visibleMatches.map((match) => (
+            <JobScoutMatchCard key={match.id} match={match} onSave={onSave} onIgnore={onIgnore} onAdd={onAdd} />
+          ))}
+        </div>
+      ) : (
+        <div className="job-scout-empty">
+          <Search size={28} />
+          <strong>{emptyCopy[activeTab].title}</strong>
+          <span>{emptyCopy[activeTab].text}</span>
+          <div className="job-scout-empty-actions">
+            <button className="primary-button" type="button" onClick={onSearch}>Search now</button>
+            <button className="secondary-button" type="button" onClick={onOpenPreferences}>Configure preferences</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JobScoutMatchCard({ match, onSave, onIgnore, onAdd }: { match: JobScoutMatch; onSave: (match: JobScoutMatch) => void; onIgnore: (match: JobScoutMatch) => void; onAdd: (match: JobScoutMatch) => void }) {
+  const offerUrl = match.applyUrl || match.sourceUrl;
+
+  function openOffer() {
+    if (!offerUrl) return;
+    window.open(offerUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <article className="job-scout-card">
+      <header>
+        <div>
+          <small>{match.source} - Found {formatDate(match.foundAt.slice(0, 10))} - Published {formatDate(match.publishedAt.slice(0, 10))}</small>
+          <h3>{match.title}</h3>
+          <p><Building2 size={15} /> {match.company} <MapPin size={15} /> {match.location} <Monitor size={15} /> {match.workMode}</p>
+        </div>
+        <strong>{match.matchScore}%</strong>
+      </header>
+      <p>{match.matchReason}</p>
+      <div className="job-scout-skill-grid">
+        <div>
+          <span>Matched tech</span>
+          <div>{match.matchedSkills.length ? match.matchedSkills.map((skill) => <em key={skill}>{skill}</em>) : <em>None listed</em>}</div>
+        </div>
+        <div>
+          <span>Gaps</span>
+          <div>{match.gaps.length ? match.gaps.map((gap) => <em key={gap}>{gap}</em>) : <em>No major gaps</em>}</div>
+        </div>
+      </div>
+      <div className="job-scout-card-actions">
+        <button className="primary-button small" type="button" onClick={openOffer} disabled={!offerUrl}><ExternalLink size={15} /> Apply</button>
+        <button className="secondary-button small" type="button" onClick={() => onSave(match)} disabled={match.status === 'saved'}><Pin size={15} /> Save</button>
+        <button className="secondary-button small" type="button" onClick={() => onIgnore(match)} disabled={match.status === 'ignored'}><X size={15} /> Ignore</button>
+        <button className="secondary-button small" type="button" onClick={() => onAdd(match)} disabled={match.status === 'added'}><BriefcaseBusiness size={15} /> Add to applications</button>
+      </div>
+    </article>
   );
 }
 
@@ -4672,6 +4951,7 @@ type MobileLayoutProps = {
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
   onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>;
+  onAddApplicationFromScout: (match: JobScoutMatch) => Promise<void>;
   onSyncNotificationEvent?: (event: CalendarEvent) => void;
   onDeleteNotificationEvent?: (id: number) => void;
   categoryOptions: string[];
@@ -4716,6 +4996,7 @@ function MobileLayout({
   onDownloadDocument,
   onPreviewDocument,
   onSaveCoverLetter,
+  onAddApplicationFromScout,
   onSyncNotificationEvent,
   onDeleteNotificationEvent,
   categoryOptions,
@@ -4770,7 +5051,7 @@ function MobileLayout({
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
-        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} onOpenSettings={onOpenSettings} /> : null}
+        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} settings={settings} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
       </main>
 
       <FloatingActionButton onClick={openAddApplication} label="Add application" />
@@ -5628,6 +5909,53 @@ function App() {
       tags: ['AI', 'Cover letter', 'LaTeX']
     });
   }
+  async function addJobScoutApplication(match: JobScoutMatch) {
+    const offerUrl = match.applyUrl || match.sourceUrl;
+    const duplicate = liveApplications.some((application) =>
+      (offerUrl && application.offerUrl === offerUrl)
+      || (application.company.trim().toLowerCase() === match.company.trim().toLowerCase()
+        && application.position.trim().toLowerCase() === match.title.trim().toLowerCase())
+    );
+
+    if (duplicate) {
+      throw new Error('This job is already in Applications.');
+    }
+
+    const defaultCv = liveDocuments.find((document) => document.type === 'CV' && document.isDefault)
+      || liveDocuments.find((document) => document.type === 'CV' && document.status !== 'Archived');
+    const notes = [
+      'Added from AI Job Scout.',
+      `Match score: ${match.matchScore}%.`,
+      `Why it matched: ${match.matchReason}`,
+      `Matched tech: ${match.matchedSkills.length ? match.matchedSkills.join(', ') : '-'}.`,
+      `Gaps: ${match.gaps.length ? match.gaps.join(', ') : '-'}.`,
+      `Source link: ${match.sourceUrl || '-'}`
+    ].join('\n');
+    const application: JobApplication = {
+      id: makeId(),
+      company: match.company,
+      companyId: null,
+      domain: safeDomain(match.company),
+      position: match.title,
+      category: settings.preferences.categories[0] || 'Other',
+      level: settings.preferences.levels[0] || 'Internship',
+      status: 'Saved',
+      dateApplied: today(),
+      lastContact: '',
+      nextStep: 'Review AI Job Scout match and apply.',
+      location: match.location,
+      workMode: match.workMode,
+      source: match.source || 'AI Job Scout',
+      offerUrl,
+      requirements: uniqueOptions(match.matchedSkills, match.gaps.map((gap) => `Gap: ${gap}`)).join('\n'),
+      benefits: '',
+      notes,
+      cv: defaultCv?.name || ''
+    };
+
+    const saved = await applicationsApi.createApplication(uiApplicationToApi(application));
+    setSelectedApplication(apiApplicationToUi(saved));
+  }
   async function archiveDocument(id: EntityId) {
     await documentsApiState.archiveDocument(id);
   }
@@ -5777,6 +6105,7 @@ function App() {
         onDownloadDocument={downloadDocument}
         onPreviewDocument={previewDocument}
         onSaveCoverLetter={saveCoverLetterDocument}
+        onAddApplicationFromScout={addJobScoutApplication}
         onSyncNotificationEvent={syncNotificationEvent}
         onDeleteNotificationEvent={deleteNotificationEvent}
         categoryOptions={categoryOptions}
@@ -5807,7 +6136,7 @@ function App() {
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
           {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
-          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} onOpenSettings={openSettings} /> : null}
+          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} settings={settings} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>
       </div>

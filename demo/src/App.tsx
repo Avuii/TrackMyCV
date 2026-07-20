@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   CheckSquare,
   ChevronDown,
+  ChevronUp,
   Clock,
   Database,
   Download,
@@ -31,6 +32,7 @@ import {
   MoreHorizontal,
   Palette,
   Pencil,
+  Pin,
   Plus,
   Search,
   SlidersHorizontal,
@@ -46,13 +48,13 @@ import {
   X
 } from 'lucide-react';
 
-type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes';
+type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes' | 'ai';
 type Theme = 'light' | 'dark';
 type Status = 'Saved' | 'Applied' | 'In progress' | 'Interview' | 'Task / test' | 'Offer' | 'Rejected' | 'No response' | 'Ghosted' | 'Archived';
-type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
+type WorkMode = 'Remote' | 'Hybrid' | 'On-site' | 'All work modes';
 type CalendarView = 'Month' | 'Week' | 'List';
 type ProfileTab = 'profile' | 'appearance' | 'notifications' | 'preferences' | 'data';
-type DocKind = 'CV' | 'Cover letter' | 'Portfolio' | 'GitHub' | 'LinkedIn' | 'Certificate' | 'Other';
+type DocKind = 'CV' | 'Cover letter' | 'Portfolio' | 'GitHub' | 'LinkedIn' | 'Job offer' | 'Task description' | 'Recruiter email' | 'Certificate' | 'Other';
 
 type JobApplication = {
   id: number;
@@ -128,11 +130,20 @@ type NoteItem = {
   checklist: ChecklistItem[];
 };
 
+type PreferredLocationPreference = {
+  id: string;
+  city: string;
+  radiusKm: number;
+};
+
 type Profile = {
   name: string;
   email: string;
   title: string;
   location: string;
+  portfolioUrl: string;
+  linkedInUrl: string;
+  githubUrl: string;
   workMode: WorkMode;
 };
 
@@ -153,6 +164,7 @@ type AppSettings = {
     categories: string[];
     levels: string[];
     locations: string[];
+    locationPreferences: PreferredLocationPreference[];
     workModes: WorkMode[];
     noResponseDays: number;
     ghostedDays: number;
@@ -175,11 +187,12 @@ const STORAGE = {
 const statuses: Status[] = ['Saved', 'Applied', 'In progress', 'Interview', 'Task / test', 'Offer', 'Rejected', 'No response', 'Ghosted', 'Archived'];
 const categories = ['.NET', 'C#', 'Cybersecurity', 'IAM', 'SOC', 'DevOps', 'React', 'Full-stack', 'Backend', 'Frontend', 'Data / AI', 'Support IT', 'Other'];
 const levels = ['Internship', 'Intern', 'Trainee', 'Working Student', 'Junior', 'Junior-friendly', 'Mid', 'Senior'];
-const workModes: WorkMode[] = ['Remote', 'Hybrid', 'On-site'];
-const sources = ['LinkedIn', 'Just Join IT', 'Pracuj.pl', 'Company career page', 'No Fluff Jobs', 'Direct referral', 'Other'];
+const allWorkModes: WorkMode = 'All work modes';
+const workModes: WorkMode[] = ['Remote', 'Hybrid', 'On-site', allWorkModes];
+const sources = ['LinkedIn', 'Just Join IT', 'Pracuj.pl', 'Company career page', 'No Fluff Jobs', 'AI Job Scout', 'Direct referral', 'Other'];
 const eventTypes = ['HR interview', 'Technical interview', 'Recruitment task', 'Online test', 'Follow-up reminder', 'Application deadline', 'Company research', 'CV update reminder'];
 const industries = ['Technology', 'Consulting', 'Software house', 'E-commerce', 'Banking', 'Cybersecurity', 'Other'];
-const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Certificate', 'Other'];
+const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', 'LinkedIn', 'Job offer', 'Task description', 'Recruiter email', 'Certificate', 'Other'];
 
 type ViteImportMeta = ImportMeta & {
   env?: {
@@ -197,6 +210,9 @@ const initialProfile: Profile = {
   email: 'demo@example.com',
   title: 'Software Engineering / Security Intern',
   location: 'Remote / Poland',
+  portfolioUrl: 'https://example.com/portfolio',
+  linkedInUrl: 'https://linkedin.com/in/demo-user',
+  githubUrl: 'https://github.com/example-user',
   workMode: 'Hybrid'
 };
 

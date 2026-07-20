@@ -2837,6 +2837,11 @@ body {
   padding: 0 14px;
 }
 
+.primary-button.small {
+  min-height: 40px;
+  padding: 0 14px;
+}
+
 /* notes/checklist live editing */
 .notes-list {
   max-height: calc(100dvh - 245px);
@@ -7865,6 +7870,10 @@ svg.donut-chart circle {
   gap: 18px;
 }
 
+.ai-tool-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
 .ai-tool-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) max-content;
@@ -7911,6 +7920,35 @@ svg.donut-chart circle {
   text-align: right;
 }
 
+.ai-tool-card-actions-card {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+}
+
+.ai-tool-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.ai-tool-card-meta small {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--accent-strong);
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ai-tool-card-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .ai-workspace-grid {
   grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.45fr);
 }
@@ -7954,6 +7992,285 @@ svg.donut-chart circle {
 .compact-ai-form .ai-form-section-title {
   margin: 4px 0 0;
   padding-top: 4px;
+}
+
+.ai-helper-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.job-source-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
+  padding: 14px;
+}
+
+.job-source-notice svg {
+  color: var(--accent-strong);
+}
+
+.job-source-notice strong,
+.job-source-notice span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.job-source-notice span {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.job-source-notice.blocked {
+  border-color: color-mix(in srgb, var(--destructive) 28%, var(--border));
+  background: color-mix(in srgb, var(--destructive) 5%, var(--surface-2));
+}
+
+.job-scout-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 10px;
+}
+
+.job-scout-summary-grid > div {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.job-scout-summary-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.job-scout-summary-grid strong {
+  display: block;
+  min-width: 0;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.job-scout-consent {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.job-scout-consent div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.job-scout-consent span {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.job-scout-actions,
+.job-scout-empty-actions,
+.job-scout-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+}
+
+.job-scout-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.job-scout-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.job-scout-tabs button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  min-height: 38px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.job-scout-tabs button.active,
+.job-scout-tabs button:hover {
+  border-color: var(--selected-border);
+  background: var(--selected-bg);
+}
+
+.job-scout-tabs button span {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+}
+
+.job-scout-list,
+.job-scout-run-list {
+  display: grid;
+  gap: 12px;
+}
+
+.job-scout-empty {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--muted);
+  padding: 24px;
+}
+
+.job-scout-empty strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.job-scout-empty span {
+  max-width: 520px;
+  line-height: 1.45;
+}
+
+.job-scout-card,
+.job-scout-run {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
+  padding: 16px;
+}
+
+.job-scout-card {
+  display: grid;
+  gap: 14px;
+}
+
+.job-scout-card header,
+.job-scout-run {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.job-scout-card header > div,
+.job-scout-run > div {
+  min-width: 0;
+}
+
+.job-scout-card h3,
+.job-scout-card p,
+.job-scout-run p {
+  margin: 0;
+}
+
+.job-scout-card h3 {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.job-scout-card small,
+.job-scout-run span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.job-scout-card header p {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.job-scout-card header > strong,
+.job-scout-run em {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  padding: 8px 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.job-scout-card > p,
+.job-scout-run p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.job-scout-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.job-scout-skill-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.job-scout-skill-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.job-scout-skill-grid div div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.job-scout-skill-grid em {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  padding: 6px 9px;
+  font-style: normal;
+  font-weight: 800;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.job-scout-run.blocked {
+  border-color: color-mix(in srgb, var(--destructive) 28%, var(--border));
 }
 
 .cover-profile-card {
@@ -8455,6 +8772,10 @@ svg.donut-chart circle {
 
   .cover-letter-download-button {
     justify-self: start;
+  }
+
+  .job-scout-skill-grid {
+    grid-template-columns: 1fr;
   }
 }
 
