@@ -2137,6 +2137,92 @@ small {
   background: var(--accent-soft);
 }
 
+.location-preferences {
+  gap: 12px;
+}
+
+.location-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.location-suggestions button {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  font-weight: 750;
+}
+
+.location-suggestions button:hover,
+.location-suggestions button.selected {
+  border-color: var(--selected-border);
+  background: var(--selected-bg);
+}
+
+.location-add-row {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) minmax(150px, 180px) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.location-add-button {
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+.location-rule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.location-rule-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 180px) auto;
+  gap: 12px;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.location-rule-name {
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.location-rule-name svg {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+}
+
+.location-rule-name div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.location-rule-name strong,
+.location-rule-name small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.location-rule-card .ghost-icon {
+  align-self: end;
+}
+
 .full-field {
   margin-top: 20px;
 }
@@ -2299,6 +2385,16 @@ small {
   .notification-email-card {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .location-add-row,
+  .location-rule-card {
+    grid-template-columns: 1fr;
+  }
+
+  .location-add-button,
+  .location-rule-card .ghost-icon {
+    justify-self: start;
   }
 }
 

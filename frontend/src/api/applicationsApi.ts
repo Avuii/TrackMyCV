@@ -63,7 +63,7 @@ export const applicationStatusOptions: ApplicationStatus[] = [
   'Archived'
 ];
 
-export const workModeOptions: WorkMode[] = ['Remote', 'Hybrid', 'On-site'];
+export const workModeOptions: WorkMode[] = ['Remote', 'Hybrid', 'On-site', 'All work modes'];
 
 const statusByValue: Record<number, ApplicationStatus> = {
   0: 'Saved',
@@ -98,13 +98,15 @@ const statusValueByLabel: Record<ApplicationStatus, number> = {
 const workModeByValue: Record<number, WorkMode> = {
   0: 'Remote',
   1: 'Hybrid',
-  2: 'On-site'
+  2: 'On-site',
+  3: 'All work modes'
 };
 
 const workModeValueByLabel: Record<WorkMode, number> = {
   Remote: 0,
   Hybrid: 1,
-  'On-site': 2
+  'On-site': 2,
+  'All work modes': 3
 };
 
 const normalizedStatusByName: Record<string, ApplicationStatus> = {
@@ -126,7 +128,15 @@ const normalizedWorkModeByName: Record<string, WorkMode> = {
   hybrid: 'Hybrid',
   onsite: 'On-site',
   'on site': 'On-site',
-  'on-site': 'On-site'
+  'on-site': 'On-site',
+  all: 'All work modes',
+  any: 'All work modes',
+  allworkmodes: 'All work modes',
+  'all work modes': 'All work modes',
+  everyworkmode: 'All work modes',
+  dowolnie: 'All work modes',
+  wszystko: 'All work modes',
+  wszystkie: 'All work modes'
 };
 
 const monthIndexes: Record<string, string> = {

@@ -71,7 +71,7 @@ import type { ApplicationStatus as ApiApplicationStatus, JobApplication as ApiJo
 type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes' | 'ai';
 type Theme = 'light' | 'dark' | 'system';
 type Status = 'Saved' | 'Applied' | 'In progress' | 'Interview' | 'Task / test' | 'Offer' | 'Rejected' | 'No response' | 'Ghosted' | 'Archived';
-type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
+type WorkMode = 'Remote' | 'Hybrid' | 'On-site' | 'All work modes';
 type CalendarView = 'Month' | 'Week' | 'Day';
 type ProfileTab = 'profile' | 'appearance' | 'notifications' | 'preferences' | 'data';
 type DocKind = 'CV' | 'Cover letter' | 'Portfolio' | 'GitHub' | 'LinkedIn' | 'Job offer' | 'Task description' | 'Recruiter email' | 'Certificate' | 'Other';
@@ -216,11 +216,18 @@ type AppSettings = {
     categories: string[];
     levels: string[];
     locations: string[];
+    locationPreferences: PreferredLocationPreference[];
     workModes: WorkMode[];
     noResponseDays: number;
     ghostedDays: number;
     followUpDays: number;
   };
+};
+
+type PreferredLocationPreference = {
+  id: string;
+  city: string;
+  radiusKm: number;
 };
 
 const STORAGE = {
@@ -238,7 +245,8 @@ const STORAGE = {
 const statuses: Status[] = ['Saved', 'Applied', 'In progress', 'Interview', 'Task / test', 'Offer', 'Rejected', 'No response', 'Ghosted', 'Archived'];
 const categories = ['.NET', 'C#', 'Cybersecurity', 'IAM', 'SOC', 'DevOps', 'React', 'Full-stack', 'Backend', 'Frontend', 'Data / AI', 'Support IT', 'Other'];
 const levels = ['Internship', 'Intern', 'Trainee', 'Working Student', 'Junior', 'Junior-friendly', 'Mid', 'Senior'];
-const workModes: WorkMode[] = ['Remote', 'Hybrid', 'On-site'];
+const allWorkModes: WorkMode = 'All work modes';
+const workModes: WorkMode[] = ['Remote', 'Hybrid', 'On-site', allWorkModes];
 const sources = ['LinkedIn', 'Just Join IT', 'No Fluff Jobs', 'Pracuj.pl', 'Company website', 'Company career page', 'Referral', 'Direct referral', 'Recruiter message', 'Other'];
 const eventTypes = ['HR interview', 'Technical interview', 'Recruitment task', 'Online test', 'Follow-up reminder', 'Application deadline', 'Company research', 'CV update reminder'];
 const eventIconOptions = [
@@ -343,6 +351,10 @@ const initialSettings: AppSettings = {
     categories: ['.NET', 'Cybersecurity', 'IAM', 'DevOps'],
     levels: ['Internship', 'Intern', 'Junior', 'Junior-friendly'],
     locations: ['Remote', 'Warsaw', 'Kraków'],
+    locationPreferences: [
+      { id: 'warsaw', city: 'Warsaw', radiusKm: 30 },
+      { id: 'krakow', city: 'Krakow', radiusKm: 30 }
+    ],
     workModes: ['Hybrid', 'Remote'],
     noResponseDays: 14,
     ghostedDays: 30,
@@ -384,6 +396,41 @@ function repairStoredText<T>(value: T): T {
   return value;
 }
 
+const locationPreferenceId = (city: string, index: number) => {
+  const slug = city.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slug ? `location-${slug}` : `location-${index + 1}`;
+};
+
+const normalizeLocationPreferences = (preferences?: Partial<AppSettings['preferences']> | null): PreferredLocationPreference[] => {
+  const rawLocations = Array.isArray(preferences?.locationPreferences) && preferences.locationPreferences.length
+    ? preferences.locationPreferences
+    : (preferences?.locations?.length ? preferences.locations : initialSettings.preferences.locations).map((city, index) => ({
+      id: locationPreferenceId(city, index),
+      city,
+      radiusKm: 30
+    }));
+  const seen = new Set<string>();
+
+  return rawLocations.reduce<PreferredLocationPreference[]>((items, location, index) => {
+    const city = repairTextEncoding(location.city || '').trim();
+    if (!city) return items;
+    if (city.toLowerCase() === 'remote') return items;
+
+    const key = city.toLowerCase();
+    if (seen.has(key)) return items;
+    seen.add(key);
+
+    const radius = Number(location.radiusKm);
+    items.push({
+      id: location.id || locationPreferenceId(city, index),
+      city,
+      radiusKm: Number.isFinite(radius) ? Math.min(500, Math.max(0, Math.round(radius))) : 30
+    });
+
+    return items;
+  }, []);
+};
+
 const normalizeAppSettings = (value?: Partial<AppSettings> | null): AppSettings => {
   const normalized = {
     ...initialSettings,
@@ -394,7 +441,8 @@ const normalizeAppSettings = (value?: Partial<AppSettings> | null): AppSettings 
     },
     preferences: {
       ...initialSettings.preferences,
-      ...(value?.preferences ?? {})
+      ...(value?.preferences ?? {}),
+      locationPreferences: normalizeLocationPreferences(value?.preferences)
     }
   };
 
@@ -411,7 +459,36 @@ const normalizeStatus = (status: string): Status => {
   return 'Saved';
 };
 
-const normalizeWorkMode = (mode: string): WorkMode => workModes.includes(mode as WorkMode) ? mode as WorkMode : 'Remote';
+const normalizeWorkMode = (mode: string): WorkMode => {
+  if (workModes.includes(mode as WorkMode)) return mode as WorkMode;
+
+  const normalized = normalizeCsvHeader(mode);
+  const aliases: Record<string, WorkMode> = {
+    all: allWorkModes,
+    any: allWorkModes,
+    allworkmodes: allWorkModes,
+    everyworkmode: allWorkModes,
+    wszystkie: allWorkModes,
+    wszystko: allWorkModes,
+    dowolnie: allWorkModes,
+    remote: 'Remote',
+    zdalnie: 'Remote',
+    hybrid: 'Hybrid',
+    hybrydowo: 'Hybrid',
+    onsite: 'On-site',
+    onside: 'On-site',
+    stacjonarnie: 'On-site',
+    office: 'On-site'
+  };
+
+  return aliases[normalized] ?? 'Remote';
+};
+
+function matchesWorkModeFilter(applicationMode: WorkMode, selectedMode: string) {
+  if (selectedMode === 'All') return true;
+  if (applicationMode === selectedMode) return true;
+  return applicationMode === allWorkModes && selectedMode !== allWorkModes;
+}
 
 const normalizeDocumentType = (type: string): DocKind => documentTypes.includes(type as DocKind) ? type as DocKind : 'Other';
 
@@ -682,6 +759,13 @@ function formatDate(value: string) {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatDateTime(value: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 function toDate(value: string) {
@@ -1298,21 +1382,7 @@ function normalizeImportedStatus(value: string): Status {
 
 function normalizeImportedWorkMode(value: string): WorkMode {
   const clean = repairTextEncoding(value).trim();
-  if (workModes.includes(clean as WorkMode)) return clean as WorkMode;
-
-  const normalized = normalizeCsvHeader(clean);
-  const aliases: Record<string, WorkMode> = {
-    remote: 'Remote',
-    zdalnie: 'Remote',
-    hybrid: 'Hybrid',
-    hybrydowo: 'Hybrid',
-    onsite: 'On-site',
-    onside: 'On-site',
-    stacjonarnie: 'On-site',
-    office: 'On-site'
-  };
-
-  return aliases[normalized] ?? 'Remote';
+  return normalizeWorkMode(clean);
 }
 
 function parseApplicationsCsv(text: string): JobApplication[] {
@@ -2058,7 +2128,7 @@ function ApplicationsPage({
           (category === 'All' || app.category === category) &&
           (level === 'All' || app.level === level) &&
           (location === 'All' || app.location === location) &&
-          (mode === 'All' || app.workMode === mode) &&
+          matchesWorkModeFilter(app.workMode, mode) &&
           (source === 'All' || app.source === source)
         );
       }),
@@ -2364,7 +2434,7 @@ function StatisticsPage({ applications, categoryOptions }: { applications: JobAp
   const [range, setRange] = useState('All time');
   const [category, setCategory] = useState('All');
   const [mode, setMode] = useState('All');
-  const scoped = applications.filter((app) => (category === 'All' || app.category === category) && (mode === 'All' || app.workMode === mode));
+  const scoped = applications.filter((app) => (category === 'All' || app.category === category) && matchesWorkModeFilter(app.workMode, mode));
   const stats = calculateStats(scoped);
   return <section className="page-section"><div className="toolbar compact-toolbar"><CustomSelect label="Range" value={range} options={['Last 7 days', 'Last 30 days', 'This month', 'All time']} onChange={setRange} /><CustomSelect label="Category" value={category} options={['All', ...categoryOptions]} onChange={setCategory} /><CustomSelect label="Work mode" value={mode} options={['All', ...workModes]} onChange={setMode} /></div><div className="stats-metrics-grid"><MetricCard label="Total applications" value={stats.total} hint={range} /><MetricCard label="Active processes" value={stats.active} hint="currently open" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from selected" tone="green-text" /><MetricCard label="Interview rate" value={`${stats.successRate}%`} hint="positive stages" tone="blue-text" /><MetricCard label="Ghosted" value={scoped.filter((app) => app.status === 'Ghosted').length} hint="to archive" /><MetricCard label="Avg response time" value={`${stats.averageResponseDays}d`} hint="first contact" /></div><div className="stats-grid"><section className="panel-card chart-panel wide-chart"><div className="mini-title"><BarChart3 size={18} /><h2>Applications by category</h2></div><BarList rows={topRows(scoped.map((app) => app.category))} /></section><ApplicationSummary applications={scoped} /><section className="panel-card chart-panel"><div className="mini-title"><Sparkles size={18} /><h2>Applications by level</h2></div><BarList rows={topRows(scoped.map((app) => app.level))} /></section><MiniListCard icon={Globe} title="Best sources" rows={topRows(scoped.map((app) => app.source))} /></div></section>;
 }
@@ -3152,6 +3222,49 @@ type SaveCoverLetterInput = {
   jobTitle: string;
 };
 
+type AiTool = 'review' | 'cover' | 'scout';
+type JobScoutTab = 'new' | 'saved' | 'ignored' | 'added' | 'history';
+type JobScoutMatchStatus = 'new' | 'saved' | 'ignored' | 'added';
+type JobScoutRunStatus = 'completed' | 'blocked' | 'failed';
+type JobScoutFrequency = 'Manual' | 'Daily' | 'Weekdays' | 'Weekly';
+
+type JobScoutMatch = {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  workMode: WorkMode;
+  publishedAt: string;
+  foundAt: string;
+  source: string;
+  sourceUrl: string;
+  applyUrl: string;
+  matchScore: number;
+  matchReason: string;
+  matchedSkills: string[];
+  gaps: string[];
+  status: JobScoutMatchStatus;
+};
+
+type JobScoutRun = {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  status: JobScoutRunStatus;
+  newMatches: number;
+  message: string;
+};
+
+const jobScoutTabs: { id: JobScoutTab; label: string }[] = [
+  { id: 'new', label: 'New matches' },
+  { id: 'saved', label: 'Saved' },
+  { id: 'ignored', label: 'Ignored' },
+  { id: 'added', label: 'Added to applications' },
+  { id: 'history', label: 'Search history' }
+];
+
+const jobScoutConfiguredSources: string[] = [];
+
 const coverLetterCandidateFromProfile = (profile: Profile): CoverLetterCandidate => ({
   fullName: profile.name && profile.name.trim().toLowerCase() !== 'user' ? profile.name.trim() : '',
   location: (profile.location || '').trim(),
@@ -3174,7 +3287,27 @@ const getCoverLetterProfileMissing = (profile: Profile) => {
   return missing;
 };
 
-function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast, onSaveCoverLetter, profile, onOpenSettings }: { documents: DocumentItem[]; documentsLoading?: boolean; onRefreshDocuments?: () => void; setToast: (value: string) => void; onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>; profile: Profile; onOpenSettings?: (tab?: ProfileTab) => void }) {
+function AIToolsPage({
+  documents,
+  documentsLoading,
+  onRefreshDocuments,
+  setToast,
+  onSaveCoverLetter,
+  profile,
+  settings,
+  onOpenSettings,
+  onAddApplicationFromScout
+}: {
+  documents: DocumentItem[];
+  documentsLoading?: boolean;
+  onRefreshDocuments?: () => void;
+  setToast: (value: string) => void;
+  onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>;
+  profile: Profile;
+  settings: AppSettings;
+  onOpenSettings?: (tab?: ProfileTab) => void;
+  onAddApplicationFromScout: (match: JobScoutMatch) => Promise<void>;
+}) {
   const cvDocuments = documents.filter((document) => document.type === 'CV' && document.status !== 'Archived');
   const cvOptions = cvDocuments.map((document) => ({
     id: String(document.id),
@@ -3185,7 +3318,7 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     .filter((document) => document.category.toLowerCase() === 'ai generated' || document.tags?.some((tag) => tag.toLowerCase() === 'ai'))
     .sort((first, second) => (second.updatedAt || second.updated).localeCompare(first.updatedAt || first.updated))
     .slice(0, 4);
-  const [activeTool, setActiveTool] = useState<'review' | 'cover'>('review');
+  const [activeTool, setActiveTool] = useState<AiTool>('review');
   const [reviews, setReviews] = useState<CvReviewDto[]>([]);
   const [selectedReview, setSelectedReview] = useState<CvReviewDto | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(false);
@@ -3218,10 +3351,34 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
   const [coverPreviewMode, setCoverPreviewMode] = useState<'edit' | 'preview'>('edit');
   const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
   const [coverPreviewError, setCoverPreviewError] = useState('');
+  const [scoutTab, setScoutTab] = useState<JobScoutTab>('new');
+  const [scoutMatches, setScoutMatches] = useState<JobScoutMatch[]>([]);
+  const [scoutRuns, setScoutRuns] = useState<JobScoutRun[]>([]);
+  const [scoutBusy, setScoutBusy] = useState(false);
+  const [scoutMinScore, setScoutMinScore] = useState(70);
+  const [scoutFrequency, setScoutFrequency] = useState<JobScoutFrequency>('Daily');
+  const [scoutUseCvContext, setScoutUseCvContext] = useState(false);
   const coverCandidate = coverLetterCandidateFromProfile(profile);
   const coverProfileMissing = getCoverLetterProfileMissing(profile);
   const selectedReviewCvLabel = cvOptions.find((option) => option.id === reviewForm.documentId)?.label || cvOptions[0]?.label || '';
   const selectedCoverCvLabel = cvOptions.find((option) => option.id === coverForm.documentId)?.label || cvOptions[0]?.label || '';
+  const lastScoutRun = scoutRuns[0];
+  const scoutNewMatches = scoutMatches.filter((match) => match.status === 'new');
+  const hasJobSources = jobScoutConfiguredSources.length > 0;
+  const scoutPreferenceSummary = useMemo(() => {
+    const locationSummary = settings.preferences.locationPreferences.length
+      ? settings.preferences.locationPreferences.map((location) => `${location.city} +${location.radiusKm} km`).join(', ')
+      : 'No city radius preferences';
+    const workModeSummary = settings.preferences.workModes.includes(allWorkModes)
+      ? allWorkModes
+      : settings.preferences.workModes.join(', ') || 'No work modes selected';
+
+    return {
+      roles: uniqueOptions(settings.preferences.categories, settings.preferences.levels).slice(0, 6),
+      locations: locationSummary,
+      workModes: workModeSummary
+    };
+  }, [settings.preferences.categories, settings.preferences.levels, settings.preferences.locationPreferences, settings.preferences.workModes]);
 
   useEffect(() => {
     if (!cvDocuments.length) return;
@@ -3450,6 +3607,57 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       setError(requestError instanceof Error ? requestError.message : 'Cover letter could not be saved.');
     } finally {
       setSavingCover(false);
+    }
+  }
+
+  async function runJobScout() {
+    setScoutBusy(true);
+    setError('');
+
+    const now = new Date().toISOString();
+
+    if (!hasJobSources) {
+      setScoutRuns((current) => [{
+        id: `scout-run-${Date.now()}`,
+        startedAt: now,
+        completedAt: now,
+        status: 'blocked',
+        newMatches: 0,
+        message: 'No legal job source provider is configured yet. Connect API, RSS or company careers providers before running discovery.'
+      }, ...current].slice(0, 12));
+      setScoutTab('history');
+      setToast('AI Job Scout needs job source providers before searching.');
+      setScoutBusy(false);
+      return;
+    }
+
+    setScoutRuns((current) => [{
+      id: `scout-run-${Date.now()}`,
+      startedAt: now,
+      completedAt: now,
+      status: 'completed',
+      newMatches: 0,
+      message: 'Search completed. No new matching jobs were returned by configured providers.'
+    }, ...current].slice(0, 12));
+    setScoutTab('new');
+    setScoutBusy(false);
+  }
+
+  function updateScoutMatchStatus(id: string, status: JobScoutMatchStatus) {
+    setScoutMatches((current) => current.map((match) => match.id === id ? { ...match, status } : match));
+    setScoutTab(status === 'new' ? 'new' : status);
+    setToast(status === 'saved' ? 'Job match saved.' : status === 'ignored' ? 'Job match ignored.' : 'Job match updated.');
+  }
+
+  async function addScoutMatchToApplications(match: JobScoutMatch) {
+    try {
+      setError('');
+      await onAddApplicationFromScout(match);
+      setScoutMatches((current) => current.map((item) => item.id === match.id ? { ...item, status: 'added' } : item));
+      setScoutTab('added');
+      setToast('Job match added to Applications.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Job match could not be added to Applications.');
     }
   }
 
@@ -4159,7 +4367,7 @@ function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dis
         <TextField label="Full name" value={profile.name} onChange={(v) => patchProfile({ name: v })} />
         <TextField label="Email address" value={profile.email} onChange={(v) => patchProfile({ email: v })} />
         <TextField label="Job search title" value={profile.title} onChange={(v) => patchProfile({ title: v })} />
-        <TextField label="Location" value={profile.location} onChange={(v) => patchProfile({ location: v })} placeholder="Lodz / Warsaw / Remote" />
+        <TextField label="Current city" value={profile.location} onChange={(v) => patchProfile({ location: v })} placeholder="Lodz / Warsaw / Remote" />
         <TextField label="Portfolio URL" value={profile.portfolioUrl} onChange={(v) => patchProfile({ portfolioUrl: v })} placeholder="https://..." />
         <TextField label="LinkedIn URL" value={profile.linkedInUrl} onChange={(v) => patchProfile({ linkedInUrl: v })} placeholder="https://www.linkedin.com/in/..." />
         <TextField label="GitHub URL" value={profile.githubUrl} onChange={(v) => patchProfile({ githubUrl: v })} placeholder="https://github.com/..." />
@@ -4244,11 +4452,18 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   const prefs = settings.preferences;
   const [newCategory, setNewCategory] = useState('');
   const [newLevel, setNewLevel] = useState('');
-  const [newLocation, setNewLocation] = useState('');
   function patch(patchValue: Partial<AppSettings['preferences']>) { setSettings({ ...settings, preferences: { ...prefs, ...patchValue } }); }
-  function toggleString(key: 'categories' | 'levels' | 'locations', value: string) { const current = prefs[key]; patch({ [key]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value] } as Partial<AppSettings['preferences']>); }
-  function toggleMode(mode: WorkMode) { patch({ workModes: prefs.workModes.includes(mode) ? prefs.workModes.filter((item) => item !== mode) : [...prefs.workModes, mode] }); }
-  function addCustom(key: 'categories' | 'levels' | 'locations', value: string, clear: (value: string) => void) {
+  function toggleString(key: 'categories' | 'levels', value: string) { const current = prefs[key]; patch({ [key]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value] } as Partial<AppSettings['preferences']>); }
+  function toggleMode(mode: WorkMode) {
+    if (mode === allWorkModes) {
+      patch({ workModes: prefs.workModes.includes(allWorkModes) ? [] : [allWorkModes] });
+      return;
+    }
+
+    const current = prefs.workModes.filter((item) => item !== allWorkModes);
+    patch({ workModes: current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode] });
+  }
+  function addCustom(key: 'categories' | 'levels', value: string, clear: (value: string) => void) {
     const clean = value.trim();
     if (!clean) return;
     const current = prefs[key];
@@ -4257,17 +4472,96 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
   }
   const categoryItems = uniqueOptions(categories, prefs.categories);
   const levelItems = uniqueOptions(levels, prefs.levels);
-  const locationItems = uniqueOptions(['Remote', 'Warsaw', 'Kraków', 'Wrocław', 'Gdańsk'], prefs.locations);
+  function setLocationPreferences(locations: PreferredLocationPreference[]) {
+    patch({ locationPreferences: locations, locations: locations.map((location) => location.city) });
+  }
   return (
     <div className="tab-content">
       <PreferenceGroup title="Preferred categories" items={categoryItems} selected={prefs.categories} onToggle={(value) => toggleString('categories', value)} addValue={newCategory} setAddValue={setNewCategory} onAdd={() => addCustom('categories', newCategory, setNewCategory)} addPlaceholder="Add custom category" />
       <PreferenceGroup title="Preferred job levels" items={levelItems} selected={prefs.levels} onToggle={(value) => toggleString('levels', value)} addValue={newLevel} setAddValue={setNewLevel} onAdd={() => addCustom('levels', newLevel, setNewLevel)} addPlaceholder="Add custom level" />
-      <PreferenceGroup title="Preferred locations" items={locationItems} selected={prefs.locations} onToggle={(value) => toggleString('locations', value)} addValue={newLocation} setAddValue={setNewLocation} onAdd={() => addCustom('locations', newLocation, setNewLocation)} addPlaceholder="Add custom location" />
+      <PreferredLocationsEditor locations={prefs.locationPreferences} onChange={setLocationPreferences} />
       <PreferenceGroup title="Preferred work modes" items={workModes} selected={prefs.workModes} onToggle={(value) => toggleMode(value as WorkMode)} />
       <div className="rules-grid">
         <NumberStepper label="Mark as no response after" value={prefs.noResponseDays} onChange={(value) => patch({ noResponseDays: value })} />
         <NumberStepper label="Mark as ghosted after" value={prefs.ghostedDays} onChange={(value) => patch({ ghostedDays: value })} />
         <NumberStepper label="Suggest follow-up after" value={prefs.followUpDays} onChange={(value) => patch({ followUpDays: value })} />
+      </div>
+    </div>
+  );
+}
+
+function PreferredLocationsEditor({ locations, onChange }: { locations: PreferredLocationPreference[]; onChange: (locations: PreferredLocationPreference[]) => void }) {
+  const [city, setCity] = useState('');
+  const [radiusKm, setRadiusKm] = useState(30);
+  const suggestedCities = ['Warsaw', 'Krakow', 'Wroclaw', 'Gdansk', 'Lodz', 'Poznan', 'Katowice'];
+
+  function addLocation() {
+    const cleanCity = city.trim();
+    if (!cleanCity) return;
+
+    const existing = locations.find((location) => location.city.toLowerCase() === cleanCity.toLowerCase());
+    const nextLocation: PreferredLocationPreference = {
+      id: existing?.id || `location-${Date.now()}`,
+      city: cleanCity,
+      radiusKm: Math.min(500, Math.max(0, Math.round(radiusKm)))
+    };
+
+    onChange(existing
+      ? locations.map((location) => location.id === existing.id ? nextLocation : location)
+      : [...locations, nextLocation]);
+    setCity('');
+  }
+
+  function updateRadius(id: string, value: number) {
+    onChange(locations.map((location) => location.id === id ? { ...location, radiusKm: value } : location));
+  }
+
+  function removeLocation(id: string) {
+    onChange(locations.filter((location) => location.id !== id));
+  }
+
+  return (
+    <div className="preference-group location-preferences">
+      <span className="setting-label">Preferred locations</span>
+      <div className="location-suggestions">
+        {suggestedCities.map((suggestion) => (
+          <button key={suggestion} className={city === suggestion ? 'selected' : ''} type="button" onClick={() => setCity(suggestion)}>
+            <MapPin size={14} /> {suggestion}
+          </button>
+        ))}
+      </div>
+      <div className="location-add-row">
+        <label className="form-field">
+          <span>City</span>
+          <input
+            value={city}
+            placeholder="Add city"
+            onChange={(event) => setCity(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                addLocation();
+              }
+            }}
+          />
+        </label>
+        <NumberStepper label="Distance" value={radiusKm} onChange={setRadiusKm} min={0} max={500} unit="km" />
+        <button className="secondary-button location-add-button" type="button" onClick={addLocation} disabled={!city.trim()}><Plus size={15} /> Add</button>
+      </div>
+      <div className="location-rule-list">
+        {locations.length ? locations.map((location) => (
+          <div className="location-rule-card" key={location.id}>
+            <div className="location-rule-name">
+              <MapPin size={17} />
+              <div>
+                <strong>{location.city}</strong>
+                <small>within {location.radiusKm} km</small>
+              </div>
+            </div>
+            <NumberStepper label="Distance" value={location.radiusKm} onChange={(value) => updateRadius(location.id, value)} min={0} max={500} unit="km" />
+            <button className="ghost-icon danger" type="button" aria-label={`Remove ${location.city}`} onClick={() => removeLocation(location.id)}><Trash2 size={16} /></button>
+          </div>
+        )) : <p className="empty-panel-note">No preferred cities yet.</p>}
       </div>
     </div>
   );
@@ -4715,7 +5009,7 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
       (category === 'All' || app.category === category) &&
       (level === 'All' || app.level === level) &&
       (location === 'All' || app.location === location) &&
-      (mode === 'All' || app.workMode === mode) &&
+      matchesWorkModeFilter(app.workMode, mode) &&
       (source === 'All' || app.source === source);
   }), [applications, query, status, category, level, location, mode, source]);
 

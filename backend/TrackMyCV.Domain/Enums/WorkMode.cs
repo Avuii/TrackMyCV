@@ -8,5 +8,6 @@ public enum WorkMode
 {
     Remote = 0,
     Hybrid = 1,
-    OnSite = 2
+    OnSite = 2,
+    All = 3
 }

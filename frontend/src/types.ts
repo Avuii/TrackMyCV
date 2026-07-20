@@ -16,7 +16,7 @@ export type ApplicationStatus =
   | 'Withdrawn'
   | 'Archived';
 
-export type WorkMode = 'Remote' | 'Hybrid' | 'On-site';
+export type WorkMode = 'Remote' | 'Hybrid' | 'On-site' | 'All work modes';
 export type ApplicationId = string | number;
 export type DocumentStatus = 'Active' | 'Archived';
 export type DocumentType =
