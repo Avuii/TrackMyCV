@@ -56,6 +56,10 @@ export type TextDocumentInput = {
   tags?: string[];
 };
 
+export type DocumentUpdateInput = {
+  name: string;
+};
+
 const toFormData = (input: DocumentUploadInput) => {
   const formData = new FormData();
   formData.append('file', input.file);
@@ -105,6 +109,13 @@ export const documentsApi = {
   async archive(id: DocumentId) {
     return apiRequest<StoredDocument>(`/api/documents/${id}/archive`, {
       method: 'PUT'
+    });
+  },
+
+  async update(id: DocumentId, input: DocumentUpdateInput) {
+    return apiRequest<StoredDocument>(`/api/documents/${id}`, {
+      method: 'PUT',
+      body: input
     });
   },
 

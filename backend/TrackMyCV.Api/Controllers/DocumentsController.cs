@@ -50,16 +50,23 @@ public class DocumentsController : ControllerBase
             .OrderByDescending(x => x.UpdatedAt)
             .ToListAsync();
 
-        var cvNames = await _dbContext.JobApplications
+        var cvAssignments = await _dbContext.JobApplications
             .Where(x => x.AppUserId == userId.Value && x.CvName != string.Empty)
-            .Select(x => x.CvName)
+            .Select(x => new { x.Id, x.CvName })
             .ToListAsync();
 
-        var usageByName = cvNames
-            .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+        var usageByName = cvAssignments
+            .GroupBy(x => x.CvName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
 
-        return Ok(documents.Select(document => MapDocument(document, usageByName.GetValueOrDefault(document.Name))).ToList());
+        var assignedByName = cvAssignments
+            .GroupBy(x => x.CvName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Select(application => application.Id).ToArray(), StringComparer.OrdinalIgnoreCase);
+
+        return Ok(documents.Select(document => MapDocument(
+            document,
+            usageByName.GetValueOrDefault(document.Name),
+            assignedByName.GetValueOrDefault(document.Name, Array.Empty<Guid>()))).ToList());
     }
 
     [HttpPost("upload")]
@@ -271,6 +278,56 @@ public class DocumentsController : ControllerBase
         return Ok(MapDocument(document));
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<DocumentDto>> Update(Guid id, UpdateDocumentRequest request)
+    {
+        var userId = HttpContext.GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var document = await FindCurrentUserDocument(id);
+
+        if (document is null)
+        {
+            return NotFound();
+        }
+
+        var name = TrimTo(request.Name?.Trim() ?? string.Empty, 220);
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest("Document title is required.");
+        }
+
+        var oldName = document.Name;
+        document.Name = name;
+        document.UpdatedAt = DateTime.UtcNow;
+
+        if (!oldName.Equals(name, StringComparison.OrdinalIgnoreCase))
+        {
+            var linkedApplications = await _dbContext.JobApplications
+                .Where(application => application.AppUserId == userId.Value && application.CvName == oldName)
+                .ToListAsync();
+
+            foreach (var application in linkedApplications)
+            {
+                application.CvName = name;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        var assignedApplicationIds = await _dbContext.JobApplications
+            .Where(application => application.AppUserId == userId.Value && application.CvName == document.Name)
+            .Select(application => application.Id)
+            .ToArrayAsync();
+
+        return Ok(MapDocument(document, assignedApplicationIds.Length, assignedApplicationIds));
+    }
+
     [HttpGet("{id:guid}/download")]
     public async Task<IActionResult> Download(Guid id)
     {
@@ -413,7 +470,7 @@ public class DocumentsController : ControllerBase
         return value.Length <= maxLength ? value : value[..maxLength];
     }
 
-    private static DocumentDto MapDocument(UserDocument document, int usedIn = 0)
+    private static DocumentDto MapDocument(UserDocument document, int usedIn = 0, Guid[]? assignedApplications = null)
     {
         var tags = string.IsNullOrWhiteSpace(document.Tags)
             ? Array.Empty<string>()
@@ -434,7 +491,7 @@ public class DocumentsController : ControllerBase
             document.CreatedAt.ToString("O"),
             document.UpdatedAt.ToString("O"),
             usedIn,
-            Array.Empty<Guid>(),
+            assignedApplications ?? Array.Empty<Guid>(),
             tags,
             document.Status,
             string.IsNullOrWhiteSpace(document.Notes) ? null : document.Notes,
@@ -495,6 +552,11 @@ public sealed class CreateTextDocumentRequest
     public string? Notes { get; set; }
 
     public string? Tags { get; set; }
+}
+
+public sealed class UpdateDocumentRequest
+{
+    public string Name { get; set; } = string.Empty;
 }
 
 public record DocumentDto(

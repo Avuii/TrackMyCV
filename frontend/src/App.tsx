@@ -2527,11 +2527,12 @@ type DocumentsPageProps = {
   onCreateDocumentLink?: (doc: DocumentItem) => Promise<void>;
   onDeleteDocument?: (id: EntityId) => Promise<void>;
   onArchiveDocument?: (id: EntityId) => Promise<void>;
+  onUpdateDocumentTitle?: (id: EntityId, name: string) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
 };
 
-function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onDownloadDocument, onPreviewDocument }: DocumentsPageProps) {
+function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onUpdateDocumentTitle, onDownloadDocument, onPreviewDocument }: DocumentsPageProps) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
   const [linkModal, setLinkModal] = useState(false);
@@ -2539,9 +2540,10 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
   const fileInput = useRef<HTMLInputElement | null>(null);
   const filtered = documents.filter((doc) => `${doc.name} ${doc.type} ${doc.category} ${doc.tags?.join(' ') ?? ''}`.toLowerCase().includes(query.toLowerCase()) && (type === 'All' || doc.type === type));
   const cvCount = documents.filter((doc) => doc.type === 'CV').length;
+  const getDocumentUsage = (doc: DocumentItem) => doc.usedInApplicationsCount ?? doc.usedIn ?? 0;
   const mostUsedDocument = documents
-    .filter((doc) => doc.type === 'CV')
-    .sort((first, second) => (second.usedInApplicationsCount ?? second.usedIn) - (first.usedInApplicationsCount ?? first.usedIn))[0];
+    .filter((doc) => doc.type === 'CV' && getDocumentUsage(doc) > 0)
+    .sort((first, second) => getDocumentUsage(second) - getDocumentUsage(first))[0];
 
   useEffect(() => {
     if (!selectedDocument) return;
@@ -2604,6 +2606,20 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
       setToast(requestError instanceof Error ? requestError.message : 'Document could not be archived.');
     }
   }
+  async function updateTitle(id: EntityId, name: string) {
+    try {
+      if (onUpdateDocumentTitle) {
+        await onUpdateDocumentTitle(id, name);
+      } else {
+        setDocuments(documents.map((doc) => doc.id === id ? { ...doc, name, updated: today(), updatedAt: new Date().toISOString() } : doc));
+        setSelectedDocument((doc) => doc?.id === id ? { ...doc, name, updated: today(), updatedAt: new Date().toISOString() } : doc);
+      }
+      setToast('Document title updated.');
+    } catch (requestError) {
+      setToast(requestError instanceof Error ? requestError.message : 'Document title could not be updated.');
+      throw requestError;
+    }
+  }
   async function download(doc: DocumentItem) {
     try {
       if (doc.url && !doc.fileName) {
@@ -2663,10 +2679,10 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
         <section className="panel-card insight-strip">
           <Sparkles size={18} />
           <span>CV versions: <strong>{cvCount}</strong></span>
-          <span>Most used CV: <strong>{mostUsedDocument?.name || 'Not enough data yet'}</strong></span>
+          <span>Most used CV: <strong>{mostUsedDocument?.name || 'No CV used yet'}</strong></span>
         </section>
       ) : null}
-      {selectedDocument ? <DocumentDetailsModal document={selectedDocument} applications={applications} onClose={() => setSelectedDocument(null)} onDownload={download} onCopyLink={copyLink} onArchive={archive} onDelete={remove} onPreviewDocument={onPreviewDocument} /> : null}
+      {selectedDocument ? <DocumentDetailsModal document={selectedDocument} applications={applications} onClose={() => setSelectedDocument(null)} onUpdateTitle={updateTitle} onDownload={download} onCopyLink={copyLink} onArchive={archive} onDelete={remove} onPreviewDocument={onPreviewDocument} /> : null}
       {linkModal ? <DocumentLinkModal onClose={() => setLinkModal(false)} onSave={addLink} /> : null}
     </section>
   );
@@ -2676,6 +2692,7 @@ function DocumentDetailsModal({
   document,
   applications,
   onClose,
+  onUpdateTitle,
   onDownload,
   onCopyLink,
   onArchive,
@@ -2685,13 +2702,15 @@ function DocumentDetailsModal({
   document: DocumentItem;
   applications: JobApplication[];
   onClose: () => void;
+  onUpdateTitle: (id: EntityId, name: string) => Promise<void>;
   onDownload: (doc: DocumentItem) => void;
   onCopyLink: (doc: DocumentItem) => void;
   onArchive: (id: EntityId) => void;
   onDelete: (id: EntityId) => void;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
 }) {
-  const assignedApplications = applications.filter((application) => document.assignedApplications?.includes(application.id));
+  const assignedApplicationIds = new Set((document.assignedApplications ?? []).map(String));
+  const assignedApplications = applications.filter((application) => assignedApplicationIds.has(String(application.id)));
   const isLink = Boolean(document.url);
   const previewFileName = (document.fileName || document.name).toLowerCase();
   const canPreviewPdf = previewFileName.endsWith('.pdf');
@@ -2700,6 +2719,14 @@ function DocumentDetailsModal({
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const [titleDraft, setTitleDraft] = useState(document.name);
+  const [titleSaving, setTitleSaving] = useState(false);
+  const cleanTitleDraft = titleDraft.trim();
+  const titleChanged = cleanTitleDraft.length > 0 && cleanTitleDraft !== document.name;
+
+  useEffect(() => {
+    setTitleDraft(document.name);
+  }, [document.id, document.name]);
 
   useEffect(() => {
     if (isLink || !canPreviewInline || !onPreviewDocument) {
@@ -2744,9 +2771,30 @@ function DocumentDetailsModal({
     };
   }, [canPreviewInline, document.id, isLink]);
 
+  async function saveTitle(event: FormEvent) {
+    event.preventDefault();
+    if (!titleChanged) return;
+
+    try {
+      setTitleSaving(true);
+      await onUpdateTitle(document.id, cleanTitleDraft);
+    } finally {
+      setTitleSaving(false);
+    }
+  }
+
   return (
     <BaseModal title={document.name} subtitle={`${document.type} details and preview`} onClose={onClose}>
       <div className="document-details-modal custom-scroll">
+        <form className="document-title-editor" onSubmit={saveTitle}>
+          <label className="form-field">
+            <span>Document title</span>
+            <input value={titleDraft} onChange={(event) => setTitleDraft(event.target.value)} placeholder="CV title" />
+          </label>
+          <button className="secondary-button" type="submit" disabled={!titleChanged || titleSaving}>
+            <Pencil size={16} /> {titleSaving ? 'Saving...' : 'Save title'}
+          </button>
+        </form>
         <section className="document-preview-card">
           {isLink ? (
             <div className="url-preview"><LinkIcon size={28} /><strong>{document.url}</strong><span>{document.notes || 'Saved URL preview.'}</span></div>
@@ -4038,6 +4086,7 @@ type MobileLayoutProps = {
   onCreateDocumentLink?: (doc: DocumentItem) => Promise<void>;
   onDeleteDocument?: (id: EntityId) => Promise<void>;
   onArchiveDocument?: (id: EntityId) => Promise<void>;
+  onUpdateDocumentTitle?: (id: EntityId, name: string) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
   onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>;
@@ -4081,6 +4130,7 @@ function MobileLayout({
   onCreateDocumentLink,
   onDeleteDocument,
   onArchiveDocument,
+  onUpdateDocumentTitle,
   onDownloadDocument,
   onPreviewDocument,
   onSaveCoverLetter,
@@ -4137,7 +4187,7 @@ function MobileLayout({
         {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
-        {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
+        {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
         {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} /> : null}
       </main>
 
@@ -4997,6 +5047,9 @@ function App() {
   async function archiveDocument(id: EntityId) {
     await documentsApiState.archiveDocument(id);
   }
+  async function updateDocumentTitle(id: EntityId, name: string) {
+    await documentsApiState.updateDocumentTitle(id, name);
+  }
   async function deleteDocument(id: EntityId) {
     await documentsApiState.deleteDocument(id);
   }
@@ -5136,6 +5189,7 @@ function App() {
         onCreateDocumentLink={createDocumentLink}
         onDeleteDocument={deleteDocument}
         onArchiveDocument={archiveDocument}
+        onUpdateDocumentTitle={updateDocumentTitle}
         onDownloadDocument={downloadDocument}
         onPreviewDocument={previewDocument}
         onSaveCoverLetter={saveCoverLetterDocument}
@@ -5168,7 +5222,7 @@ function App() {
           {page === 'companies' ? <CompaniesPage companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
-          {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
+          {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
           {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>

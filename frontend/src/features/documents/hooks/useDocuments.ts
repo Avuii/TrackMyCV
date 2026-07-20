@@ -99,6 +99,22 @@ export function useDocuments(enabled = true) {
     }
   }, []);
 
+  const updateDocumentTitle = useCallback(async (id: DocumentId, name: string) => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      const updated = await documentsApi.update(id, { name });
+      setDocuments((current) => current.map((document) => (document.id === id ? updated : document)));
+      return updated;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+      throw requestError;
+    } finally {
+      setSaving(false);
+    }
+  }, []);
+
   const deleteDocument = useCallback(async (id: DocumentId) => {
     setSaving(true);
     setError(null);
@@ -153,6 +169,7 @@ export function useDocuments(enabled = true) {
     uploadDocument,
     createLink,
     archiveDocument,
+    updateDocumentTitle,
     deleteDocument,
     downloadDocument,
     createDocumentPreviewUrl

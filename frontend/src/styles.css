@@ -1624,6 +1624,11 @@ small {
   margin: 0;
 }
 
+.document-card h2 {
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
 .document-card p {
   margin-top: 4px;
 }
@@ -4959,6 +4964,17 @@ svg.donut-chart circle {
   padding: 4px;
 }
 
+.document-title-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
+  padding: 18px;
+}
+
 .document-preview-card {
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -5045,13 +5061,41 @@ svg.donut-chart circle {
   padding: 18px;
 }
 
+.assigned-applications {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  overflow: visible;
+}
+
+.assigned-applications .mini-title {
+  min-width: 0;
+  min-height: 28px;
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.assigned-applications .mini-title h2 {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.assigned-applications > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .assigned-application-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .assigned-application-row div {
@@ -5066,6 +5110,7 @@ svg.donut-chart circle {
 
 @media (max-width: 720px) {
   .document-detail-grid,
+  .document-title-editor,
   .assigned-application-row {
     grid-template-columns: 1fr;
   }
