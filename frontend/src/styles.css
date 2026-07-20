@@ -7779,6 +7779,11 @@ svg.donut-chart circle {
   margin-top: 12px;
 }
 
+.compact-ai-form .ai-form-section-title {
+  margin: 4px 0 0;
+  padding-top: 4px;
+}
+
 .ai-error {
   margin: 0;
 }
@@ -8075,6 +8080,50 @@ svg.donut-chart circle {
   padding: 16px;
   resize: vertical;
   line-height: 1.6;
+}
+
+.cover-letter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cover-letter-preview {
+  min-height: 520px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.cover-letter-preview-frame {
+  display: block;
+  width: 100%;
+  min-height: 560px;
+  border: 0;
+  background: #fff;
+}
+
+.cover-letter-preview-empty {
+  min-height: 520px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cover-letter-preview-empty strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.cover-letter-preview-error {
+  margin: 14px;
 }
 
 .ai-warning-list {
