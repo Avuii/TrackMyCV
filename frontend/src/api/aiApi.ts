@@ -75,12 +75,33 @@ export type CoverLetterGenerateRequest = {
   tone: 'professional' | 'natural' | 'formal';
   length: 'short' | 'standard' | 'detailed';
   additionalContext?: string;
+  candidate: CoverLetterCandidate;
+};
+
+export type CoverLetterCandidate = {
+  fullName: string;
+  location: string;
+  headline: string;
+  portfolioUrl: string;
+  linkedInUrl: string;
+  githubUrl: string;
+};
+
+export type CoverLetterRenderRequest = {
+  coverLetter: string;
+  companyName: string;
+  jobTitle: string;
+  language: 'en' | 'pl';
+  candidate: CoverLetterCandidate;
 };
 
 export type CoverLetterGenerateResponse = {
   coverLetter: string;
   suggestedFileName: string;
   warnings: string[];
+  pdfBase64?: string | null;
+  latexSource?: string | null;
+  pdfContentType: string;
 };
 
 export const aiApi = {
@@ -107,6 +128,13 @@ export const aiApi = {
 
   generateCoverLetter(input: CoverLetterGenerateRequest) {
     return apiRequest<CoverLetterGenerateResponse>('/api/ai/cover-letters/generate', {
+      method: 'POST',
+      body: input
+    });
+  },
+
+  renderCoverLetter(input: CoverLetterRenderRequest) {
+    return apiRequest<CoverLetterGenerateResponse>('/api/ai/cover-letters/render', {
       method: 'POST',
       body: input
     });

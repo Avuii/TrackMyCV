@@ -61,8 +61,8 @@ import { useDocuments } from './features/documents/hooks/useDocuments';
 import { authApi, type AuthUser, type LoginInput, type RegisterInput } from './api/authApi';
 import { clearAuthToken, getAuthToken } from './api/apiClient';
 import type { ApplicationUpsertInput } from './api/applicationsApi';
-import { documentsApi, type StoredDocument } from './api/documentsApi';
-import { aiApi, type CoverLetterGenerateResponse, type CvReviewDto, type CvReviewRequest } from './api/aiApi';
+import { type StoredDocument } from './api/documentsApi';
+import { aiApi, type CoverLetterCandidate, type CoverLetterGenerateResponse, type CvReviewDto, type CvReviewRequest } from './api/aiApi';
 import { calendarEventsApi, type CalendarEventDto, type CalendarEventRequest } from './api/calendarEventsApi';
 import { notificationsApi, type NotificationSettingsDto, type NotificationSettingsRequest } from './api/notificationsApi';
 import type { ApplicationStatus as ApiApplicationStatus, JobApplication as ApiJobApplication } from './types';
@@ -1396,6 +1396,26 @@ function formatFileSize(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function base64ToBlob(base64: string, type: string) {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type });
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadDataUrl(dataUrl: string, fileName: string) {
@@ -3071,13 +3091,24 @@ function LegacyNotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; set
 type SaveCoverLetterInput = {
   name: string;
   content: string;
+  pdfBase64: string;
+  latexSource?: string | null;
   language: string;
   targetRole: string;
   companyName: string;
   jobTitle: string;
 };
 
-function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast, onSaveCoverLetter }: { documents: DocumentItem[]; documentsLoading?: boolean; onRefreshDocuments?: () => void; setToast: (value: string) => void; onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void> }) {
+const defaultCoverLetterCandidate = (profile: Profile): CoverLetterCandidate => ({
+  fullName: profile.name && profile.name !== 'User' ? profile.name : 'Katarzyna Stańczyk',
+  location: profile.location || 'Łódź',
+  headline: profile.title || 'studentka Informatyki | kandydatka na praktyki',
+  portfolioUrl: 'https://avuii.github.io/PortfolioKS/',
+  linkedInUrl: 'https://www.linkedin.com/in/katarzyna-stanczykk/',
+  githubUrl: 'https://github.com/Avuii'
+});
+
+function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast, onSaveCoverLetter, profile }: { documents: DocumentItem[]; documentsLoading?: boolean; onRefreshDocuments?: () => void; setToast: (value: string) => void; onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>; profile: Profile }) {
   const cvDocuments = documents.filter((document) => document.type === 'CV' && document.status !== 'Archived');
   const cvOptions = cvDocuments.map((document) => ({
     id: String(document.id),
@@ -3094,6 +3125,7 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [coverRenderBusy, setCoverRenderBusy] = useState(false);
   const [savingCover, setSavingCover] = useState(false);
   const [error, setError] = useState('');
   const [reviewForm, setReviewForm] = useState<CvReviewRequest>({
@@ -3112,10 +3144,14 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     language: 'en' as 'en' | 'pl',
     tone: 'professional' as 'professional' | 'natural' | 'formal',
     length: 'standard' as 'short' | 'standard' | 'detailed',
-    additionalContext: ''
+    additionalContext: '',
+    candidate: defaultCoverLetterCandidate(profile)
   });
   const [coverResult, setCoverResult] = useState<CoverLetterGenerateResponse | null>(null);
   const [editableCoverLetter, setEditableCoverLetter] = useState('');
+  const [coverPreviewMode, setCoverPreviewMode] = useState<'edit' | 'preview'>('edit');
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
+  const [coverPreviewError, setCoverPreviewError] = useState('');
   const selectedReviewCvLabel = cvOptions.find((option) => option.id === reviewForm.documentId)?.label || cvOptions[0]?.label || '';
   const selectedCoverCvLabel = cvOptions.find((option) => option.id === coverForm.documentId)?.label || cvOptions[0]?.label || '';
 
@@ -3148,6 +3184,19 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     };
   }, []);
 
+  useEffect(() => {
+    if (!coverPreviewUrl) return;
+
+    return () => {
+      URL.revokeObjectURL(coverPreviewUrl);
+    };
+  }, [coverPreviewUrl]);
+
+  function clearCoverPreview() {
+    setCoverPreviewUrl('');
+    setCoverPreviewError('');
+  }
+
   function setReview<K extends keyof CvReviewRequest>(key: K, value: CvReviewRequest[K]) {
     setReviewForm((current) => ({ ...current, [key]: value }));
     setError('');
@@ -3155,7 +3204,19 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
 
   function setCover<K extends keyof typeof coverForm>(key: K, value: typeof coverForm[K]) {
     setCoverForm((current) => ({ ...current, [key]: value }));
+    clearCoverPreview();
     setError('');
+  }
+
+  function setCoverCandidate<K extends keyof CoverLetterCandidate>(key: K, value: CoverLetterCandidate[K]) {
+    setCoverForm((current) => ({ ...current, candidate: { ...current.candidate, [key]: value } }));
+    clearCoverPreview();
+    setError('');
+  }
+
+  function updateEditableCoverLetter(value: string) {
+    setEditableCoverLetter(value);
+    clearCoverPreview();
   }
 
   function cvIdFromLabel(label: string) {
@@ -3214,6 +3275,11 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       return;
     }
 
+    if (!coverForm.candidate.fullName.trim()) {
+      setError('Candidate full name is required for the PDF header and signature.');
+      return;
+    }
+
     setCoverBusy(true);
     setError('');
 
@@ -3221,6 +3287,8 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
       const response = await aiApi.generateCoverLetter(coverForm);
       setCoverResult(response);
       setEditableCoverLetter(response.coverLetter);
+      clearCoverPreview();
+      setCoverPreviewMode('edit');
       setToast('Cover letter generated.');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Cover letter could not be generated.');
@@ -3235,14 +3303,63 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     setToast('Cover letter copied.');
   }
 
-  function downloadCoverLetter() {
-    const blob = new Blob([editableCoverLetter], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = coverResult?.suggestedFileName || 'cover-letter.txt';
-    link.click();
-    URL.revokeObjectURL(url);
+  async function renderCoverLetterPdf() {
+    if (!editableCoverLetter.trim()) {
+      throw new Error('Cover letter text is required.');
+    }
+
+    if (!coverForm.candidate.fullName.trim()) {
+      throw new Error('Candidate full name is required for the PDF header and signature.');
+    }
+
+    const response = await aiApi.renderCoverLetter({
+      coverLetter: editableCoverLetter,
+      companyName: coverForm.companyName,
+      jobTitle: coverForm.jobTitle,
+      language: coverForm.language,
+      candidate: coverForm.candidate
+    });
+
+    setCoverResult(response);
+    setEditableCoverLetter(response.coverLetter);
+
+    if (!response.pdfBase64) {
+      throw new Error(response.warnings[0] || 'Cover letter PDF could not be rendered.');
+    }
+
+    return response;
+  }
+
+  async function previewCoverLetter() {
+    try {
+      setCoverRenderBusy(true);
+      setCoverPreviewError('');
+      setError('');
+      const rendered = await renderCoverLetterPdf();
+      const previewBlob = base64ToBlob(rendered.pdfBase64!, rendered.pdfContentType || 'application/pdf');
+      setCoverPreviewUrl(URL.createObjectURL(previewBlob));
+      setCoverPreviewMode('preview');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'Cover letter preview could not be rendered.';
+      setCoverPreviewError(message);
+      setError(message);
+    } finally {
+      setCoverRenderBusy(false);
+    }
+  }
+
+  async function downloadCoverLetter() {
+    try {
+      setCoverRenderBusy(true);
+      setError('');
+      const rendered = await renderCoverLetterPdf();
+      downloadBlob(base64ToBlob(rendered.pdfBase64!, rendered.pdfContentType || 'application/pdf'), rendered.suggestedFileName || 'cover-letter.pdf');
+      setToast('Cover letter PDF downloaded.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Cover letter PDF could not be downloaded.');
+    } finally {
+      setCoverRenderBusy(false);
+    }
   }
 
   async function saveCoverLetter() {
@@ -3252,9 +3369,12 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
     setError('');
 
     try {
+      const rendered = await renderCoverLetterPdf();
       await onSaveCoverLetter({
-        name: (coverResult.suggestedFileName || 'Cover letter.txt').replace(/\.txt$/i, ''),
+        name: (rendered.suggestedFileName || 'Cover letter.pdf').replace(/\.pdf$/i, ''),
         content: editableCoverLetter,
+        pdfBase64: rendered.pdfBase64!,
+        latexSource: rendered.latexSource,
         language: coverForm.language,
         targetRole: coverForm.jobTitle,
         companyName: coverForm.companyName,
@@ -3328,6 +3448,15 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
                 <div className="form-field"><span>Tone</span><CustomSelect value={coverForm.tone} options={['professional', 'natural', 'formal']} onChange={(value) => setCover('tone', value as typeof coverForm.tone)} /></div>
                 <div className="form-field"><span>Length</span><CustomSelect value={coverForm.length} options={['short', 'standard', 'detailed']} onChange={(value) => setCover('length', value as typeof coverForm.length)} /></div>
               </div>
+              <div className="mini-title ai-form-section-title"><User size={18} /><h2>Sender details</h2></div>
+              <div className="form-grid">
+                <TextField label="Full name" value={coverForm.candidate.fullName} onChange={(value) => setCoverCandidate('fullName', value)} placeholder="Katarzyna Stańczyk" />
+                <TextField label="Location" value={coverForm.candidate.location} onChange={(value) => setCoverCandidate('location', value)} placeholder="Łódź" />
+                <TextField label="Headline" value={coverForm.candidate.headline} onChange={(value) => setCoverCandidate('headline', value)} placeholder="studentka Informatyki | kandydatka na praktyki" />
+                <TextField label="Portfolio URL" value={coverForm.candidate.portfolioUrl} onChange={(value) => setCoverCandidate('portfolioUrl', value)} placeholder="https://..." />
+                <TextField label="LinkedIn URL" value={coverForm.candidate.linkedInUrl} onChange={(value) => setCoverCandidate('linkedInUrl', value)} placeholder="https://www.linkedin.com/in/..." />
+                <TextField label="GitHub URL" value={coverForm.candidate.githubUrl} onChange={(value) => setCoverCandidate('githubUrl', value)} placeholder="https://github.com/..." />
+              </div>
               <TextAreaField label="Job description" value={coverForm.jobDescription} onChange={(value) => setCover('jobDescription', value)} placeholder="Paste the job offer here." />
               <TextAreaField label="Additional context" value={coverForm.additionalContext} onChange={(value) => setCover('additionalContext', value)} placeholder="Optional details you want to include, only if true." />
               <button className="primary-button" type="submit" disabled={coverBusy || !cvDocuments.length}>{coverBusy ? 'Generating...' : coverResult ? 'Generate again' : 'Generate'}</button>
@@ -3340,8 +3469,14 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
             <CoverLetterEditor
               result={coverResult}
               value={editableCoverLetter}
-              onChange={setEditableCoverLetter}
+              mode={coverPreviewMode}
+              previewUrl={coverPreviewUrl}
+              previewError={coverPreviewError}
+              onChange={updateEditableCoverLetter}
+              onModeChange={setCoverPreviewMode}
+              onPreview={() => void previewCoverLetter()}
               busy={coverBusy}
+              rendering={coverRenderBusy}
               saving={savingCover}
               onCopy={copyCoverLetter}
               onDownload={downloadCoverLetter}
@@ -3473,13 +3608,33 @@ function CvReviewReport({ review, busy, onRerun }: { review: CvReviewDto | null;
   );
 }
 
-function CoverLetterEditor({ result, value, onChange, busy, saving, onCopy, onDownload, onSave, onGenerateAgain }: { result: CoverLetterGenerateResponse | null; value: string; onChange: (value: string) => void; busy: boolean; saving: boolean; onCopy: () => void; onDownload: () => void; onSave: () => void; onGenerateAgain: () => void }) {
+type CoverLetterEditorMode = 'edit' | 'preview';
+
+type CoverLetterEditorProps = {
+  result: CoverLetterGenerateResponse | null;
+  value: string;
+  mode: CoverLetterEditorMode;
+  previewUrl: string;
+  previewError: string;
+  onChange: (value: string) => void;
+  onModeChange: (mode: CoverLetterEditorMode) => void;
+  onPreview: () => void;
+  busy: boolean;
+  rendering: boolean;
+  saving: boolean;
+  onCopy: () => void;
+  onDownload: () => void;
+  onSave: () => void;
+  onGenerateAgain: () => void;
+};
+
+function CoverLetterEditor({ result, value, mode, previewUrl, previewError, onChange, onModeChange, onPreview, busy, rendering, saving, onCopy, onDownload, onSave, onGenerateAgain }: CoverLetterEditorProps) {
   if (busy) {
     return <div className="ai-result-empty"><AiSkeleton /><strong>Generating cover letter...</strong><span>Using your CV and the selected offer.</span></div>;
   }
 
   if (!result) {
-    return <div className="ai-result-empty"><Edit3 size={28} /><strong>No cover letter yet</strong><span>Generate a draft, edit it here, then save it to Documents.</span></div>;
+    return <div className="ai-result-empty"><Edit3 size={28} /><strong>No cover letter yet</strong><span>Generate a draft, edit it here, then download or save a LaTeX PDF.</span></div>;
   }
 
   return (
@@ -3488,14 +3643,39 @@ function CoverLetterEditor({ result, value, onChange, busy, saving, onCopy, onDo
         <div><span className="eyebrow">Editable draft</span><h2>{result.suggestedFileName}</h2></div>
         <div className="event-card-actions">
           <button className="ghost-icon" type="button" onClick={onCopy} aria-label="Copy cover letter"><Copy size={16} /></button>
-          <button className="ghost-icon" type="button" onClick={onDownload} aria-label="Download cover letter"><Download size={16} /></button>
+          <button className="ghost-icon" type="button" onClick={onDownload} aria-label="Download cover letter PDF" disabled={rendering}><Download size={16} /></button>
         </div>
       </div>
       {result.warnings.length ? <div className="ai-warning-list">{result.warnings.map((warning) => <span key={warning}><AlertCircle size={14} /> {warning}</span>)}</div> : null}
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} />
+      <div className="cover-letter-toolbar">
+        <div className="segmented-inline" role="tablist" aria-label="Cover letter view">
+          <button className={mode === 'edit' ? 'selected' : ''} type="button" role="tab" aria-selected={mode === 'edit'} onClick={() => onModeChange('edit')}>Edit</button>
+          <button className={mode === 'preview' ? 'selected' : ''} type="button" role="tab" aria-selected={mode === 'preview'} onClick={() => { onModeChange('preview'); if (!previewUrl && value.trim()) onPreview(); }}>Preview</button>
+        </div>
+        {mode === 'preview' ? (
+          <button className="secondary-button small" type="button" onClick={onPreview} disabled={rendering || !value.trim()}><Eye size={15} /> {rendering ? 'Rendering...' : 'Refresh preview'}</button>
+        ) : null}
+      </div>
+      {mode === 'edit' ? (
+        <textarea value={value} onChange={(event) => onChange(event.target.value)} />
+      ) : (
+        <div className="cover-letter-preview">
+          {previewError ? <p className="form-error cover-letter-preview-error" role="alert">{previewError}</p> : null}
+          {previewUrl ? (
+            <iframe className="cover-letter-preview-frame" src={previewUrl} title="Cover letter PDF preview" />
+          ) : (
+            <div className="cover-letter-preview-empty">
+              <Eye size={28} />
+              <strong>{rendering ? 'Rendering preview...' : 'No preview yet'}</strong>
+              <span>{rendering ? 'Preparing the LaTeX PDF.' : 'Render the edited letter to see the PDF layout.'}</span>
+              {!rendering ? <button className="secondary-button small" type="button" onClick={onPreview} disabled={!value.trim()}>Render preview</button> : null}
+            </div>
+          )}
+        </div>
+      )}
       <div className="modal-footer inline-footer">
         <button className="secondary-button" type="button" onClick={onGenerateAgain}>Generate again</button>
-        <button className="primary-button" type="button" onClick={onSave} disabled={saving || !value.trim()}>{saving ? 'Saving...' : 'Save as document'}</button>
+        <button className="primary-button" type="button" onClick={onSave} disabled={saving || rendering || !value.trim()}>{saving ? 'Saving PDF...' : 'Save PDF as document'}</button>
       </div>
     </div>
   );
@@ -4188,7 +4368,7 @@ function MobileLayout({
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
-        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} /> : null}
+        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} /> : null}
       </main>
 
       <FloatingActionButton onClick={openAddApplication} label="Add application" />
@@ -5032,17 +5212,19 @@ function App() {
     });
   }
   async function saveCoverLetterDocument(input: SaveCoverLetterInput) {
-    await documentsApi.createText({
-      name: input.name,
+    const fileName = input.name.toLowerCase().endsWith('.pdf') ? input.name : `${input.name}.pdf`;
+    const pdfBlob = base64ToBlob(input.pdfBase64, 'application/pdf');
+    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+    await documentsApiState.uploadDocument({
+      file,
       type: 'Cover letter',
       category: 'AI generated',
-      content: input.content,
       language: input.language,
       targetRole: input.targetRole,
-      notes: `Generated for ${input.companyName} - ${input.jobTitle}`,
-      tags: ['AI', 'Cover letter']
+      notes: `Generated for ${input.companyName} - ${input.jobTitle}. LaTeX PDF.${input.latexSource ? ' LaTeX source available in AI generation response.' : ''}`,
+      tags: ['AI', 'Cover letter', 'LaTeX']
     });
-    await documentsApiState.loadDocuments();
   }
   async function archiveDocument(id: EntityId) {
     await documentsApiState.archiveDocument(id);
@@ -5223,7 +5405,7 @@ function App() {
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
           {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
-          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} /> : null}
+          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>
       </div>

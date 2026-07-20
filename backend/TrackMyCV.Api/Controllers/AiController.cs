@@ -117,5 +117,32 @@ public class AiController : ControllerBase
         {
             return BadRequest(exception.Message);
         }
+        catch (CoverLetterRenderException exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, exception.Message);
+        }
+    }
+
+    [HttpPost("cover-letters/render")]
+    [EnableRateLimiting("ai")]
+    public async Task<ActionResult<CoverLetterGenerateResponse>> RenderCoverLetter(CoverLetterRenderRequest request, CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetCurrentUserId() is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await _coverLetterGeneratorService.RenderAsync(request, cancellationToken));
+        }
+        catch (AiOperationException exception)
+        {
+            return BadRequest(exception.Message);
+        }
+        catch (CoverLetterRenderException exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, exception.Message);
+        }
     }
 }

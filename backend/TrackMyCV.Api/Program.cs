@@ -25,6 +25,7 @@ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<NotificationBackgroundService>();
 builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 builder.Services.AddScoped<ICvReviewService, CvReviewService>();
+builder.Services.AddScoped<ICoverLetterLatexRenderer, CoverLetterLatexRenderer>();
 builder.Services.AddScoped<ICoverLetterGeneratorService, CoverLetterGeneratorService>();
 builder.Services.AddHttpClient<IAiProvider, OpenAiProvider>();
 builder.Services.AddRateLimiter(options =>

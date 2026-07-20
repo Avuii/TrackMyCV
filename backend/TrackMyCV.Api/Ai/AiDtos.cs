@@ -52,9 +52,28 @@ public record CoverLetterGenerateRequest(
     string Language,
     string Tone,
     string Length,
-    string? AdditionalContext);
+    string? AdditionalContext,
+    CoverLetterCandidateInfo? Candidate);
+
+public record CoverLetterRenderRequest(
+    string CoverLetter,
+    string CompanyName,
+    string JobTitle,
+    string Language,
+    CoverLetterCandidateInfo? Candidate);
+
+public record CoverLetterCandidateInfo(
+    string FullName,
+    string Location,
+    string Headline,
+    string PortfolioUrl,
+    string LinkedInUrl,
+    string GitHubUrl);
 
 public record CoverLetterGenerateResponse(
     string CoverLetter,
     string SuggestedFileName,
-    string[] Warnings);
+    string[] Warnings,
+    string? PdfBase64,
+    string? LatexSource,
+    string PdfContentType);

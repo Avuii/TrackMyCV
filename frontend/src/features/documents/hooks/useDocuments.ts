@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { documentsApi, type DocumentId, type DocumentLinkInput, type StoredDocument } from '../../../api/documentsApi';
+import { documentsApi, type DocumentId, type DocumentLinkInput, type DocumentUploadInput, type StoredDocument } from '../../../api/documentsApi';
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -51,12 +51,12 @@ export function useDocuments(enabled = true) {
     void loadDocuments();
   }, [loadDocuments]);
 
-  const uploadDocument = useCallback(async (file: File) => {
+  const uploadDocument = useCallback(async (input: File | DocumentUploadInput) => {
     setSaving(true);
     setError(null);
 
     try {
-      const created = await documentsApi.upload({ file });
+      const created = await documentsApi.upload(input instanceof File ? { file: input } : input);
       setDocuments((current) => [created, ...current]);
       return created;
     } catch (requestError) {
