@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,9 +9,37 @@ const apiProject = resolve(rootDir, 'backend', 'TrackMyCV.Api', 'TrackMyCV.Api.c
 const isWindows = process.platform === 'win32';
 const args = new Set(process.argv.slice(2));
 
-const apiUrl = process.env.VITE_API_URL || 'http://localhost:5228';
-const frontendHost = process.env.VITE_HOST || 'localhost';
-const frontendPort = process.env.VITE_PORT || '5173';
+function loadDotEnv(filePath) {
+  if (!existsSync(filePath)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    readFileSync(filePath, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'))
+      .map((line) => {
+        const separatorIndex = line.indexOf('=');
+        if (separatorIndex === -1) return null;
+        const key = line.slice(0, separatorIndex).trim();
+        const rawValue = line.slice(separatorIndex + 1).trim();
+        const value = rawValue.replace(/^['"]|['"]$/g, '');
+        return key ? [key, value] : null;
+      })
+      .filter(Boolean)
+  );
+}
+
+const localEnv = loadDotEnv(resolve(rootDir, '.env'));
+const devEnv = {
+  ...localEnv,
+  ...process.env
+};
+
+const apiUrl = devEnv.VITE_API_URL || 'http://localhost:5228';
+const frontendHost = devEnv.VITE_HOST || 'localhost';
+const frontendPort = devEnv.VITE_PORT || '5173';
 const frontendUrl = `http://${frontendHost}:${frontendPort}`;
 
 const dockerCommand = isWindows ? 'docker.exe' : 'docker';
@@ -32,7 +61,7 @@ function runOnce(name, command, commandArgs, options = {}) {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(command, commandArgs, {
       cwd: rootDir,
-      env: process.env,
+      env: devEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true
     });
@@ -141,13 +170,14 @@ console.log('');
 console.log('Starting TrackMyCV development stack...');
 console.log(`API:      ${apiUrl}`);
 console.log(`Frontend: ${frontendUrl}`);
+console.log(`AI:       ${devEnv.OPENAI_API_KEY ? `OpenAI configured (${devEnv.OPENAI_MODEL || 'default model'})` : 'OpenAI API key not configured'}`);
 console.log('Press Ctrl+C to stop everything.');
 console.log('');
 
 spawnLongRunning('api', 'dotnet', ['run', '--project', apiProject, '--launch-profile', 'http'], {
   cwd: rootDir,
   env: {
-    ...process.env,
+    ...devEnv,
     ASPNETCORE_ENVIRONMENT: 'Development'
   }
 });
@@ -160,7 +190,7 @@ const frontendArgs = isWindows
 spawnLongRunning('web', frontendCommand, frontendArgs, {
   cwd: frontendDir,
   env: {
-    ...process.env,
+    ...devEnv,
     VITE_API_URL: apiUrl
   }
 });

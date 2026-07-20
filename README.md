@@ -458,6 +458,15 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
 ```
 
+For local development, copy or edit the ignored `.env` file in the repository root. `npm run dev` loads it automatically and passes the values to the ASP.NET Core backend:
+
+```bash
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-5-mini
+```
+
+Restart `npm run dev` after changing `.env`.
+
 Do not commit a real API key. `.env.example` contains placeholders only.
 
 ### AI Endpoints
