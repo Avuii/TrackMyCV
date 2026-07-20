@@ -3267,7 +3267,7 @@ function AIToolsPage({ documents, documentsLoading, onRefreshDocuments, setToast
                 <TextField label="Experience level" value={reviewForm.experienceLevel || ''} onChange={(value) => setReview('experienceLevel', value)} placeholder="Junior" />
               </div>
               <TextAreaField label="Job description" value={reviewForm.jobDescription || ''} onChange={(value) => setReview('jobDescription', value)} placeholder="Required for Job Match Review." />
-              <button className="primary-button" type="submit" disabled={reviewBusy || !cvDocuments.length}>{reviewBusy ? 'Analyzing...' : 'Run review'}</button>
+              <button className="primary-button ai-form-action" type="submit" disabled={reviewBusy || !cvDocuments.length}>{reviewBusy ? 'Analyzing...' : 'Run review'}</button>
             </form>
           ) : (
             <form className="modal-form compact-ai-form" onSubmit={generateCoverLetter}>
@@ -3468,7 +3468,9 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
       const haystack = `${note.title} ${note.company} ${note.application} ${note.tag} ${note.type ?? ''} ${note.tags?.join(' ') ?? ''} ${note.attachments?.map((attachment) => attachment.name).join(' ') ?? ''} ${note.body}`.toLowerCase();
       return haystack.includes(query.toLowerCase()) && (typeFilter === 'All' || (note.type || note.tag) === typeFilter);
     })
-    .sort((first, second) => Number(Boolean(second.pinned)) - Number(Boolean(first.pinned)) || Number(Boolean(second.favorite)) - Number(Boolean(first.favorite)) || second.updated.localeCompare(first.updated));
+    .sort((first, second) => Number(Boolean(second.pinned)) - Number(Boolean(first.pinned)) || second.updated.localeCompare(first.updated));
+  const pinnedNotes = filteredNotes.filter((note) => note.pinned);
+  const regularNotes = filteredNotes.filter((note) => !note.pinned);
   const selected = notes.find((note) => note.id === selectedId) || filteredNotes[0] || notes[0];
   const selectedChecklist = selected?.checklist ?? [];
   const selectedAttachments = selected?.attachments ?? [];
@@ -3549,11 +3551,6 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
     patchNote({ pinned: !selected.pinned });
     setToast(selected.pinned ? 'Note unpinned.' : 'Note pinned.');
   }
-  function toggleFavorite() {
-    if (!selected) return;
-    patchNote({ favorite: !selected.favorite });
-    setToast(selected.favorite ? 'Removed from favorites.' : 'Added to favorites.');
-  }
   async function addAttachments(files: FileList | null) {
     if (!selected || !files?.length) return;
 
@@ -3597,6 +3594,16 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
   function deleteChecklist(id: number) { if (!selected) return; patchNote({ checklist: selectedChecklist.filter((item) => item.id !== id) }); }
   const doneCount = selectedChecklist.filter((item) => item.done).length;
   const totalCount = selectedChecklist.length;
+  const renderNoteCard = (note: NoteItem) => (
+    <button key={note.id} className={`note-card ${note.pinned ? 'pinned' : ''} ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}>
+      <strong className="note-card-title">
+        {note.pinned ? <Pin size={13} aria-hidden="true" /> : null}
+        <span>{note.title}</span>
+      </strong>
+      <span>{note.company} - {note.type || note.tag}</span>
+      <small>{formatDate(note.lastEdited || note.updated)}{note.attachments?.length ? ` - ${note.attachments.length} attachments` : ''}</small>
+    </button>
+  );
   return (
     <section className="page-section">
       <div className="toolbar">
@@ -3606,13 +3613,9 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
       </div>
       <div className="notes-layout">
         <aside className="notes-list panel-card custom-scroll">
-          {filteredNotes.map((note) => (
-            <button key={note.id} className={`note-card ${selected?.id === note.id ? 'selected' : ''}`} type="button" onClick={() => setSelectedId(note.id)}>
-              <strong>{note.pinned ? 'Pinned · ' : ''}{note.title}</strong>
-              <span>{note.company} · {note.type || note.tag}</span>
-              <small>{formatDate(note.lastEdited || note.updated)}{note.attachments?.length ? ` · ${note.attachments.length} attachments` : ''}</small>
-            </button>
-          ))}
+          {pinnedNotes.map(renderNoteCard)}
+          {pinnedNotes.length && regularNotes.length ? <div className="note-list-divider" aria-hidden="true" /> : null}
+          {regularNotes.map(renderNoteCard)}
           {!filteredNotes.length ? <div className="empty-state inline-empty"><StickyNote size={24} /><strong>No matching notes</strong><span>Clear search or change the filter.</span></div> : null}
         </aside>
         {selected ? (
@@ -3621,7 +3624,6 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
               <TextField label="Title" value={selected.title} onChange={(value) => patchNote({ title: value })} />
               <div className="document-actions note-actions" ref={noteActionsRef}>
                 <button className={`ghost-icon note-toggle ${selected.pinned ? 'active' : ''}`} type="button" aria-label="Toggle pinned note" aria-pressed={Boolean(selected.pinned)} onClick={togglePinned}><Pin size={18} /></button>
-                <button className={`ghost-icon note-toggle favorite ${selected.favorite ? 'active' : ''}`} type="button" aria-label="Toggle favorite note" aria-pressed={Boolean(selected.favorite)} onClick={toggleFavorite}><Heart size={18} fill={selected.favorite ? 'currentColor' : 'none'} /></button>
                 <div className="note-more-wrap">
                   <button className={`ghost-icon note-toggle ${noteMenuOpen ? 'active' : ''}`} type="button" aria-label="Open note actions" aria-expanded={noteMenuOpen} onClick={() => setNoteMenuOpen((open) => !open)}><MoreHorizontal size={18} /></button>
                   {noteMenuOpen ? (

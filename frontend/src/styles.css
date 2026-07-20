@@ -2683,9 +2683,43 @@ body {
   background: var(--accent-soft);
 }
 
+.note-card.pinned {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.note-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.note-card-title svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--accent-strong);
+}
+
+.note-card-title span {
+  min-width: 0;
+  color: inherit;
+}
+
 .note-card span,
 .note-card small {
   color: var(--muted);
+}
+
+.note-card .note-card-title span {
+  color: inherit;
+}
+
+.note-list-divider {
+  border-top: 1px solid var(--border);
+  margin: 10px 4px;
 }
 
 .note-editor-head {
@@ -2704,10 +2738,6 @@ body {
   background: var(--accent-soft);
   border-color: var(--border-strong);
   color: var(--accent-strong);
-}
-
-.note-toggle.favorite.active {
-  color: var(--rose);
 }
 
 .note-more-wrap {
@@ -7674,13 +7704,34 @@ svg.donut-chart circle {
   min-width: 0;
 }
 
+.ai-activity-panel {
+  padding: 22px 24px;
+}
+
+.ai-activity-panel .mini-title {
+  margin: 0 0 16px;
+  min-width: 0;
+}
+
+.ai-activity-panel .empty-panel-note {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .compact-ai-form {
-  padding: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 34px !important;
   gap: 16px;
 }
 
 .compact-ai-form .primary-button {
   justify-self: start;
+}
+
+.compact-ai-form .ai-form-action {
+  margin-top: 12px;
 }
 
 .ai-error {
@@ -7917,9 +7968,25 @@ svg.donut-chart circle {
   text-align: left;
 }
 
+.ai-activity-select > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  display: grid;
+  place-items: center;
+}
+
+.ai-activity-select > div {
+  min-width: 0;
+}
+
 .ai-activity-list strong,
 .ai-activity-list small {
   display: block;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .ai-activity-list small {
