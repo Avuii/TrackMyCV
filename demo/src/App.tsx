@@ -16,6 +16,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  EyeOff,
   FileText,
   Filter,
   Folder,
@@ -137,6 +138,8 @@ type PreferredLocationPreference = {
 };
 
 type Profile = {
+  avatarImage?: string;
+  avatarVariant?: 'neutral' | 'round';
   name: string;
   email: string;
   title: string;
@@ -825,32 +828,116 @@ function TextAreaField({ label, value, onChange, placeholder = '' }: { label: st
   return <label className="form-field full-field"><span>{label}</span><textarea value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
-function LoginPage({ onLogin }: { onLogin: (profile: Profile) => void }) {
+const passwordRules = [
+  { id: 'length', label: 'Minimum 8 characters', test: (value: string) => value.length >= 8 },
+  { id: 'lowercase', label: 'Lowercase letter', test: (value: string) => /[a-z]/.test(value) },
+  { id: 'uppercase', label: 'Uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
+  { id: 'number', label: 'Number', test: (value: string) => /\d/.test(value) },
+  { id: 'special', label: 'Special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) }
+];
+
+function getPasswordRuleStates(password: string) {
+  return passwordRules.map((rule) => ({ ...rule, met: rule.test(password) }));
+}
+
+function PasswordRequirements({ password }: { password: string }) {
+  const ruleStates = useMemo(() => getPasswordRuleStates(password), [password]);
+
+  return (
+    <div className="password-requirements" aria-live="polite">
+      <strong>Password needs:</strong>
+      <div className="password-rule-grid">
+        {ruleStates.map((rule) => (
+          <span key={rule.id} className={rule.met ? 'met' : ''}>
+            {rule.met ? <Check size={13} /> : <X size={13} />}
+            {rule.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LoginPage({ onLogin, onRegister, resolvedTheme, onThemeChange }: { onLogin: (input: { email: string; password: string }) => Promise<void>; onRegister: (input: { email: string; password: string; displayName: string }) => Promise<void>; resolvedTheme: 'light' | 'dark'; onThemeChange: (theme: 'light' | 'dark') => void }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('demo@example.com');
-  const [password, setPassword] = useState('demo1234');
+  const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
-  function submit(event: FormEvent) {
+  const [submitting, setSubmitting] = useState(false);
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!email.includes('@') || password.length < 4) {
-      setError('Podaj poprawny e-mail i hasĹ‚o minimum 4 znaki.');
+    setPasswordVisible(false);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanDisplayName = displayName.trim();
+
+    if (!cleanEmail.includes('@')) {
+      setError('Enter a valid email address.');
       return;
     }
-    const next = { ...initialProfile, email };
-    writeStorage(STORAGE.session, true);
-    writeStorage(STORAGE.profile, next);
-    onLogin(next);
+
+    if (!password && mode === 'register') {
+      setError('Enter your password.');
+      return;
+    }
+
+    if (mode === 'register') {
+      const failedRule = getPasswordRuleStates(password).find((rule) => !rule.met);
+
+      if (failedRule) {
+        setError('Password must include minimum 8 characters, uppercase and lowercase letters, a number and a special character.');
+        return;
+      }
+    }
+
+    setError('');
+    setSubmitting(true);
+    try {
+      if (mode === 'register') {
+        await onRegister({ email: cleanEmail, password, displayName: cleanDisplayName });
+      } else {
+        await onLogin({ email: cleanEmail, password });
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Could not sign in.');
+    } finally {
+      setSubmitting(false);
+    }
   }
   return (
-    <main className="login-page">
+    <main className={`login-page ${resolvedTheme === 'dark' ? 'dark' : ''} ${mode === 'register' ? 'register-mode' : 'login-mode'}`}>
+      <button
+        className="login-theme-toggle"
+        type="button"
+        aria-label={resolvedTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+        title={resolvedTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+        onClick={() => onThemeChange(resolvedTheme === 'light' ? 'dark' : 'light')}
+      >
+        {resolvedTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+      </button>
       <section className="login-card">
         <Logo />
-        <div className="login-copy"><span className="eyebrow">Live demo</span><h1>Track applications without chaos.</h1><p>Mockup dziaĹ‚a lokalnie w przeglÄ…darce: moĹĽesz dodawaÄ‡, edytowaÄ‡, filtrowaÄ‡ i zapisywaÄ‡ dane w localStorage.</p></div>
+        <div className="login-copy"><span className="eyebrow">Live demo</span><h1>Track applications without chaos.</h1><p>Explore TrackMyCV with sample applications, documents and recruitment notes.</p></div>
         <form className="login-form" onSubmit={submit}>
-          <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-          {error ? <p className="form-error">{error}</p> : null}
-          <button className="primary-button full" type="submit">Log in</button>
-          <small>Demo accepts any e-mail and password with at least 4 characters.</small>
+          <div className="segmented-row auth-mode-switch">
+            <button className={mode === 'login' ? 'selected' : ''} type="button" disabled={submitting} onClick={() => { setMode('login'); setPasswordVisible(false); setError(''); }}>Log in</button>
+            <button className={mode === 'register' ? 'selected' : ''} type="button" disabled={submitting} onClick={() => { setMode('register'); setPasswordVisible(false); setError(''); }}>Register</button>
+          </div>
+          {mode === 'register' ? <label>Name<input value={displayName} placeholder="Anna" autoComplete="name" onChange={(event) => { setDisplayName(event.target.value); setError(''); }} /></label> : null}
+          <label>Email<input type="email" value={email} placeholder="example@mail.com" autoComplete="email" onChange={(event) => { setEmail(event.target.value); setError(''); }} /></label>
+          <div className="login-password-field">
+            <label htmlFor="auth-password">Password</label>
+            <div className="login-password-control">
+              <input id="auth-password" name="password" type={passwordVisible ? 'text' : 'password'} value={password} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} spellCheck={false} autoCapitalize="none" onChange={(event) => { setPassword(event.target.value); setError(''); }} />
+              <button className="login-password-toggle" type="button" disabled={submitting} aria-label={passwordVisible ? 'Hide password' : 'Show password'} title={passwordVisible ? 'Hide password' : 'Show password'} onClick={() => setPasswordVisible((visible) => !visible)}>
+                {passwordVisible ? <EyeOff size={19} /> : <Eye size={19} />}
+              </button>
+            </div>
+          </div>
+          {mode === 'register' ? <PasswordRequirements password={password} /> : null}
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          <button className="primary-button full" type="submit" disabled={submitting}>{submitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Log in'}</button>
         </form>
       </section>
       <aside className="login-visual"><img src={publicAsset('assets/work2.webp')} alt="Soft work setup" /><div className="visual-card"><CheckCircle2 size={18} /> Soft productivity dashboard</div></aside>
@@ -907,7 +994,7 @@ function Topbar({ page, profile, theme, setTheme, onOpenApplication, onOpenSetti
         <button className="icon-button with-dot" type="button" aria-label="Notifications" onClick={() => openSettings('notifications')}><Bell size={19} /></button>
         <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button>
         <div className="profile-wrap">
-          <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><span className="avatar-soft"><User size={18} /></span><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
+          <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><DemoAvatar profile={profile} className="avatar-soft" /><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
           {open ? <div className="profile-menu"><div className="profile-menu-header"><strong>{profile.name}</strong><span>{profile.email}</span></div><button type="button" onClick={() => openSettings('profile')}><User size={17} /> Profile</button><button type="button" onClick={() => openSettings('appearance')}><Palette size={17} /> Appearance</button><button type="button" onClick={() => openSettings('notifications')}><Bell size={17} /> Notifications</button><button type="button" onClick={() => openSettings('preferences')}><SlidersHorizontal size={17} /> Preferences</button><button type="button" onClick={() => openSettings('data')}><Download size={17} /> Data & export</button><button type="button" className="danger-link" onClick={onLogout}><LogOut size={17} /> Log out</button></div> : null}
         </div>
         <button className="primary-button" type="button" onClick={onOpenApplication}><Plus size={18} /> Add application</button>
@@ -1809,10 +1896,197 @@ function ProfileCustomizationModal({ profile, setProfile, settings, setSettings,
   return <div className="modal-backdrop"><section className="settings-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>Profile & customization</h2><p>Manage your profile, preferences and app settings.</p></div><button className="close-button" type="button" onClick={onClose}><X size={20} /></button></header><div className="settings-body"><aside className="settings-tabs">{tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => setActiveTab(tab.id)}><Icon size={17} /> {tab.label}</button>; })}</aside><main className="settings-content custom-scroll">{activeTab === 'profile' ? <ProfileTab profile={draftProfile} setProfile={setDraftProfile} /> : null}{activeTab === 'appearance' ? <AppearanceTab theme={draftTheme} setTheme={setDraftTheme} settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'notifications' ? <NotificationsTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'preferences' ? <PreferencesTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'data' ? <DataTab onExport={onExport} onBackup={onBackup} onReset={onReset} /> : null}</main></div><footer className="modal-footer"><button className="secondary-button" type="button" onClick={onClose}>Cancel</button><button className="primary-button" type="button" onClick={save}><CheckCircle2 size={17} /> Save changes</button></footer></section></div>;
 }
 
+const avatarVariants = [{ id: 'neutral', label: 'Classic' }, { id: 'round', label: 'Round' }] as const;
+const avatarImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const maxAvatarImageBytes = 2 * 1024 * 1024;
+const clampCrop = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+function DemoAvatar({ profile, className }: { profile: Profile; className: string }) {
+  return (
+    <span className={`profile-avatar avatar-variant-${profile.avatarVariant === 'round' ? 1 : 0} ${profile.avatarImage ? 'has-image' : ''} ${className}`}>
+      {profile.avatarImage ? <img src={profile.avatarImage} alt="" /> : getInitials(profile.name).slice(0, 1)}
+    </span>
+  );
+}
+
+function AvatarCropEditor({ source, round, onApply, onCancel }: { source: string; round: boolean; onApply: (image: string) => void; onCancel: () => void }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null);
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [left, setLeft] = useState(50);
+  const [top, setTop] = useState(50);
+  const size = image ? Math.min(image.naturalWidth, image.naturalHeight) / zoom : 0;
+  const travelX = image ? image.naturalWidth - size : 0;
+  const travelY = image ? image.naturalHeight - size : 0;
+
+  useEffect(() => {
+    const photo = new Image();
+    photo.onload = () => setImage(photo);
+    photo.onerror = () => setFailed(true);
+    photo.src = source;
+    return () => { photo.onload = null; photo.onerror = null; };
+  }, [source]);
+
+  useEffect(() => {
+    const preview = canvas.current;
+    const context = preview?.getContext('2d');
+    if (!preview || !context || !image || !size) return;
+    context.clearRect(0, 0, preview.width, preview.height);
+    context.drawImage(image, travelX * left / 100, travelY * top / 100, size, size, 0, 0, preview.width, preview.height);
+  }, [image, left, top, size, travelX, travelY]);
+
+  return (
+    <section className="avatar-crop-editor" aria-label="Adjust profile photo">
+      <h3>Adjust profile photo</h3>
+      {failed ? <p className="form-error" role="alert">This image could not be loaded.</p> : (
+        <div className="avatar-crop-layout">
+          <canvas
+            ref={canvas}
+            width={384}
+            height={384}
+            className={round ? 'round' : ''}
+            aria-label="Cropped photo preview"
+            onPointerDown={(event) => {
+              if (!image || !event.isPrimary || event.button !== 0) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, left, top };
+            }}
+            onPointerMove={(event) => {
+              const start = drag.current;
+              if (!start || start.id !== event.pointerId) return;
+              const scale = size / event.currentTarget.getBoundingClientRect().width;
+              if (travelX > 0) setLeft(clampCrop(start.left - (event.clientX - start.x) * scale / travelX * 100, 0, 100));
+              if (travelY > 0) setTop(clampCrop(start.top - (event.clientY - start.y) * scale / travelY * 100, 0, 100));
+            }}
+            onLostPointerCapture={() => { drag.current = null; }}
+          />
+          <div className="avatar-crop-controls">
+            <label>Zoom<input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(event) => setZoom(event.currentTarget.valueAsNumber)} /></label>
+            <label>Horizontal position<input type="range" min={0} max={100} value={left} disabled={travelX <= 0} onChange={(event) => setLeft(event.currentTarget.valueAsNumber)} /></label>
+            <label>Vertical position<input type="range" min={0} max={100} value={top} disabled={travelY <= 0} onChange={(event) => setTop(event.currentTarget.valueAsNumber)} /></label>
+          </div>
+        </div>
+      )}
+      <div className="avatar-actions">
+        <button className="primary-button" type="button" disabled={!image} onClick={() => {
+          if (canvas.current) onApply(canvas.current.toDataURL('image/png'));
+        }}>Apply crop</button>
+        <button className="secondary-button" type="button" onClick={onCancel}>Cancel crop</button>
+      </div>
+    </section>
+  );
+}
+
 function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: (profile: Profile) => void }) {
-  const [avatarVariant, setAvatarVariant] = useState(0);
-  const avatarLabels = ['Neutral icon', 'Soft circle'];
-  return <div className="tab-content"><div className="profile-photo-row"><span className={`profile-photo avatar-variant-${avatarVariant}`}>{getInitials(profile.name).slice(0, 1)}</span><div><h3>Profile photo</h3><p>Mock avatar variant: {avatarLabels[avatarVariant]}.</p><button className="text-button strong" type="button" onClick={() => setAvatarVariant((avatarVariant + 1) % avatarLabels.length)}>Change avatar</button></div></div><div className="form-grid"><TextField label="Full name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} /><TextField label="Email address" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} /><TextField label="Job search title" value={profile.title} onChange={(v) => setProfile({ ...profile, title: v })} /><TextField label="Current city" value={profile.location} onChange={(v) => setProfile({ ...profile, location: v })} /><TextField label="Portfolio URL" value={profile.portfolioUrl} onChange={(v) => setProfile({ ...profile, portfolioUrl: v })} /><TextField label="LinkedIn URL" value={profile.linkedInUrl} onChange={(v) => setProfile({ ...profile, linkedInUrl: v })} /><TextField label="GitHub URL" value={profile.githubUrl} onChange={(v) => setProfile({ ...profile, githubUrl: v })} /><div className="form-field"><span>Preferred work mode</span><CustomSelect value={profile.workMode} options={workModes} onChange={(v) => setProfile({ ...profile, workMode: v as WorkMode })} /></div></div></div>;
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const [avatarError, setAvatarError] = useState('');
+  const [cropSource, setCropSource] = useState('');
+  const currentVariant = profile.avatarVariant === 'round' ? 'round' : 'neutral';
+  const currentVariantLabel = avatarVariants.find((variant) => variant.id === currentVariant)?.label || 'Initials';
+
+  function patchProfile(patch: Partial<Profile>) {
+    setProfile({ ...profile, ...patch });
+  }
+
+  function uploadAvatar(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+
+    if (!avatarImageTypes.includes(file.type)) {
+      setAvatarError('Choose a PNG, JPG or WebP image.');
+      return;
+    }
+
+    if (file.size > maxAvatarImageBytes) {
+      setAvatarError('Choose an image up to 2 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        setAvatarError('This image could not be loaded. Try another file.');
+        return;
+      }
+
+      setCropSource(reader.result);
+      setAvatarError('');
+    };
+    reader.onerror = () => setAvatarError('This image could not be loaded. Try another file.');
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="tab-content">
+      <div className="profile-photo-row">
+        <DemoAvatar profile={profile} className="profile-photo" />
+        <div className="profile-photo-copy">
+          <h3>Profile photo</h3>
+          <p>{profile.avatarImage ? `Custom photo. Frame: ${currentVariantLabel}.` : `Avatar variant: ${currentVariantLabel}.`}</p>
+          <div className="avatar-actions">
+            <button className="secondary-button small" type="button" onClick={() => fileInput.current?.click()}>
+              <Upload size={15} /> Upload photo
+            </button>
+            {profile.avatarImage ? (
+              <>
+                <button className="secondary-button small" type="button" onClick={() => setCropSource(profile.avatarImage ?? '')}><Pencil size={15} /> Adjust photo</button>
+                <button className="text-button strong danger-text" type="button" onClick={() => { setCropSource(''); patchProfile({ avatarImage: '' }); }}>
+                  Remove photo
+                </button>
+              </>
+            ) : null}
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+            onChange={(event) => {
+              uploadAvatar(event.target.files);
+              event.currentTarget.value = '';
+            }}
+          />
+          {avatarError ? <p className="form-error avatar-error" role="alert">{avatarError}</p> : null}
+        </div>
+      </div>
+      {cropSource ? <AvatarCropEditor
+        key={cropSource}
+        source={cropSource}
+        round={currentVariant === 'round'}
+        onCancel={() => setCropSource('')}
+        onApply={(avatarImage) => {
+          patchProfile({ avatarImage });
+          setCropSource('');
+        }}
+      /> : null}
+      <div className="setting-group">
+        <span className="setting-label">Avatar frame</span>
+        <div className="segmented-row avatar-frame-row">
+          {avatarVariants.map((variant) => (
+            <button
+              key={variant.id}
+              className={currentVariant === variant.id ? 'selected' : ''}
+              type="button"
+              onClick={() => patchProfile({ avatarVariant: variant.id })}
+            >
+              {variant.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="form-grid">
+        <TextField label="Full name" value={profile.name} onChange={(v) => patchProfile({ name: v })} />
+        <TextField label="Email address" value={profile.email} onChange={(v) => patchProfile({ email: v })} />
+        <TextField label="Job search title" value={profile.title} onChange={(v) => patchProfile({ title: v })} />
+        <TextField label="Current city" value={profile.location} onChange={(v) => patchProfile({ location: v })} placeholder="Lodz / Warsaw / Remote" />
+        <TextField label="Portfolio URL" value={profile.portfolioUrl} onChange={(v) => patchProfile({ portfolioUrl: v })} placeholder="https://..." />
+        <TextField label="LinkedIn URL" value={profile.linkedInUrl} onChange={(v) => patchProfile({ linkedInUrl: v })} placeholder="https://www.linkedin.com/in/..." />
+        <TextField label="GitHub URL" value={profile.githubUrl} onChange={(v) => patchProfile({ githubUrl: v })} placeholder="https://github.com/..." />
+      </div>
+    </div>
+  );
 }
 
 function AppearanceTab({ theme, setTheme, settings, setSettings }: { theme: Theme; setTheme: (theme: Theme) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void }) {
@@ -2082,7 +2356,7 @@ function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           <button className="mobile-avatar-button" type="button" onClick={() => onOpenSettings('profile')} aria-label="Open profile">
-            <span>{getInitials(firstName)}</span>
+            <DemoAvatar profile={profile} className="mobile-avatar-preview" />
           </button>
         </div>
       </div>
@@ -2633,7 +2907,15 @@ function App() {
 
   const isMobile = useIsMobile();
 
-  if (!isLoggedIn) return <LoginPage onLogin={login} />;
+  if (!isLoggedIn) return <LoginPage
+    resolvedTheme={theme}
+    onThemeChange={setTheme}
+    onLogin={async () => { login(profile); }}
+    onRegister={async ({ displayName }) => {
+      login({ ...initialProfile, name: displayName || initialProfile.name });
+      openSettings('profile');
+    }}
+  />;
 
   const commonOverlays = (
     <>
