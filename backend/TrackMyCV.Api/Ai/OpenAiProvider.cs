@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
+using TrackMyCV.Api.Auth;
 
 namespace TrackMyCV.Api.Ai;
 
@@ -14,11 +16,16 @@ public class OpenAiProvider : IAiProvider
 
     private readonly HttpClient _httpClient;
     private readonly OpenAiOptions _options;
+    private readonly IHttpContextAccessor _context;
+    private readonly ConcurrentDictionary<Guid, string> _keys;
 
-    public OpenAiProvider(HttpClient httpClient, IOptions<OpenAiOptions> options)
+    public OpenAiProvider(HttpClient httpClient, IOptions<OpenAiOptions> options,
+        IHttpContextAccessor context, ConcurrentDictionary<Guid, string> keys)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _context = context;
+        _keys = keys;
     }
 
     public async Task<TResponse> GenerateStructuredResponseAsync<TResponse>(
@@ -26,16 +33,19 @@ public class OpenAiProvider : IAiProvider
         string userPrompt,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        var userId = _context.HttpContext?.GetCurrentUserId();
+        var apiKey = userId is Guid id && _keys.TryGetValue(id, out var personalKey)
+            ? personalKey : _options.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new AiProviderException("OpenAI is not configured. Add OPENAI_API_KEY on the backend.");
+            throw new AiProviderException("OpenAI is not configured. Add an API key in Profile settings.");
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 10, 180)));
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = JsonContent.Create(new
         {
             model = string.IsNullOrWhiteSpace(_options.Model) ? "gpt-5-mini" : _options.Model,

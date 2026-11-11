@@ -58,6 +58,7 @@ export type TextDocumentInput = {
 
 export type DocumentUpdateInput = {
   name: string;
+  category?: string;
 };
 
 const toFormData = (input: DocumentUploadInput) => {

@@ -22,6 +22,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  EyeOff,
   FileText,
   Filter,
   Flag,
@@ -60,7 +61,7 @@ import {
 import { useApplications } from './features/applications/hooks/useApplications';
 import { useDocuments } from './features/documents/hooks/useDocuments';
 import { authApi, type AuthUser, type LoginInput, type RegisterInput } from './api/authApi';
-import { clearAuthToken, getAuthToken } from './api/apiClient';
+import { apiRequest, clearAuthToken, getAuthToken } from './api/apiClient';
 import type { ApplicationUpsertInput } from './api/applicationsApi';
 import { type StoredDocument } from './api/documentsApi';
 import { aiApi, type CoverLetterCandidate, type CoverLetterGenerateResponse, type CvReviewDto, type CvReviewRequest } from './api/aiApi';
@@ -292,7 +293,6 @@ const documentTypes: DocKind[] = ['CV', 'Cover letter', 'Portfolio', 'GitHub', '
 const avatarVariants: { id: AvatarVariant; label: string }[] = [
   { id: 'neutral', label: 'Classic' },
   { id: 'round', label: 'Round' },
-  { id: 'initials', label: 'Initials' }
 ];
 const avatarVariantClasses: Record<AvatarVariant, string> = {
   neutral: 'avatar-variant-0',
@@ -1133,7 +1133,7 @@ function getInitials(name: string) {
 }
 
 function normalizeAvatarVariant(value?: string): AvatarVariant {
-  return avatarVariants.some((variant) => variant.id === value) ? (value as AvatarVariant) : 'initials';
+  return value === 'round' ? 'round' : 'neutral';
 }
 
 function normalizeTheme(value?: string): Theme {
@@ -1144,7 +1144,7 @@ function ProfileAvatar({ profile, className = '', iconSize = 18 }: { profile: Pr
   const variant = normalizeAvatarVariant(profile.avatarVariant);
   const variantClass = avatarVariantClasses[variant] || avatarVariantClasses.initials;
   const initials = getInitials(profile.name);
-  const content = profile.avatarImage ? <img src={profile.avatarImage} alt="" /> : variant === 'initials' ? initials : <User size={iconSize} />;
+  const content = profile.avatarImage ? <img src={profile.avatarImage} alt="" /> : <span style={{ fontSize: iconSize }}>{initials.slice(0, 1)}</span>;
 
   return (
     <span className={`profile-avatar ${variantClass} ${profile.avatarImage ? 'has-image' : ''} ${className}`} aria-label="Profile avatar">
@@ -1669,15 +1669,17 @@ function PasswordRequirements({ password }: { password: string }) {
   );
 }
 
-function LoginPage({ onLogin, onRegister, resolvedTheme }: { onLogin: (input: LoginInput) => Promise<void>; onRegister: (input: RegisterInput) => Promise<void>; resolvedTheme: 'light' | 'dark' }) {
+function LoginPage({ onLogin, onRegister, resolvedTheme, onThemeChange }: { onLogin: (input: LoginInput) => Promise<void>; onRegister: (input: RegisterInput) => Promise<void>; resolvedTheme: 'light' | 'dark'; onThemeChange: (theme: 'light' | 'dark') => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setPasswordVisible(false);
     const cleanEmail = email.trim().toLowerCase();
     const cleanDisplayName = displayName.trim();
 
@@ -1716,17 +1718,34 @@ function LoginPage({ onLogin, onRegister, resolvedTheme }: { onLogin: (input: Lo
   }
   return (
     <main className={`login-page ${resolvedTheme === 'dark' ? 'dark' : ''} ${mode === 'register' ? 'register-mode' : 'login-mode'}`}>
+      <button
+        className="login-theme-toggle"
+        type="button"
+        aria-label={resolvedTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+        title={resolvedTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+        onClick={() => onThemeChange(resolvedTheme === 'light' ? 'dark' : 'light')}
+      >
+        {resolvedTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+      </button>
       <section className="login-card">
         <Logo />
         <div className="login-copy"><span className="eyebrow">Private workspace</span><h1>Track applications without chaos.</h1><p>Create your account, upload your CV, save applications and keep recruitment notes in one place.</p></div>
         <form className="login-form" onSubmit={submit}>
           <div className="segmented-row auth-mode-switch">
-            <button className={mode === 'login' ? 'selected' : ''} type="button" onClick={() => { setMode('login'); setError(''); }}>Log in</button>
-            <button className={mode === 'register' ? 'selected' : ''} type="button" onClick={() => { setMode('register'); setError(''); }}>Register</button>
+            <button className={mode === 'login' ? 'selected' : ''} type="button" disabled={submitting} onClick={() => { setMode('login'); setPasswordVisible(false); setError(''); }}>Log in</button>
+            <button className={mode === 'register' ? 'selected' : ''} type="button" disabled={submitting} onClick={() => { setMode('register'); setPasswordVisible(false); setError(''); }}>Register</button>
           </div>
           {mode === 'register' ? <label>Name<input value={displayName} placeholder="Anna" autoComplete="name" onChange={(event) => { setDisplayName(event.target.value); setError(''); }} /></label> : null}
           <label>Email<input type="email" value={email} placeholder="example@mail.com" autoComplete="email" onChange={(event) => { setEmail(event.target.value); setError(''); }} /></label>
-          <label>Password<input type="password" value={password} placeholder="........" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} onChange={(event) => { setPassword(event.target.value); setError(''); }} /></label>
+          <div className="login-password-field">
+            <label htmlFor="auth-password">Password</label>
+            <div className="login-password-control">
+              <input id="auth-password" name="password" type={passwordVisible ? 'text' : 'password'} value={password} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} spellCheck={false} autoCapitalize="none" onChange={(event) => { setPassword(event.target.value); setError(''); }} />
+              <button className="login-password-toggle" type="button" disabled={submitting} aria-label={passwordVisible ? 'Hide password' : 'Show password'} title={passwordVisible ? 'Hide password' : 'Show password'} onClick={() => setPasswordVisible((visible) => !visible)}>
+                {passwordVisible ? <EyeOff size={19} /> : <Eye size={19} />}
+              </button>
+            </div>
+          </div>
           {mode === 'register' ? <PasswordRequirements password={password} /> : null}
           {error ? <p className="form-error" role="alert">{error}</p> : null}
           <button className="primary-button full" type="submit" disabled={submitting}>{submitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Log in'}</button>
@@ -2670,7 +2689,7 @@ type DocumentsPageProps = {
   onCreateDocumentLink?: (doc: DocumentItem) => Promise<void>;
   onDeleteDocument?: (id: EntityId) => Promise<void>;
   onArchiveDocument?: (id: EntityId) => Promise<void>;
-  onUpdateDocumentTitle?: (id: EntityId, name: string) => Promise<void>;
+  onUpdateDocumentTitle?: (id: EntityId, name: string, category: string) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
 };
@@ -2749,13 +2768,13 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
       setToast(requestError instanceof Error ? requestError.message : 'Document could not be archived.');
     }
   }
-  async function updateTitle(id: EntityId, name: string) {
+  async function updateTitle(id: EntityId, name: string, category: string) {
     try {
       if (onUpdateDocumentTitle) {
-        await onUpdateDocumentTitle(id, name);
+        await onUpdateDocumentTitle(id, name, category);
       } else {
-        setDocuments(documents.map((doc) => doc.id === id ? { ...doc, name, updated: today(), updatedAt: new Date().toISOString() } : doc));
-        setSelectedDocument((doc) => doc?.id === id ? { ...doc, name, updated: today(), updatedAt: new Date().toISOString() } : doc);
+        setDocuments(documents.map((doc) => doc.id === id ? { ...doc, name, category, updated: today(), updatedAt: new Date().toISOString() } : doc));
+        setSelectedDocument((doc) => doc?.id === id ? { ...doc, name, category, updated: today(), updatedAt: new Date().toISOString() } : doc);
       }
       setToast('Document title updated.');
     } catch (requestError) {
@@ -2804,12 +2823,12 @@ function DocumentsPage({ documents, applications, setDocuments, onExport, setToa
         <div className="document-grid">
         {filtered.map((doc) => (
           <article className="panel-card document-card" key={doc.id} onClick={() => setSelectedDocument(doc)}>
-            <div className="document-icon"><FileText size={24} /></div>
+            <div className="document-icon">{doc.url && !doc.fileName ? <LinkIcon size={24} /> : <FileText size={24} />}</div>
             <div><h2>{doc.name}</h2><p>{doc.type} · {doc.category}</p></div>
             <div className="document-meta"><span>Updated {formatDate(doc.updated)}</span><span>Used in {doc.usedIn} applications</span><span>{doc.status || 'Active'}</span><span>{doc.size}</span></div>
             <div className="document-actions">
               <button className="ghost-icon" type="button" aria-label="Preview document" onClick={(event) => { event.stopPropagation(); setSelectedDocument(doc); }}><Eye size={17} /></button>
-              <button className="ghost-icon" type="button" aria-label="Download document" onClick={(event) => { event.stopPropagation(); void download(doc); }}><Download size={17} /></button>
+              {doc.fileName ? <button className="ghost-icon" type="button" aria-label="Download document" onClick={(event) => { event.stopPropagation(); void download(doc); }}><Download size={17} /></button> : null}
               <button className="ghost-icon danger" type="button" aria-label="Delete document" onClick={(event) => { event.stopPropagation(); void remove(doc.id); }}><Trash2 size={17} /></button>
             </div>
           </article>
@@ -2845,7 +2864,7 @@ function DocumentDetailsModal({
   document: DocumentItem;
   applications: JobApplication[];
   onClose: () => void;
-  onUpdateTitle: (id: EntityId, name: string) => Promise<void>;
+  onUpdateTitle: (id: EntityId, name: string, category: string) => Promise<void>;
   onDownload: (doc: DocumentItem) => void;
   onCopyLink: (doc: DocumentItem) => void;
   onArchive: (id: EntityId) => void;
@@ -2854,7 +2873,7 @@ function DocumentDetailsModal({
 }) {
   const assignedApplicationIds = new Set((document.assignedApplications ?? []).map(String));
   const assignedApplications = applications.filter((application) => assignedApplicationIds.has(String(application.id)));
-  const isLink = Boolean(document.url);
+  const isLink = Boolean(document.url && !document.fileName);
   const previewFileName = (document.fileName || document.name).toLowerCase();
   const canPreviewPdf = previewFileName.endsWith('.pdf');
   const canPreviewImage = /\.(png|jpe?g)$/i.test(previewFileName);
@@ -2864,12 +2883,14 @@ function DocumentDetailsModal({
   const [previewError, setPreviewError] = useState('');
   const [titleDraft, setTitleDraft] = useState(document.name);
   const [titleSaving, setTitleSaving] = useState(false);
+  const [categoryDraft, setCategoryDraft] = useState(document.category);
   const cleanTitleDraft = titleDraft.trim();
-  const titleChanged = cleanTitleDraft.length > 0 && cleanTitleDraft !== document.name;
+  const titleChanged = cleanTitleDraft.length > 0 && (cleanTitleDraft !== document.name || categoryDraft.trim() !== document.category);
 
   useEffect(() => {
     setTitleDraft(document.name);
-  }, [document.id, document.name]);
+    setCategoryDraft(document.category);
+  }, [document.id, document.name, document.category]);
 
   useEffect(() => {
     if (isLink || !canPreviewInline || !onPreviewDocument) {
@@ -2920,7 +2941,7 @@ function DocumentDetailsModal({
 
     try {
       setTitleSaving(true);
-      await onUpdateTitle(document.id, cleanTitleDraft);
+      await onUpdateTitle(document.id, cleanTitleDraft, categoryDraft.trim() || 'General');
     } finally {
       setTitleSaving(false);
     }
@@ -2930,6 +2951,7 @@ function DocumentDetailsModal({
     <BaseModal title={document.name} subtitle={`${document.type} details and preview`} onClose={onClose}>
       <div className="document-details-modal custom-scroll">
         <form className="document-title-editor" onSubmit={saveTitle}>
+          <TextField label="Category" value={categoryDraft} onChange={setCategoryDraft} />
           <label className="form-field">
             <span>Document title</span>
             <input value={titleDraft} onChange={(event) => setTitleDraft(event.target.value)} placeholder="CV title" />
@@ -2970,7 +2992,7 @@ function DocumentDetailsModal({
         <footer className="modal-footer inner">
           {isLink ? <button className="secondary-button" type="button" onClick={() => window.open(document.url, '_blank')}><ExternalLink size={17} /> Open link</button> : null}
           {document.url ? <button className="secondary-button" type="button" onClick={() => onCopyLink(document)}><LinkIcon size={17} /> Copy link</button> : null}
-          <button className="secondary-button" type="button" onClick={() => onDownload(document)}><Download size={17} /> Download</button>
+          {!isLink ? <button className="secondary-button" type="button" onClick={() => onDownload(document)}><Download size={17} /> Download</button> : null}
           <button className="secondary-button" type="button" onClick={() => onArchive(document.id)}>Archive</button>
           <button className="secondary-button danger-action" type="button" onClick={() => onDelete(document.id)}><Trash2 size={17} /> Delete</button>
         </footer>
@@ -3686,7 +3708,7 @@ function AIToolsPage({
           <div><h2>AI Cover Letter Generator</h2><p>Generate a personalized cover letter based on your CV and a selected job offer.</p></div>
           <strong>Generate cover letter</strong>
         </button>
-        <article className={`ai-tool-card ai-tool-card-actions-card panel-card ${activeTool === 'scout' ? 'active' : ''}`}>
+        <button type="button" onClick={() => setActiveTool('scout')} className={`ai-tool-card ai-tool-card-actions-card panel-card ${activeTool === 'scout' ? 'active' : ''}`}>
           <span><BriefcaseBusiness size={22} /></span>
           <div>
             <h2>AI Job Scout</h2>
@@ -3697,12 +3719,7 @@ function AIToolsPage({
               <small>Next search: {hasJobSources ? scoutFrequency : 'After source setup'}</small>
             </div>
           </div>
-          <div className="ai-tool-card-actions">
-            <button className="secondary-button small" type="button" onClick={() => { setActiveTool('scout'); setScoutTab('new'); }}>View matches</button>
-            <button className="primary-button small" type="button" onClick={() => { setActiveTool('scout'); void runJobScout(); }} disabled={scoutBusy}>{scoutBusy ? 'Searching...' : 'Search now'}</button>
-            <button className="secondary-button small" type="button" onClick={() => onOpenSettings?.('preferences')}>Configure preferences</button>
-          </div>
-        </article>
+        </button>
       </div>
 
       {!cvDocuments.length ? (
@@ -3759,6 +3776,7 @@ function AIToolsPage({
               onMinScoreChange={setScoutMinScore}
               onFrequencyChange={setScoutFrequency}
               onUseCvContextChange={setScoutUseCvContext}
+              onViewMatches={() => setScoutTab('new')}
               onSearch={() => void runJobScout()}
               onOpenPreferences={() => onOpenSettings?.('preferences')}
             />
@@ -3845,6 +3863,7 @@ function JobScoutForm({
   onMinScoreChange,
   onFrequencyChange,
   onUseCvContextChange,
+  onViewMatches,
   onSearch,
   onOpenPreferences
 }: {
@@ -3858,6 +3877,7 @@ function JobScoutForm({
   onMinScoreChange: (value: number) => void;
   onFrequencyChange: (value: JobScoutFrequency) => void;
   onUseCvContextChange: (value: boolean) => void;
+  onViewMatches: () => void;
   onSearch: () => void;
   onOpenPreferences: () => void;
 }) {
@@ -3903,6 +3923,7 @@ function JobScoutForm({
       </div>
 
       <div className="job-scout-actions">
+        <button className="secondary-button" type="button" onClick={onViewMatches}>View matches</button>
         <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Searching...' : 'Search now'}</button>
         <button className="secondary-button" type="button" onClick={onOpenPreferences}><SlidersHorizontal size={16} /> Configure preferences</button>
       </div>
@@ -4559,9 +4580,127 @@ function ProfileCustomizationModal({ profile, setProfile, settings, setSettings,
   return <div className="modal-backdrop"><section className="settings-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>Profile & customization</h2><p>Manage your profile, preferences and app settings.</p></div><button className="close-button" type="button" onClick={cancel}><X size={20} /></button></header><div className="settings-body"><aside className="settings-tabs">{tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} type="button" onClick={() => setActiveTab(tab.id)}><Icon size={17} /> {tab.label}</button>; })}</aside><main className="settings-content custom-scroll">{activeTab === 'profile' ? <ProfileTab profile={draftProfile} setProfile={setDraftProfile} /> : null}{activeTab === 'appearance' ? <AppearanceTab theme={draftTheme} setTheme={setDraftTheme} settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'notifications' ? <NotificationsTab settings={draftSettings} setSettings={setDraftSettings} onSendTest={() => onSendNotificationTest?.(draftSettings, draftProfile)} /> : null}{activeTab === 'preferences' ? <PreferencesTab settings={draftSettings} setSettings={setDraftSettings} /> : null}{activeTab === 'data' ? <DataTab onImportCsv={onImportCsv} onExport={onExport} onBackup={onBackup} onReset={onReset} /> : null}</main></div><footer className="modal-footer"><button className="secondary-button" type="button" onClick={cancel}>Cancel</button><button className="primary-button" type="button" onClick={save}><CheckCircle2 size={17} /> Save changes</button></footer></section></div>;
 }
 
+function OpenAiKeySettings() {
+  const [key, setKey] = useState('');
+  const [configured, setConfigured] = useState(false);
+  const [busy, setBusy] = useState(true);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiRequest<{ configured: boolean }>('/api/ai/settings', { signal: controller.signal })
+      .then((result) => setConfigured(result.configured))
+      .catch(() => { if (!controller.signal.aborted) setMessage('Could not load key settings.'); })
+      .finally(() => { if (!controller.signal.aborted) setBusy(false); });
+    return () => controller.abort();
+  }, []);
+
+  async function save(apiKey: string) {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await apiRequest<{ configured: boolean }>('/api/ai/settings', { method: 'PUT', body: { apiKey } });
+      setConfigured(result.configured);
+      setKey('');
+      setMessage(result.configured ? 'Personal key saved.' : 'Personal key removed.');
+    } catch {
+      setMessage('Could not update the key. Check its format and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="setting-group">
+      <h3>OpenAI API key</h3>
+      <p>{configured ? 'Personal key configured.' : 'No personal key configured.'} Stored on the server until restart.</p>
+      <label className="form-field">
+        <span>Personal API key</span>
+        <input type="password" autoComplete="off" maxLength={512} value={key} onChange={(event) => setKey(event.target.value)} />
+      </label>
+      <div className="job-scout-actions">
+        <button type="button" className="secondary-button" disabled={busy || !key.trim()} onClick={() => void save(key.trim())}>Save key</button>
+        {configured ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void save('')}>Remove key</button> : null}
+      </div>
+      {message ? <span role="status">{message}</span> : null}
+    </section>
+  );
+}
+
+function AvatarCropEditor({ source, round, onApply, onCancel }: { source: string; round: boolean; onApply: (image: string) => void; onCancel: () => void }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null);
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [left, setLeft] = useState(50);
+  const [top, setTop] = useState(50);
+  const size = image ? Math.min(image.naturalWidth, image.naturalHeight) / zoom : 0;
+  const travelX = image ? image.naturalWidth - size : 0;
+  const travelY = image ? image.naturalHeight - size : 0;
+
+  useEffect(() => {
+    const photo = new Image();
+    photo.onload = () => setImage(photo);
+    photo.onerror = () => setFailed(true);
+    photo.src = source;
+    return () => { photo.onload = null; photo.onerror = null; };
+  }, [source]);
+
+  useEffect(() => {
+    const preview = canvas.current;
+    const context = preview?.getContext('2d');
+    if (!preview || !context || !image || !size) return;
+    context.clearRect(0, 0, preview.width, preview.height);
+    context.drawImage(image, travelX * left / 100, travelY * top / 100, size, size, 0, 0, preview.width, preview.height);
+  }, [image, left, top, size, travelX, travelY]);
+
+  return (
+    <section className="avatar-crop-editor" aria-label="Adjust profile photo">
+      <h3>Adjust profile photo</h3>
+      {failed ? <p className="form-error" role="alert">This image could not be loaded.</p> : (
+        <div className="avatar-crop-layout">
+          <canvas
+            ref={canvas}
+            width={384}
+            height={384}
+            className={round ? 'round' : ''}
+            aria-label="Cropped photo preview"
+            onPointerDown={(event) => {
+              if (!image || !event.isPrimary || event.button !== 0) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, left, top };
+            }}
+            onPointerMove={(event) => {
+              const start = drag.current;
+              if (!start || start.id !== event.pointerId) return;
+              const scale = size / event.currentTarget.getBoundingClientRect().width;
+              if (travelX > 0) setLeft(clamp(start.left - (event.clientX - start.x) * scale / travelX * 100, 0, 100));
+              if (travelY > 0) setTop(clamp(start.top - (event.clientY - start.y) * scale / travelY * 100, 0, 100));
+            }}
+            onLostPointerCapture={() => { drag.current = null; }}
+          />
+          <div className="avatar-crop-controls">
+            <label>Zoom<input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(event) => setZoom(event.currentTarget.valueAsNumber)} /></label>
+            <label>Horizontal position<input type="range" min={0} max={100} value={left} disabled={travelX <= 0} onChange={(event) => setLeft(event.currentTarget.valueAsNumber)} /></label>
+            <label>Vertical position<input type="range" min={0} max={100} value={top} disabled={travelY <= 0} onChange={(event) => setTop(event.currentTarget.valueAsNumber)} /></label>
+          </div>
+        </div>
+      )}
+      <div className="avatar-actions">
+        <button className="primary-button" type="button" disabled={!image} onClick={() => {
+          if (canvas.current) onApply(canvas.current.toDataURL('image/png'));
+        }}>Apply crop</button>
+        <button className="secondary-button" type="button" onClick={onCancel}>Cancel crop</button>
+      </div>
+    </section>
+  );
+}
+
 function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dispatch<SetStateAction<Profile>> }) {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [avatarError, setAvatarError] = useState('');
+  const [cropSource, setCropSource] = useState('');
   const currentVariant = normalizeAvatarVariant(profile.avatarVariant);
   const currentVariantLabel = avatarVariants.find((variant) => variant.id === currentVariant)?.label || 'Initials';
 
@@ -4590,7 +4729,7 @@ function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dis
         return;
       }
 
-      patchProfile({ avatarImage: reader.result });
+      setCropSource(reader.result);
       setAvatarError('');
     };
     reader.onerror = () => setAvatarError('This image could not be loaded. Try another file.');
@@ -4609,9 +4748,12 @@ function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dis
               <Upload size={15} /> Upload photo
             </button>
             {profile.avatarImage ? (
-              <button className="text-button strong danger-text" type="button" onClick={() => patchProfile({ avatarImage: '' })}>
-                Remove photo
-              </button>
+              <>
+                <button className="secondary-button small" type="button" onClick={() => setCropSource(profile.avatarImage)}><Pencil size={15} /> Adjust photo</button>
+                <button className="text-button strong danger-text" type="button" onClick={() => { setCropSource(''); patchProfile({ avatarImage: '' }); }}>
+                  Remove photo
+                </button>
+              </>
             ) : null}
           </div>
           <input
@@ -4627,6 +4769,16 @@ function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dis
           {avatarError ? <p className="form-error avatar-error" role="alert">{avatarError}</p> : null}
         </div>
       </div>
+      {cropSource ? <AvatarCropEditor
+        key={cropSource}
+        source={cropSource}
+        round={currentVariant === 'round'}
+        onCancel={() => setCropSource('')}
+        onApply={(avatarImage) => {
+          patchProfile({ avatarImage });
+          setCropSource('');
+        }}
+      /> : null}
       <div className="setting-group">
         <span className="setting-label">Avatar frame</span>
         <div className="segmented-row avatar-frame-row">
@@ -4651,6 +4803,7 @@ function ProfileTab({ profile, setProfile }: { profile: Profile; setProfile: Dis
         <TextField label="LinkedIn URL" value={profile.linkedInUrl} onChange={(v) => patchProfile({ linkedInUrl: v })} placeholder="https://www.linkedin.com/in/..." />
         <TextField label="GitHub URL" value={profile.githubUrl} onChange={(v) => patchProfile({ githubUrl: v })} placeholder="https://github.com/..." />
       </div>
+      <OpenAiKeySettings />
     </div>
   );
 }
@@ -4947,7 +5100,7 @@ type MobileLayoutProps = {
   onCreateDocumentLink?: (doc: DocumentItem) => Promise<void>;
   onDeleteDocument?: (id: EntityId) => Promise<void>;
   onArchiveDocument?: (id: EntityId) => Promise<void>;
-  onUpdateDocumentTitle?: (id: EntityId, name: string) => Promise<void>;
+  onUpdateDocumentTitle?: (id: EntityId, name: string, category: string) => Promise<void>;
   onDownloadDocument?: (doc: DocumentItem) => Promise<void>;
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
   onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>;
@@ -5584,7 +5737,7 @@ function App() {
   const [events, setEvents] = useState<CalendarEvent[]>(appInitialEvents);
   const [documents, setDocuments] = useState<DocumentItem[]>(appInitialDocuments);
   const [notes, setNotes] = useState<NoteItem[]>(appInitialNotes);
-  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [theme, setTheme] = useState<Theme>(() => normalizeTheme(readStorage('trackmycv.login-theme', initialTheme)));
   const [page, setPage] = useState<Page>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<ProfileTab>('profile');
@@ -5610,7 +5763,7 @@ function App() {
     setEvents(appInitialEvents);
     setDocuments(appInitialDocuments);
     setNotes(appInitialNotes);
-    setTheme(initialTheme);
+    setTheme(normalizeTheme(readStorage('trackmycv.login-theme', initialTheme)));
     setSelectedApplication(null);
     setEditingApplication(undefined);
     setSettingsOpen(false);
@@ -5643,7 +5796,7 @@ function App() {
     setEvents(savedEvents);
     setDocuments(readUserStorage(user.id, STORAGE.documents, appInitialDocuments));
     setNotes(readUserStorage(user.id, STORAGE.notes, appInitialNotes));
-    setTheme(normalizeTheme(readUserStorage(user.id, STORAGE.theme, initialTheme)));
+    setTheme(normalizeTheme(readUserStorage(user.id, STORAGE.theme, readStorage('trackmycv.login-theme', initialTheme))));
     void syncNotificationEvents(savedEvents);
   }
 
@@ -5773,6 +5926,7 @@ function App() {
     clearSharedWorkspaceStorage();
     loadUserWorkspace(response.user);
     setLoggedIn(true);
+    openSettings('profile');
   }
 
   async function logout() {
@@ -5959,8 +6113,8 @@ function App() {
   async function archiveDocument(id: EntityId) {
     await documentsApiState.archiveDocument(id);
   }
-  async function updateDocumentTitle(id: EntityId, name: string) {
-    await documentsApiState.updateDocumentTitle(id, name);
+  async function updateDocumentTitle(id: EntityId, name: string, category: string) {
+    await documentsApiState.updateDocumentTitle(id, name, category);
   }
   async function deleteDocument(id: EntityId) {
     await documentsApiState.deleteDocument(id);
@@ -6056,7 +6210,10 @@ function App() {
     );
   }
 
-  if (!isLoggedIn) return <LoginPage onLogin={login} onRegister={register} resolvedTheme={resolvedTheme} />;
+  if (!isLoggedIn) return <LoginPage onLogin={login} onRegister={register} resolvedTheme={resolvedTheme} onThemeChange={(nextTheme) => {
+    writeStorage('trackmycv.login-theme', nextTheme);
+    setTheme(nextTheme);
+  }} />;
 
   const commonOverlays = (
     <>

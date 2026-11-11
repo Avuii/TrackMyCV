@@ -4,11 +4,41 @@ services:
     container_name: trackmycv-sqlserver
     environment:
       ACCEPT_EULA: "Y"
-      SA_PASSWORD: "YourStrong!Passw0rd"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}"
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     volumes:
       - trackmycv-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  api:
+    build: ./backend
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=TrackMyCVDb;User Id=sa;Password=\"${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}\";TrustServerCertificate=True;"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-5-mini}"
+      LATEX_COMPILER: pdflatex
+      EMAIL__ENABLED: "${EMAIL__ENABLED:-false}"
+      EMAIL__HOST: "${EMAIL__HOST:-}"
+      EMAIL__PORT: "${EMAIL__PORT:-587}"
+      EMAIL__ENABLESSL: "${EMAIL__ENABLESSL:-true}"
+      EMAIL__USERNAME: "${EMAIL__USERNAME:-}"
+      EMAIL__PASSWORD: "${EMAIL__PASSWORD:-}"
+      EMAIL__FROMEMAIL: "${EMAIL__FROMEMAIL:-notifications@trackmycv.local}"
+      EMAIL__FROMNAME: "${EMAIL__FROMNAME:-TrackMyCV}"
+    ports:
+      - "127.0.0.1:5228:8080"
+    volumes:
+      - ./backend/TrackMyCV.Api/App_Data:/app/App_Data
 
 volumes:
   trackmycv-sqlserver-data:

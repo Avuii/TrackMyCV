@@ -99,12 +99,12 @@ export function useDocuments(enabled = true) {
     }
   }, []);
 
-  const updateDocumentTitle = useCallback(async (id: DocumentId, name: string) => {
+  const updateDocumentTitle = useCallback(async (id: DocumentId, name: string, category: string) => {
     setSaving(true);
     setError(null);
 
     try {
-      const updated = await documentsApi.update(id, { name });
+      const updated = await documentsApi.update(id, { name, category });
       setDocuments((current) => current.map((document) => (document.id === id ? updated : document)));
       return updated;
     } catch (requestError) {

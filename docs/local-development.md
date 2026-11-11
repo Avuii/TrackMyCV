@@ -1,5 +1,26 @@
 # Local Development
 
+## Backend with Docker
+
+From the repository root with Docker Desktop running:
+
+```bash
+docker compose up -d --build api
+docker compose logs -f api
+```
+
+Compose starts SQL Server, waits for it to accept queries, and starts the API at
+`http://localhost:5228`. The API applies database migrations on startup.
+Stop any API already listening on port 5228 (for example from Visual Studio) before starting.
+The SQL volume and the host `App_Data` directory retain database records and uploaded files.
+Optional OpenAI and email settings come from the root `.env` file.
+If you use a custom SQL password, set `MSSQL_SA_PASSWORD` to the password of the existing SQL instance.
+
+Start the frontend separately with `npm --prefix frontend run dev`.
+Use `docker compose stop api` to stop only the API, or `docker compose stop` to stop both services.
+
+## Backend on the host
+
 Run the whole local application from the repository root:
 
 ```bash

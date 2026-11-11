@@ -304,6 +304,11 @@ public class DocumentsController : ControllerBase
 
         var oldName = document.Name;
         document.Name = name;
+        if (request.Category is not null)
+        {
+            var category = request.Category.Trim();
+            document.Category = TrimTo(category.Length == 0 ? "General" : category, 100);
+        }
         document.UpdatedAt = DateTime.UtcNow;
 
         if (!oldName.Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -557,6 +562,7 @@ public sealed class CreateTextDocumentRequest
 public sealed class UpdateDocumentRequest
 {
     public string Name { get; set; } = string.Empty;
+    public string? Category { get; set; }
 }
 
 public record DocumentDto(

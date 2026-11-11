@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TrackMyCV.Api.Auth;
 using TrackMyCV.Domain.Entities;
@@ -19,6 +20,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
         var email = NormalizeEmail(request.Email);
@@ -57,6 +59,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
         var email = NormalizeEmail(request.Email);
@@ -73,14 +76,9 @@ public class AuthController : ControllerBase
 
         var user = await _dbContext.AppUsers.FirstOrDefaultAsync(x => x.Email == email);
 
-        if (user is null)
+        if (user is null || !AuthTokenService.VerifyPassword(request.Password, user.PasswordHash))
         {
-            return NotFound("No account exists for this email. Create an account first.");
-        }
-
-        if (!AuthTokenService.VerifyPassword(request.Password, user.PasswordHash))
-        {
-            return Unauthorized("This account exists, but the password is incorrect.");
+            return Unauthorized("Invalid email or password.");
         }
 
         return Ok(await CreateAuthResponse(user));

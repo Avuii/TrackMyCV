@@ -28,8 +28,19 @@ builder.Services.AddScoped<ICvReviewService, CvReviewService>();
 builder.Services.AddScoped<ICoverLetterLatexRenderer, CoverLetterLatexRenderer>();
 builder.Services.AddScoped<ICoverLetterGeneratorService, CoverLetterGeneratorService>();
 builder.Services.AddHttpClient<IAiProvider, OpenAiProvider>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<System.Collections.Concurrent.ConcurrentDictionary<Guid, string>>();
 builder.Services.AddRateLimiter(options =>
 {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 12,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
     options.AddPolicy("ai", context =>
     {
         var userKey = context.Items.TryGetValue(AuthHttpContextExtensions.UserIdItemKey, out var value) && value is Guid userId
