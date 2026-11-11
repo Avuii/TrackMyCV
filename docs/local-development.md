@@ -21,6 +21,14 @@ Use `docker compose stop api` to stop only the API, or `docker compose stop` to 
 
 ## Backend on the host
 
+On a fresh clone, create the local API configuration before starting the host backend:
+
+```powershell
+Copy-Item backend/TrackMyCV.Api/appsettings.example.json backend/TrackMyCV.Api/appsettings.json
+```
+
+The destination is ignored by Git. Keep personal keys and passwords in local configuration or the root `.env` file.
+
 Run the whole local application from the repository root:
 
 ```bash
