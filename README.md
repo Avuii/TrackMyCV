@@ -9,7 +9,25 @@
 </p>
 
 <p align="center">
-  <a href="https://avuii.github.io/TrackMyCV/"><strong>Open the interactive demo</strong></a>
+  <img src="https://img.shields.io/badge/status-active%20development-A67856?labelColor=5C5148&style=for-the-badge" alt="Status: active development" />
+  <a href="https://avuii.github.io/TrackMyCV/">
+    <img src="https://img.shields.io/badge/GitHub%20Pages-Interactive%20demo-C49A6C?labelColor=7A5C42&style=for-the-badge&logo=github&logoColor=white" alt="Open the TrackMyCV demo on GitHub Pages" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/React-5F7476?style=for-the-badge&logo=react&logoColor=white" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-4D6473?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-6E8FA3?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Lucide-8A6F5A?style=for-the-badge&logo=lucide&logoColor=white" alt="Lucide React" />
+  <br />
+  <img src="https://img.shields.io/badge/ASP.NET%20Core-10-5E4B3D?style=for-the-badge&logo=dotnet&logoColor=white" alt="ASP.NET Core 10" />
+  <img src="https://img.shields.io/badge/EF%20Core-10-735846?style=for-the-badge&logo=dotnet&logoColor=white" alt="Entity Framework Core 10" />
+  <img src="https://img.shields.io/badge/SQL%20Server-2022-7A4A4A?style=for-the-badge" alt="SQL Server 2022" />
+  <br />
+  <img src="https://img.shields.io/badge/Docker%20Compose-4D6473?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Compose" />
+  <img src="https://img.shields.io/badge/OpenAI%20API-7A4A4A?style=for-the-badge" alt="OpenAI API" />
+  <img src="https://img.shields.io/badge/LaTeX-5F7476?style=for-the-badge&logo=latex&logoColor=white" alt="LaTeX" />
 </p>
 
 TrackMyCV brings together applications, employer research, interview dates, CV versions, and recruitment notes. The full-stack app runs locally with an ASP.NET Core API and SQL Server. The GitHub Pages demo uses sample data, simulated sign-in, and browser storage.
