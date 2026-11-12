@@ -284,7 +284,7 @@ const initialCompanies: Company[] = [
   { id: 1, name: 'Northstar Labs', domain: '', industry: 'Technology', location: 'Remote', website: 'https://example.com/northstar', contact: 'careers@example.com', notes: 'Fictional demo company for portfolio presentation.' },
   { id: 2, name: 'Riverstone Consulting', domain: '', industry: 'Consulting', location: 'Warsaw', website: 'https://example.com/riverstone', contact: 'recruitment@example.com', notes: 'Fictional consulting company with security roles.' },
   { id: 3, name: 'BrightPath Digital', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/brightpath', contact: '', notes: 'Fictional company used for demo data.' },
-  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'KrakĂłw', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
+  { id: 4, name: 'Cloudberry Systems', domain: '', industry: 'Technology', location: 'Kraków', website: 'https://example.com/cloudberry', contact: '', notes: 'Fictional cloud and DevOps company.' },
   { id: 5, name: 'Oak & Code', domain: '', industry: 'Software house', location: 'Remote', website: 'https://example.com/oak-code', contact: '', notes: 'Fictional software studio.' },
   { id: 6, name: 'Lumen Security', domain: '', industry: 'Cybersecurity', location: 'Warsaw', website: 'https://example.com/lumen-security', contact: '', notes: 'Fictional cybersecurity company.' },
   { id: 7, name: 'MapleWorks', domain: '', industry: 'E-commerce', location: 'Remote', website: 'https://example.com/mapleworks', contact: '', notes: 'Fictional product company.' }
@@ -325,7 +325,7 @@ const initialApplications: JobApplication[] = [
   { id: 1, company: 'Northstar Labs', companyId: 1, domain: '', position: '.NET Developer Intern', category: '.NET', level: 'Intern', status: 'Interview', dateApplied: '2026-05-20', lastContact: '2026-05-22', nextStep: 'Technical interview', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/northstar/job-1', requirements: 'C#, .NET, SQL, REST API, Git', benefits: 'Mentoring, training budget, flexible work', notes: 'Demo note: prepare technical topics before the interview.', cv: 'CV_NET_Intern_Demo.pdf' },
   { id: 2, company: 'Riverstone Consulting', companyId: 2, domain: '', position: 'Cyber Security Analyst Intern', category: 'Cybersecurity', level: 'Internship', status: 'In progress', dateApplied: '2026-05-18', lastContact: '2026-05-20', nextStep: 'HR interview', location: 'Warsaw', workMode: 'Hybrid', source: 'Company career page', offerUrl: 'https://example.com/riverstone/job-2', requirements: 'IAM basics, security awareness, English, documentation', benefits: 'Learning path, mentor support, workshops', notes: 'Demo note: prepare motivation and security basics.', cv: 'CV_Security_Demo.pdf' },
   { id: 3, company: 'BrightPath Digital', companyId: 3, domain: '', position: 'IAM Intern', category: 'IAM', level: 'Intern', status: 'Applied', dateApplied: '2026-05-15', lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Remote', source: 'LinkedIn', offerUrl: 'https://example.com/brightpath/job-3', requirements: 'Identity lifecycle, MFA, access management', benefits: 'Remote work, office events, training', notes: 'Demo note: good match for IAM interests.', cv: 'CV_Security_Demo.pdf' },
-  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'KrakĂłw', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
+  { id: 4, company: 'Cloudberry Systems', companyId: 4, domain: '', position: 'Junior DevOps Engineer', category: 'DevOps', level: 'Junior-friendly', status: 'No response', dateApplied: '2026-05-10', lastContact: '', nextStep: 'Follow-up', location: 'Kraków', workMode: 'Hybrid', source: 'Just Join IT', offerUrl: 'https://example.com/cloudberry/job-4', requirements: 'Docker, CI/CD, Linux, Git', benefits: 'Flexible hours, training, tech community', notes: 'Demo note: consider sending a follow-up.', cv: 'CV_General_IT_Demo.pdf' },
   { id: 5, company: 'Oak & Code', companyId: 5, domain: '', position: 'Junior Full-stack Developer', category: 'Full-stack', level: 'Junior', status: 'Rejected', dateApplied: '2026-05-05', lastContact: '2026-05-12', nextStep: 'Closed', location: 'Remote', workMode: 'Remote', source: 'Pracuj.pl', offerUrl: 'https://example.com/oak-code/job-5', requirements: 'C#, React, SQL, Git', benefits: 'Remote-first, workshops, team projects', notes: 'Demo note: add feedback and learning points here.', cv: 'CV_Fullstack_Demo.pdf' },
   { id: 6, company: 'Lumen Security', companyId: 6, domain: '', position: 'Security Internship', category: 'Cybersecurity', level: 'Internship', status: 'Ghosted', dateApplied: '2026-05-02', lastContact: '', nextStep: 'Archive or follow-up', location: 'Warsaw', workMode: 'Hybrid', source: 'No Fluff Jobs', offerUrl: 'https://example.com/lumen-security/job-6', requirements: 'Security basics, cloud basics, communication', benefits: 'Mentoring, certifications, hybrid work', notes: 'Demo note: no response after 30 days.', cv: 'CV_Security_Demo.pdf' },
   { id: 7, company: 'MapleWorks', companyId: 7, domain: '', position: 'Frontend Trainee', category: 'Frontend', level: 'Trainee', status: 'Offer', dateApplied: '2026-04-28', lastContact: '2026-05-07', nextStep: 'Decision', location: 'Remote', workMode: 'Remote', source: 'Direct referral', offerUrl: 'https://example.com/mapleworks/job-7', requirements: 'React, TypeScript, CSS, Git', benefits: 'Flexible work, product team, mentoring', notes: 'Demo note: strong frontend learning opportunity.', cv: 'CV_Frontend_Demo.pdf' }
@@ -2271,6 +2271,12 @@ function MobileLayout({
   children
 }: MobileLayoutProps) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [detailsId, setDetailsId] = useState<number | null>(null);
+  const details = applications.find((application) => application.id === detailsId);
+  const openDetails = (application: JobApplication) => setDetailsId(application.id);
+  const closeDetails = () => setDetailsId(null);
+
+  useEffect(() => setDetailsId(null), [page]);
 
   function openAddApplication() {
     setPage('applications');
@@ -2282,18 +2288,17 @@ function MobileLayout({
       <MobileHeader
         page={page}
         profile={profile}
-        theme={theme}
-        setTheme={setTheme}
         onOpenSettings={onOpenSettings}
       />
 
-      <main className="mobile-content custom-scroll">
+      <main key={page} className="mobile-content custom-scroll">
         {page === 'dashboard' ? (
           <MobileDashboardPage
             applications={applications}
             events={events}
             setPage={setPage}
-            onOpenEditApplication={onOpenEditApplication}
+            onOpenDetails={openDetails}
+            onOpenApplication={openAddApplication}
           />
         ) : null}
 
@@ -2301,9 +2306,7 @@ function MobileLayout({
           <MobileApplicationsPage
             applications={applications}
             onOpenApplication={openAddApplication}
-            onOpenEditApplication={onOpenEditApplication}
-            onStatusChange={onStatusChange}
-            onDelete={onDeleteApplication}
+            onOpenDetails={openDetails}
             onExport={onExport}
             categoryOptions={categoryOptions}
             levelOptions={levelOptions}
@@ -2321,7 +2324,6 @@ function MobileLayout({
         {page === 'ai' ? <AIToolsPage documents={documents} settings={settings} setToast={setToast} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
       </main>
 
-      <FloatingActionButton onClick={openAddApplication} label="Add application" />
       <MobileBottomNav page={page} setPage={setPage} onMore={() => setMoreOpen(true)} />
 
       {moreOpen ? (
@@ -2338,32 +2340,29 @@ function MobileLayout({
         />
       ) : null}
 
+      {details && (
+        <ApplicationDetailsSheet
+          application={details}
+          onClose={closeDetails}
+          onStatusChange={(status) => onStatusChange(details.id, status)}
+          onEdit={() => { closeDetails(); onOpenEditApplication(details); }}
+          onDelete={() => { closeDetails(); onDeleteApplication(details.id); }}
+        />
+      )}
+
       {children}
     </div>
   );
 }
 
-function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page: Page; profile: Profile; theme: Theme; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
-  const meta = pageLabels[page];
-  const firstName = profile.name.split(' ')[0] || 'Demo';
-
+function MobileHeader({ page, profile, onOpenSettings }: { page: Page; profile: Profile; onOpenSettings: (tab?: ProfileTab) => void }) {
   return (
     <header className="mobile-header">
-      <div className="mobile-header-top">
-        <Logo />
-        <div className="mobile-header-actions">
-          <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-          <button className="mobile-avatar-button" type="button" onClick={() => onOpenSettings('profile')} aria-label="Open profile">
-            <DemoAvatar profile={profile} className="mobile-avatar-preview" />
-          </button>
-        </div>
-      </div>
-      <div className="mobile-page-title">
-        <span>{firstName}'s job tracker</span>
-        <h1>{page === 'dashboard' ? `Good morning, ${firstName}` : meta.title}</h1>
-        <p>{page === 'dashboard' ? 'Your next recruitment steps in one calm view.' : meta.subtitle}</p>
+      <h1>{pageLabels[page].title}</h1>
+      <div className="mobile-header-actions">
+        <button className="mobile-avatar-button" type="button" onClick={() => onOpenSettings('profile')} aria-label="Open profile">
+          <DemoAvatar profile={profile} className="mobile-avatar-preview" />
+        </button>
       </div>
     </header>
   );
@@ -2372,7 +2371,7 @@ function MobileHeader({ page, profile, theme, setTheme, onOpenSettings }: { page
 function MobileBottomNav({ page, setPage, onMore }: { page: Page; setPage: (page: Page) => void; onMore: () => void }) {
   const primaryItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
-    { id: 'applications', label: 'Apps', icon: BriefcaseBusiness },
+    { id: 'applications', label: 'Applications', icon: BriefcaseBusiness },
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'notes', label: 'Notes', icon: StickyNote }
   ];
@@ -2389,20 +2388,11 @@ function MobileBottomNav({ page, setPage, onMore }: { page: Page; setPage: (page
           </button>
         );
       })}
-      <button type="button" className={moreActive ? 'active' : ''} onClick={onMore}>
+      <button type="button" className={moreActive ? 'active' : ''} aria-haspopup="dialog" onClick={onMore}>
         <MoreHorizontal size={20} />
         <span>More</span>
       </button>
     </nav>
-  );
-}
-
-function FloatingActionButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button className="mobile-fab" type="button" onClick={onClick} aria-label={label}>
-      <Plus size={22} />
-      <span>{label}</span>
-    </button>
   );
 }
 
@@ -2435,7 +2425,7 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
         </button>
         <button type="button" onClick={() => { onOpenSettings('appearance'); onClose(); }}>
           <span className="mobile-more-icon"><Palette size={19} /></span>
-          <div><strong>Appearance</strong><small>{theme} Â· {settings.accent}</small></div>
+          <div><strong>Appearance</strong><small>{theme} · {settings.accent}</small></div>
         </button>
         <button type="button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
           <span className="mobile-more-icon">{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</span>
@@ -2454,10 +2444,42 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
   );
 }
 
+function useDialogFocus(onClose: () => void) {
+  const dialog = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    dialog.current?.focus();
+    return () => {
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      event.stopPropagation();
+      onClose();
+    }
+    if (event.key !== 'Tab' || event.defaultPrevented) return;
+
+    const controls = [...event.currentTarget.querySelectorAll<HTMLElement>(
+      'button, a[href], input, select, textarea, summary, [tabindex], [contenteditable="true"]'
+    )].filter(control => control.tabIndex >= 0 && !control.matches(':disabled') && control.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    const active = document.activeElement;
+    if (!first || active === (event.shiftKey ? first : last) || active === event.currentTarget) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus();
+    }
+  }
+  return { ref: dialog, tabIndex: -1, onKeyDown };
+}
+
 function MobileBottomSheet({ title, subtitle, onClose, children, className = '' }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; className?: string }) {
+  const focus = useDialogFocus(onClose);
   return (
     <div className="mobile-sheet-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className={`mobile-bottom-sheet ${className}`} role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`mobile-bottom-sheet ${className}`} role="dialog" aria-modal="true" aria-label={title} {...focus} onMouseDown={(event) => event.stopPropagation()}>
         <div className="mobile-sheet-handle" aria-hidden="true" />
         <header className="mobile-sheet-header">
           <div>
@@ -2472,7 +2494,7 @@ function MobileBottomSheet({ title, subtitle, onClose, children, className = '' 
   );
 }
 
-function MobileDashboardPage({ applications, events, setPage, onOpenEditApplication }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; onOpenEditApplication: (app: JobApplication) => void }) {
+function MobileDashboardPage({ applications, events, setPage, onOpenDetails, onOpenApplication }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; onOpenDetails: (app: JobApplication) => void; onOpenApplication: () => void }) {
   const stats = calculateStats(applications);
   const nextActions = applications
     .filter((app) => ['Interview', 'Task / test', 'No response', 'Ghosted', 'In progress'].includes(app.status))
@@ -2482,6 +2504,7 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
 
   return (
     <section className="mobile-dashboard">
+      <button className="primary-button mobile-dashboard-add" type="button" onClick={onOpenApplication}><Plus size={18} /> Add application</button>
       <div className="mobile-metrics-row custom-scroll">
         <MetricCard label="Total" value={stats.total} hint="applications" />
         <MetricCard label="Active" value={stats.active} hint="open processes" tone="blue-text" />
@@ -2495,7 +2518,7 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
           <button type="button" onClick={() => setPage('applications')}>All</button>
         </div>
         <div className="mobile-action-list">
-          {nextActions.map((app) => <MobileActionItem key={app.id} application={app} onClick={() => onOpenEditApplication(app)} />)}
+          {nextActions.map((app) => <MobileActionItem key={app.id} application={app} onClick={() => onOpenDetails(app)} />)}
           {!nextActions.length ? <MobileEmptyState icon={CheckCircle2} title="Nothing urgent" text="No urgent recruitment steps for now." /> : null}
         </div>
       </section>
@@ -2506,7 +2529,7 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
           <button type="button" onClick={() => setPage('applications')}>Open</button>
         </div>
         <div className="mobile-card-list compact">
-          {recent.map((app) => <MobileApplicationCard key={app.id} application={app} onOpen={() => onOpenEditApplication(app)} onEdit={() => onOpenEditApplication(app)} />)}
+          {recent.map((app) => <MobileApplicationCard key={app.id} application={app} onOpen={() => onOpenDetails(app)} />)}
         </div>
       </section>
 
@@ -2530,14 +2553,14 @@ function MobileActionItem({ application, onClick }: { application: JobApplicatio
       <CompanyLogo name={application.company} domain={application.domain} />
       <div>
         <strong>{application.nextStep || application.status}</strong>
-        <span>{application.company} Â· {application.position}</span>
+        <span>{application.company} · {application.position}</span>
       </div>
       <StatusBadge status={application.status} />
     </button>
   );
 }
 
-function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onStatusChange: (id: number, status: Status) => void; onDelete: (id: number) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
+function MobileApplicationsPage({ applications, onOpenApplication, onOpenDetails, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenDetails: (app: JobApplication) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All');
   const [category, setCategory] = useState('All');
@@ -2546,7 +2569,6 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
   const [mode, setMode] = useState('All');
   const [source, setSource] = useState('All');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [details, setDetails] = useState<JobApplication | null>(null);
 
   const locations = useMemo(() => ['All', ...Array.from(new Set(applications.map((app) => app.location))).filter(Boolean)], [applications]);
   const filtered = useMemo(() => applications.filter((app) => {
@@ -2560,7 +2582,7 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
       (source === 'All' || app.source === source);
   }), [applications, query, status, category, level, location, mode, source]);
 
-  const activeFilters = [status, category, level, location, mode, source].filter((value) => value !== 'All');
+  const activeFilters = Object.entries({ status, category, level, location, mode, source }).filter(([, value]) => value !== 'All');
   const hasFilters = query || activeFilters.length > 0;
 
   function clearFilters() {
@@ -2578,25 +2600,27 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
       <div className="mobile-search-row">
         <label className="mobile-search-field">
           <Search size={18} />
-          <input placeholder="Search applications..." value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input type="search" aria-label="Search applications" placeholder="Search…" value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
-        <button className="mobile-filter-button" type="button" onClick={() => setFiltersOpen(true)}>
+        <button className="mobile-filter-button" type="button" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
           <SlidersHorizontal size={18} />
           <span>Filters</span>
           {activeFilters.length ? <strong>{activeFilters.length}</strong> : null}
         </button>
       </div>
 
-      <div className="mobile-filter-chips custom-scroll">
-        {activeFilters.map((filter) => <span key={filter}>{filter}</span>)}
-        {hasFilters ? <button type="button" onClick={clearFilters}>Clear</button> : null}
-      </div>
+      {hasFilters && (
+        <div className="mobile-filter-chips">
+          {activeFilters.map(([field, value]) => <span key={field}>{value}</span>)}
+          <button type="button" onClick={clearFilters}>Clear filters</button>
+        </div>
+      )}
 
       <div className="mobile-list-summary">
-        <div><strong>{filtered.length}</strong><span>{filtered.length === 1 ? 'application' : 'applications'}</span></div>
+        <p className="mobile-results-count" role="status">{filtered.length} {filtered.length === 1 ? 'application' : 'applications'}</p>
         <div className="mobile-list-actions">
           <button type="button" onClick={onExport}><Download size={16} /> Export</button>
-          <button type="button" onClick={onOpenApplication}><Plus size={16} /> Add</button>
+          <button className="mobile-add-button" type="button" onClick={onOpenApplication}><Plus size={16} /> Add</button>
         </div>
       </div>
 
@@ -2605,10 +2629,7 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
           <MobileApplicationCard
             key={app.id}
             application={app}
-            onOpen={() => setDetails(app)}
-            onEdit={() => onOpenEditApplication(app)}
-            onDelete={() => onDelete(app.id)}
-            onStatusChange={(nextStatus) => onStatusChange(app.id, nextStatus)}
+            onOpen={() => onOpenDetails(app)}
           />
         ))}
         {!filtered.length ? <MobileEmptyState icon={Folder} title="No results" text="Try changing filters or add a new application." /> : null}
@@ -2635,57 +2656,25 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
           onClear={clearFilters}
         />
       ) : null}
-
-      {details ? (
-        <ApplicationDetailsSheet
-          application={details}
-          onClose={() => setDetails(null)}
-          onEdit={() => {
-            setDetails(null);
-            onOpenEditApplication(details);
-          }}
-          onDelete={() => {
-            onDelete(details.id);
-            setDetails(null);
-          }}
-        />
-      ) : null}
     </section>
   );
 }
 
-function MobileApplicationCard({ application, onOpen, onEdit, onDelete, onStatusChange }: { application: JobApplication; onOpen: () => void; onEdit: () => void; onDelete?: () => void; onStatusChange?: (status: Status) => void }) {
+function MobileApplicationCard({ application, onOpen }: { application: JobApplication; onOpen: () => void }) {
   return (
     <article className="mobile-application-card">
-      <button className="mobile-card-main" type="button" onClick={onOpen}>
-        <div className="mobile-card-topline">
-          <div className="mobile-card-company">
-            <CompanyLogo name={application.company} domain={application.domain} />
-            <div>
-              <strong>{application.company}</strong>
-              <span>{application.location} Â· {application.workMode}</span>
-            </div>
-          </div>
-          <StatusBadge status={application.status} />
+      <button className="mobile-card-main" type="button" onClick={onOpen} aria-haspopup="dialog">
+        <CompanyLogo name={application.company} domain={application.domain} />
+        <div className="mobile-card-copy">
+          <h2>{application.position}</h2>
+          <p>{[application.company, application.location].filter(Boolean).join(' · ')}</p>
         </div>
-        <h2>{application.position}</h2>
-        <div className="mobile-card-meta">
-          <span>{application.category}</span>
-          <span>{application.level}</span>
+        <ChevronDown className="chevron-right mobile-card-chevron" size={18} aria-hidden="true" />
+        <div className="mobile-card-context">
+          <StatusBadge status={application.status} />
           <span>{formatDate(application.dateApplied)}</span>
         </div>
-        <div className="mobile-next-step"><Clock size={15} /><span>Next: {application.nextStep || 'Waiting'}</span></div>
       </button>
-      <div className="mobile-card-actions-row">
-        {onStatusChange ? (
-          <select value={application.status} onChange={(event) => onStatusChange(event.target.value as Status)} aria-label={`Change status for ${application.company}`}>
-            {statuses.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-        ) : null}
-        <button type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={16} /> Open</button>
-        <button type="button" onClick={onEdit}><Pencil size={16} /> Edit</button>
-        {onDelete ? <button className="danger" type="button" onClick={onDelete}><Trash2 size={16} /></button> : null}
-      </div>
     </article>
   );
 }
@@ -2709,19 +2698,30 @@ function MobileFiltersSheet({ status, setStatus, category, setCategory, level, s
   );
 }
 
-function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete, onStatusChange }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void; onStatusChange: (status: Status) => void }) {
   return (
-    <MobileBottomSheet title="Application details" subtitle={`${application.company} Â· ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
+    <MobileBottomSheet title="Application details" onClose={onClose} className="mobile-application-details-sheet">
       <div className="mobile-detail-hero">
         <CompanyLogo name={application.company} domain={application.domain} large />
         <div>
           <h2>{application.position}</h2>
           <p>{application.company}</p>
         </div>
-        <StatusBadge status={application.status} />
+      </div>
+      <div className="mobile-detail-controls">
+        <label className="form-field">
+          <span>Status</span>
+          <select value={application.status} onChange={(event) => onStatusChange(event.target.value as Status)}>
+            {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+        </label>
+        <button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button>
       </div>
 
       <div className="mobile-detail-grid">
+        <div><span>Category</span><strong>{application.category}</strong></div>
+        <div><span>Level</span><strong>{application.level}</strong></div>
+        <div><span>Location</span><strong>{application.location || '—'}</strong></div>
         <div><span>Date applied</span><strong>{formatDate(application.dateApplied)}</strong></div>
         <div><span>Last contact</span><strong>{formatDate(application.lastContact)}</strong></div>
         <div><span>Work mode</span><strong>{application.workMode}</strong></div>
@@ -2741,9 +2741,8 @@ function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { a
         <p>{application.notes || 'No notes saved yet.'}</p>
       </div>
 
-      <div className="mobile-sheet-actions sticky-actions">
-        <button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Offer</button>
-        <button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button>
+      <div className="mobile-sheet-actions mobile-detail-actions">
+        {application.offerUrl && <a className="secondary-button" href={application.offerUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={17} /> Offer</a>}
         <button className="secondary-button danger-button" type="button" onClick={onDelete}><Trash2 size={17} /> Delete</button>
       </div>
     </MobileBottomSheet>
@@ -2789,7 +2788,7 @@ function MobileCalendarPage({ events, applications, setEvents, setToast }: { eve
               <div className="mobile-calendar-event" key={event.id}>
                 <button type="button" onClick={() => setModal(event)}>
                   <span>{event.time}</span>
-                  <div><strong>{event.title}</strong><small>{event.company} Â· {event.location}</small></div>
+                  <div><strong>{event.title}</strong><small>{event.company} · {event.location}</small></div>
                 </button>
                 <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
                 <button className="ghost-icon danger" type="button" onClick={() => remove(event.id)}><Trash2 size={16} /></button>
@@ -2810,7 +2809,7 @@ function MobileAgendaItem({ event }: { event: CalendarEvent }) {
       <span>{event.time}</span>
       <div>
         <strong>{event.title}</strong>
-        <small>{formatDate(event.date)} Â· {event.company}</small>
+        <small>{formatDate(event.date)} · {event.company}</small>
       </div>
     </div>
   );

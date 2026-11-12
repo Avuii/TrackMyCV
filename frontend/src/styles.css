@@ -6290,33 +6290,6 @@ svg.donut-chart circle {
   backdrop-filter: blur(18px);
 }
 
-.mobile-header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.mobile-app-shell .mobile-header .brand {
-  padding: 0 !important;
-  border-bottom: 0 !important;
-  gap: 10px !important;
-  min-width: 0;
-}
-
-.mobile-app-shell .mobile-header .brand-logo-img {
-  width: 34px !important;
-  height: 34px !important;
-}
-
-.mobile-app-shell .mobile-header .brand-name {
-  font-size: 18px !important;
-}
-
-.mobile-app-shell .mobile-header .brand-subtitle {
-  font-size: 10px !important;
-}
-
 .mobile-header-actions {
   display: inline-flex;
   align-items: center;
@@ -6343,34 +6316,6 @@ svg.donut-chart circle {
   border: 0;
   border-radius: inherit;
   background: transparent;
-}
-
-.mobile-page-title {
-  padding-top: 18px;
-  display: grid;
-  gap: 5px;
-}
-
-.mobile-page-title > span {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.2;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
-.mobile-page-title h1 {
-  margin: 0;
-  font-size: clamp(23px, 7vw, 31px);
-  line-height: 1.05;
-  letter-spacing: -0.06em;
-}
-
-.mobile-page-title p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.45;
 }
 
 .mobile-content {
@@ -6418,29 +6363,6 @@ svg.donut-chart circle {
 .mobile-bottom-nav button.active {
   background: var(--accent-soft);
   color: var(--accent-strong);
-}
-
-.mobile-fab {
-  position: fixed;
-  right: 18px;
-  bottom: calc(86px + env(safe-area-inset-bottom));
-  z-index: 32;
-  min-height: 52px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0 18px 0 16px;
-  background: var(--accent);
-  color: #fffaf4;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 900;
-  box-shadow: 0 16px 30px rgba(122, 88, 61, 0.28);
-}
-
-.mobile-fab span {
-  max-width: 130px;
-  white-space: nowrap;
 }
 
 .mobile-dashboard,
@@ -6518,7 +6440,6 @@ svg.donut-chart circle {
 
 .mobile-section-head button,
 .mobile-list-actions button,
-.mobile-card-actions-row button,
 .mobile-calendar-event > button:not(.ghost-icon) {
   min-height: 42px;
   border: 1px solid var(--border);
@@ -6686,11 +6607,6 @@ svg.donut-chart circle {
   text-align: left;
 }
 
-.mobile-card-topline,
-.mobile-card-company,
-.mobile-card-meta,
-.mobile-next-step,
-.mobile-card-actions-row,
 .mobile-detail-hero,
 .mobile-calendar-event {
   display: flex;
@@ -6698,82 +6614,11 @@ svg.donut-chart circle {
   gap: 10px;
 }
 
-.mobile-card-topline {
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.mobile-card-company {
-  min-width: 0;
-}
-
-.mobile-card-company > div {
-  min-width: 0;
-}
-
-.mobile-card-company strong,
-.mobile-card-company span {
-  display: block;
-}
-
-.mobile-card-company span {
-  color: var(--muted);
-  margin-top: 3px;
-  font-size: 12px;
-}
-
 .mobile-card-main h2 {
   margin: 0;
   font-size: 18px;
   line-height: 1.24;
   letter-spacing: -0.035em;
-}
-
-.mobile-card-meta {
-  flex-wrap: wrap;
-}
-
-.mobile-card-meta span {
-  min-height: 28px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--accent-strong);
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.mobile-next-step {
-  color: var(--muted);
-  font-weight: 750;
-}
-
-.mobile-card-actions-row {
-  border-top: 1px solid var(--border);
-  padding: 12px;
-  flex-wrap: wrap;
-}
-
-.mobile-card-actions-row select {
-  flex: 1 1 150px;
-  min-height: 42px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface-2);
-  color: var(--accent-strong);
-  padding: 0 10px;
-  font-weight: 850;
-}
-
-.mobile-card-actions-row button.danger {
-  color: var(--destructive, #a94f52);
-}
-
-.mobile-card-list.compact .mobile-card-actions-row {
-  display: none;
 }
 
 .mobile-sheet-backdrop {
@@ -6999,16 +6844,6 @@ svg.donut-chart circle {
   line-height: 1.55;
 }
 
-.mobile-sheet-actions.sticky-actions {
-  position: sticky;
-  bottom: -18px;
-  background: var(--surface);
-  margin: 18px -18px -18px;
-  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border);
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
 .danger-button {
   color: var(--destructive, #a94f52) !important;
 }
@@ -7187,16 +7022,6 @@ svg.donut-chart circle {
 }
 
 @media (max-width: 420px) {
-  .mobile-fab span {
-    display: none;
-  }
-
-  .mobile-fab {
-    width: 54px;
-    padding: 0;
-    justify-content: center;
-  }
-
   .mobile-bottom-nav {
     left: 6px;
     right: 6px;
@@ -7214,10 +7039,6 @@ svg.donut-chart circle {
   .mobile-list-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-  }
-
-  .mobile-search-row {
-    grid-template-columns: 1fr;
   }
 
   .mobile-filter-button {
@@ -7600,8 +7421,7 @@ svg.donut-chart circle {
   animation: softRevealIn 0.75s ease 0.2s both;
 }
 
-.app-shell.animations-on .positive-trend,
-.app-shell.animations-on .mobile-fab {
+.app-shell.animations-on .positive-trend {
   animation: softRevealIn 0.42s ease both, gentlePulse 2.6s ease-in-out 1.2s infinite;
 }
 
@@ -9401,16 +9221,11 @@ svg.donut-chart circle {
 }
 
 @media (max-width: 900px) {
-  .mobile-app-shell.density-comfortable .mobile-header {
-    padding: calc(14px + env(safe-area-inset-top)) 16px 16px !important;
-  }
-
   .mobile-app-shell.density-comfortable .mobile-content {
-    padding: 18px 15px calc(118px + env(safe-area-inset-bottom)) !important;
+    padding: 18px max(15px, env(safe-area-inset-right)) 26px max(15px, env(safe-area-inset-left)) !important;
   }
 
   .mobile-app-shell.density-comfortable .mobile-section-card,
-  .mobile-app-shell.density-comfortable .mobile-application-card,
   .mobile-app-shell.density-comfortable .mobile-agenda-group,
   .mobile-app-shell.density-comfortable .mobile-calendar-event,
   .mobile-app-shell.density-comfortable .mobile-action-item,
@@ -9419,24 +9234,11 @@ svg.donut-chart circle {
     border-radius: 21px !important;
   }
 
-  .mobile-app-shell.density-compact .mobile-header {
-    padding: calc(9px + env(safe-area-inset-top)) 12px 10px !important;
-  }
-
-  .mobile-app-shell.density-compact .mobile-page-title {
-    padding-top: 12px !important;
-  }
-
-  .mobile-app-shell.density-compact .mobile-page-title h1 {
-    font-size: 25px !important;
-  }
-
   .mobile-app-shell.density-compact .mobile-content {
-    padding: 11px 10px calc(96px + env(safe-area-inset-bottom)) !important;
+    padding: 11px max(10px, env(safe-area-inset-right)) 20px max(10px, env(safe-area-inset-left)) !important;
   }
 
   .mobile-app-shell.density-compact .mobile-section-card,
-  .mobile-app-shell.density-compact .mobile-application-card,
   .mobile-app-shell.density-compact .mobile-agenda-group,
   .mobile-app-shell.density-compact .mobile-calendar-event,
   .mobile-app-shell.density-compact .mobile-action-item,
@@ -9452,22 +9254,6 @@ svg.donut-chart circle {
   .mobile-app-shell.density-compact .main-column,
   .mobile-app-shell.density-compact .page-section {
     gap: 9px !important;
-  }
-
-  .mobile-app-shell.density-compact .mobile-bottom-nav {
-    min-height: 58px !important;
-    padding: 6px !important;
-    border-radius: 20px !important;
-  }
-
-  .mobile-app-shell.density-compact .mobile-bottom-nav button {
-    min-height: 42px !important;
-    border-radius: 14px !important;
-  }
-
-  .mobile-app-shell.density-compact .mobile-fab {
-    min-height: 46px !important;
-    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
   }
 }
 
@@ -9486,5 +9272,216 @@ svg.donut-chart circle {
     animation: none !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* The header, scrollable page and tab bar each occupy their own grid row. */
+@media (max-width: 900px) {
+  .mobile-app-shell .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    min-height: 60px;
+    padding: calc(7px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 7px max(16px, env(safe-area-inset-left));
+  }
+
+  .mobile-header h1 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-header-actions {
+    position: static;
+    gap: 8px;
+  }
+
+  .mobile-app-shell :is(.mobile-avatar-button, .mobile-header-actions .icon-button, .mobile-sheet-header .close-button) {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .mobile-header-actions .notification-inbox {
+    position: static;
+  }
+
+  .mobile-header-actions .notification-inbox .notification-list {
+    top: 100%;
+    right: 12px;
+    width: min(340px, calc(100% - 24px));
+  }
+
+  .mobile-app-shell .mobile-content {
+    min-width: 0;
+    height: auto !important;
+    padding: 16px max(12px, env(safe-area-inset-right)) 24px max(12px, env(safe-area-inset-left)) !important;
+    overscroll-behavior-y: contain;
+  }
+
+  .mobile-app-shell .mobile-bottom-nav {
+    position: relative;
+    inset: auto;
+    min-height: 0;
+    gap: 0;
+    padding: 4px env(safe-area-inset-right) calc(4px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .mobile-app-shell .mobile-bottom-nav button {
+    min-height: 52px;
+    padding: 3px 0;
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .mobile-app-shell .mobile-bottom-nav button.active {
+    color: var(--accent-strong);
+  }
+
+  .mobile-dashboard-add {
+    justify-self: start;
+  }
+
+  .mobile-metrics-row {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    padding: 0;
+  }
+
+  .mobile-metrics-row .metric-card {
+    min-width: 0;
+    min-height: 0 !important;
+    padding: 12px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-applications-page .mobile-list-summary {
+    background: transparent;
+    box-shadow: none;
+    border: 0;
+    padding: 0;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .mobile-results-count {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .mobile-app-shell .mobile-list-actions button {
+    min-height: 44px;
+  }
+
+  .mobile-list-actions .mobile-add-button {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: var(--surface);
+  }
+
+  .mobile-filter-chips {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .mobile-filter-chips button {
+    min-height: 44px;
+  }
+
+  .mobile-app-shell .mobile-application-card {
+    padding: 0;
+    min-width: 0;
+    border-radius: 16px;
+  }
+
+  .mobile-card-main {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-card-copy p {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  .mobile-card-chevron {
+    color: var(--accent-strong);
+  }
+
+  .mobile-card-context {
+    grid-column: 2 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    font-size: 13px;
+  }
+
+  .mobile-detail-hero,
+  .mobile-detail-grid,
+  .mobile-detail-section,
+  .mobile-calendar-event {
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-detail-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+    margin: 16px 0;
+  }
+
+  .mobile-app-shell :is(.mobile-detail-controls select, .mobile-detail-controls button, .mobile-detail-actions .secondary-button, .mobile-dashboard-add) {
+    min-height: 44px;
+  }
+
+  .mobile-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .mobile-detail-actions a {
+    text-decoration: none;
+  }
+
+  .mobile-sheet-body {
+    overscroll-behavior-y: contain;
+  }
+
+  .mobile-app-shell :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .mobile-metrics-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-applications-page .mobile-list-summary {
+    flex-direction: row;
+  }
+
+  .mobile-applications-page .mobile-list-actions {
+    width: auto;
   }
 }
