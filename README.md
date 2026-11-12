@@ -16,6 +16,7 @@
   <a href="https://github.com/Avuii/TrackMyCV/actions/workflows/deploy.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/Avuii/TrackMyCV/deploy.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=Demo%20Build" alt="Demo build and deployment status" />
   </a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-All%20Rights%20Reserved-6B7280?style=for-the-badge" alt="All Rights Reserved" /></a>
 </p>
 
 <p align="center">
@@ -323,12 +324,22 @@ The [GitHub Pages deployment workflow](.github/workflows/deploy.yml) builds and 
 - [x] Add AI interview questions, job-description summaries, and application-specific suggestions.
 - [x] Improve mobile workflows, accessibility, onboarding, loading/error states, and dashboard customization.
 
+
+
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+Copyright © 2026 [Avuii](https://github.com/Avuii). All rights reserved.
+
+The project's original code, design, and content may not be copied,
+modified, redistributed, or used commercially without prior written
+permission, except where applicable law permits.
+
+Previously released MIT-licensed versions remain covered by their original license.
+
+Third-party materials retain their respective licenses.
+See the [LICENSE](LICENSE) file for details.
 
 
----
 
 ## Author
 
