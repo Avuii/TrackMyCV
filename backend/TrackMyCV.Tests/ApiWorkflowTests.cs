@@ -8,11 +8,13 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using TrackMyCV.Api.Ai;
 using TrackMyCV.Api.Controllers;
+using TrackMyCV.Api.JobScout;
 using TrackMyCV.Api.Notifications;
 using TrackMyCV.Application.Applications.DTOs;
 using TrackMyCV.Domain.Enums;
@@ -231,6 +233,126 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task JobScoutPersistsDecisionsAndNotifiesOnlyForNewScheduledMatches()
+    {
+        using var owner = await SignedInClient("owner");
+        using var other = await SignedInClient("other");
+        _api.Clock.Now = new DateTimeOffset(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
+        await Read<JobApplicationDto>(await owner.PostAsJsonAsync("/api/applications", new CreateJobApplicationDto
+        {
+            CompanyName = "Different display name", Position = "Tracked role",
+            OfferUrl = "https://arbeitnow.com/jobs/tracked/?utm_source=example", DateApplied = new DateOnly(2026, 11, 11)
+        }));
+
+        var legacy = new ScoutMatch("legacy", "Junior .NET Legacy", "Example", "Warsaw", "Remote",
+            _api.Clock.Now, _api.Clock.Now, "Arbeitnow Europe", "https://arbeitnow.com/jobs/legacy",
+            "https://arbeitnow.com/jobs/legacy", 95, "Legacy match", [".NET"], [], "saved");
+        using (var scope = _api.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = await db.AppUsers.SingleAsync(item => item.Email == "owner@example.test");
+            db.WorkspaceSections.Add(new TrackMyCV.Domain.Entities.WorkspaceSection
+            {
+                AppUserId = user.Id, Name = "scout", Revision = Guid.NewGuid(),
+                Json = JsonSerializer.Serialize(new ScoutHistory([legacy], []), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var prefs = new ScoutPreferences([".NET"], ["Junior"], ["Warsaw"], ["Remote"], 90);
+        await Read<JsonElement>(await owner.PutAsJsonAsync("/api/workspace/preferences", new { data = prefs }));
+        var manual = await Read<ScoutSearchResult>(await owner.PostAsJsonAsync("/api/job-scout/search", prefs));
+        Assert.Equal(2, manual.Run.NewMatches);
+        var save = Assert.Single(manual.State.Matches, match => match.Title == "Junior .NET Developer");
+        var ignore = Assert.Single(manual.State.Matches, match => match.Title == "Junior .NET Intern");
+        Assert.Contains(manual.State.Matches, match => match.Id == legacy.Id && match.Status == "saved");
+
+        async Task<ScoutSnapshot> SetStatus(string id, string status) =>
+            await Read<ScoutSnapshot>(await owner.PutAsJsonAsync("/api/job-scout/matches/status", new { id, status }));
+        await SetStatus(save.Id, "saved");
+        await SetStatus(ignore.Id, "ignored");
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await other.PutAsJsonAsync("/api/job-scout/matches/status", new { id = save.Id, status = "ignored" })).StatusCode);
+        var enabled = await Read<ScoutSnapshot>(await owner.PutAsJsonAsync("/api/job-scout/schedule",
+            new { intervalHours = 6, minimumScore = 90 }));
+        Assert.Equal(_api.Clock.Now.AddHours(6), enabled.Schedule.NextRunAt);
+
+        using var worker = ActivatorUtilities.CreateInstance<JobScoutBackgroundService>(_api.Services);
+        _api.ScoutFeed.IncludeScheduled = true;
+        ((MemoryCache)_api.Services.GetRequiredService<IMemoryCache>()).Compact(1);
+        await worker.ScanAsync(default);
+        Assert.Single((await owner.GetFromJsonAsync<ScoutSnapshot>("/api/job-scout"))!.Runs);
+        _api.Clock.Now = _api.Clock.Now.AddHours(6);
+        await worker.ScanAsync(default);
+        await worker.ScanAsync(default);
+
+        using var secondDevice = _api.CreateClient();
+        var login = await Read<AuthResponse>(await secondDevice.PostAsJsonAsync("/api/auth/login",
+            new { email = "owner@example.test", password = Password }));
+        secondDevice.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
+        var persisted = (await secondDevice.GetFromJsonAsync<ScoutSnapshot>("/api/job-scout"))!;
+        Assert.Equal(2, persisted.Runs.Length);
+        Assert.True(persisted.Runs[0].Scheduled);
+        Assert.Equal(1, persisted.Runs[0].NewMatches);
+        Assert.Equal(_api.Clock.Now.AddHours(6), persisted.Schedule.NextRunAt);
+        Assert.Equal("saved", persisted.Matches.Single(match => match.Id == save.Id).Status);
+        Assert.Equal("ignored", persisted.Matches.Single(match => match.Id == ignore.Id).Status);
+        Assert.Equal("Junior .NET Engineer", Assert.Single(persisted.Matches, match => match.Status == "new").Title);
+        Assert.Empty((await other.GetFromJsonAsync<ScoutSnapshot>("/api/job-scout"))!.Matches);
+
+        var notice = Assert.Single((await secondDevice.GetFromJsonAsync<JsonElement[]>("/api/inbox"))!);
+        Assert.Equal("ai", notice.GetProperty("page").GetString());
+        Assert.False(notice.GetProperty("read").GetBoolean());
+        var noticeId = notice.GetProperty("id").GetString();
+        Assert.Equal(HttpStatusCode.NoContent, (await secondDevice.PutAsync($"/api/inbox/{noticeId}/read", null)).StatusCode);
+        Assert.True(Assert.Single((await owner.GetFromJsonAsync<JsonElement[]>("/api/inbox"))!).GetProperty("read").GetBoolean());
+        Assert.Empty((await other.GetFromJsonAsync<JsonElement[]>("/api/inbox"))!);
+        var disabled = await Read<ScoutSnapshot>(await owner.PutAsJsonAsync("/api/job-scout/schedule",
+            new { intervalHours = 0, minimumScore = 90 }));
+        Assert.Null(disabled.Schedule.NextRunAt);
+    }
+
+    [Fact]
+    public async Task IdenticalFeedsDoNotTurnLowerRankedOffersIntoNewMatchesOnEveryRun()
+    {
+        using var owner = await SignedInClient("owner");
+        _api.ScoutFeed.ExtraOffers = 110;
+        var prefs = new ScoutPreferences([".NET"], [], [], [], 70);
+        var first = await Read<ScoutSearchResult>(await owner.PostAsJsonAsync("/api/job-scout/search", prefs));
+        var repeated = await Read<ScoutSearchResult>(await owner.PostAsJsonAsync("/api/job-scout/search", prefs));
+
+        Assert.Equal(100, first.Run.NewMatches);
+        Assert.Equal(0, repeated.Run.NewMatches);
+        Assert.Equal(100, repeated.State.Matches.Length);
+    }
+
+    [Fact]
+    public async Task ScoutRetriesFailedScheduledSearchWithoutSendingANotice()
+    {
+        using var owner = await SignedInClient("owner");
+        _api.Clock.Now = new DateTimeOffset(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
+        await Read<ScoutSnapshot>(await owner.PutAsJsonAsync("/api/job-scout/schedule",
+            new { intervalHours = 6, minimumScore = 90 }));
+        _api.Clock.Now = _api.Clock.Now.AddHours(6);
+        _api.ScoutFeed.Unavailable = true;
+        using var worker = ActivatorUtilities.CreateInstance<JobScoutBackgroundService>(_api.Services);
+        await worker.ScanAsync(default);
+
+        var failed = (await owner.GetFromJsonAsync<ScoutSnapshot>("/api/job-scout"))!;
+        Assert.Equal("failed", Assert.Single(failed.Runs).Status);
+        Assert.Equal(_api.Clock.Now.AddMinutes(30), failed.Schedule.NextRunAt);
+        Assert.Empty((await owner.GetFromJsonAsync<JsonElement[]>("/api/inbox"))!);
+
+        _api.ScoutFeed.Unavailable = false;
+        _api.Clock.Now = _api.Clock.Now.AddMinutes(30);
+        await worker.ScanAsync(default);
+        var recovered = (await owner.GetFromJsonAsync<ScoutSnapshot>("/api/job-scout"))!;
+        Assert.Equal(new[] { "completed", "failed" }, recovered.Runs.Select(run => run.Status));
+        Assert.Equal(_api.Clock.Now.AddHours(6), recovered.Schedule.NextRunAt);
+        Assert.Single((await owner.GetFromJsonAsync<JsonElement[]>("/api/inbox"))!);
+    }
+
+    [Fact]
     public async Task AiWorkflowsUseOwnedInputsAndPersistReviewHistory()
     {
         using var owner = await SignedInClient("owner");
@@ -329,6 +451,7 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
         public TestClock Clock { get; } = new();
         public RecordingEmailSender Email { get; } = new();
         public TestAiProvider Ai { get; } = new();
+        public ScoutFeedHandler ScoutFeed { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -342,6 +465,10 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
                 var worker = services.Single(service => service.ServiceType == typeof(IHostedService) &&
                     service.ImplementationType == typeof(NotificationBackgroundService));
                 services.Remove(worker);
+                var scoutWorker = services.Single(service => service.ServiceType == typeof(IHostedService) &&
+                    service.ImplementationType == typeof(JobScoutBackgroundService));
+                services.Remove(scoutWorker);
+                services.AddHttpClient<JobScoutService>().ConfigurePrimaryHttpMessageHandler(() => ScoutFeed);
                 services.RemoveAll<TimeProvider>();
                 services.AddSingleton<TimeProvider>(Clock);
                 services.RemoveAll<IEmailSender>();
@@ -353,6 +480,41 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
             });
             builder.ConfigureServices((context, _) => context.HostingEnvironment.ContentRootPath = Root.FullName);
         }
+    }
+
+    private sealed class ScoutFeedHandler : HttpMessageHandler
+    {
+        public bool IncludeScheduled { get; set; }
+        public bool Unavailable { get; set; }
+        public int ExtraOffers { get; set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (Unavailable)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+            var suffix = request.RequestUri!.Host.EndsWith(".co.uk", StringComparison.Ordinal) ? "-uk" : "";
+            var data = new List<object>
+            {
+                Offer("developer" + suffix, " Junior  .NET Developer ", "developer"),
+                Offer("intern" + suffix, "Junior .NET Intern", "intern"),
+                Offer("tracked" + suffix, "Junior .NET Tracked", "tracked")
+            };
+            if (IncludeScheduled)
+            {
+                data.Add(Offer("engineer" + suffix, "Junior .NET Engineer", "engineer"));
+                data.Add(Offer("devops" + suffix, "Junior DevOps Engineer", "devops"));
+            }
+            for (var index = 0; index < ExtraOffers; index++)
+                data.Add(Offer($"extra-{index}{suffix}", $".NET Developer {index}", $"extra-{index}"));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { data }) });
+        }
+
+        private static object Offer(string slug, string title, string path) => new
+        {
+            slug, title, company_name = "Example", location = "Warsaw", remote = true,
+            url = $"https://www.arbeitnow.com/jobs/{path}", tags = Array.Empty<string>(), created_at = 1794450000
+        };
     }
 
     private sealed class TestClock : TimeProvider

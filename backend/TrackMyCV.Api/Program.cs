@@ -15,6 +15,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<JobScoutService>(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddScoped<JobScoutWorkspace>();
+builder.Services.AddHostedService<JobScoutBackgroundService>();
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("sqlserver");
 
 builder.Services.AddEndpointsApiExplorer();

@@ -95,11 +95,11 @@ It brings application tracking, recruitment analytics, interview scheduling, com
 | **Companies & Notes** | Employer profiles, research, checklists, attachments, and preparation notes | Browser storage in the full app |
 | **AI Assistance** | General CV review, job-match review, review history, and editable cover letters with PDF output | Optional OpenAI integration |
 | **Email Notifications** | Interview, deadline, and follow-up reminders; weekly and monthly summaries; test email | Requires SMTP configuration |
-| **AI Job Scout** | Preferences, matching controls, result views, and current-session run history | Interface implemented; live offer retrieval pending |
+| **AI Job Scout** | Live Arbeitnow listings, preference matching, saved and ignored offers, search history, and in-app notifications | Manual and scheduled searches through the API |
 | **Personalization** | Light/dark/system themes, accent colors, density, animation settings, and responsive layouts | Full application |
 
 > [!NOTE]
-> The AI Job Scout interface is available, but its search handler is not yet connected to a live job-offer provider. It does not currently retrieve real vacancies.
+> Job Scout searches the public [Arbeitnow](https://www.arbeitnow.com/) Europe and UK feeds. Turn on a schedule in **AI Tools → Job Scout** to receive in-app notifications for new matches. Scheduled searches run while the API is online.
 
 ## Technology Stack
 
@@ -291,16 +291,16 @@ The [GitHub Pages deployment workflow](.github/workflows/deploy.yml) builds and 
 - [x] Configurable interview, deadline, and follow-up email reminders, plus weekly/monthly summaries and test emails (SMTP required).
 - [x] CV review, job-match review, and saved review history (OpenAI required).
 - [x] AI-assisted cover-letter editing, PDF preview, download, and saving to Documents (OpenAI and LaTeX required).
-- [x] AI Job Scout interface, preference controls, result tabs, and session-level run history.
+- [x] Live Job Scout listings, preference matching, saved and ignored offers, persisted search history, and scheduled in-app notifications.
 - [x] Docker Compose setup, EF Core development migrations, and automated GitHub Pages demo deployment.
 
 ### Planned Improvements
 
 **AI Job Scout**
 
-- [ ] Integrate a permitted job API, RSS feed, or company careers source for real offers.
-- [ ] Normalize and deduplicate offers, match them to preferences, and exclude already tracked vacancies.
-- [ ] Persist search results, saved/ignored offers, and history; introduce scheduled searches and notifications.
+- [x] Integrate a permitted job API, RSS feed, or company careers source for real offers.
+- [x] Normalize and deduplicate offers, match them to preferences, and exclude already tracked vacancies.
+- [x] Persist search results, saved/ignored offers, and history; introduce scheduled searches and notifications.
 
 **Connected Recruitment Workspace**
 

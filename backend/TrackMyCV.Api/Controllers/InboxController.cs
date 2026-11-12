@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrackMyCV.Api.Auth;
+using TrackMyCV.Api.JobScout;
 using TrackMyCV.Api.Notifications;
 using TrackMyCV.Domain.Entities;
 using TrackMyCV.Infrastructure.Data;
@@ -29,6 +30,7 @@ public sealed class InboxController(AppDbContext db) : ControllerBase
             .Where(item => item.AppUserId == userId && FollowUpPolicy.ActiveStatuses.Contains(item.Status))
             .ToListAsync(cancellationToken);
         var days = await FollowUpPolicy.GetDaysAsync(db, userId, cancellationToken);
+        var scoutRuns = await JobScoutWorkspace.ReadScheduledNoticesAsync(db, userId, cancellationToken);
 
         var messages = events.Where(item => item.EventDate.ToDateTime(item.StartTime) is var start
                 && start >= clock && start <= clock.AddDays(1))
@@ -38,7 +40,10 @@ public sealed class InboxController(AppDbContext db) : ControllerBase
                 .OrderByDescending(item => item.LastContact ?? item.DateApplied)
                 .Select(item => new Message($"followup-{item.Id:N}-{item.LastContact ?? item.DateApplied:yyyyMMdd}",
                     $"Follow up with {item.CompanyName}", item.Position, "applications", item.Id)))
-            .Take(100).ToArray();
+            .Take(90)
+            .Concat(scoutRuns.Select(run => new Message($"scout-{run.Id:N}", "New Job Scout matches",
+                $"{run.NewMatches} new {(run.NewMatches == 1 ? "offer" : "offers")} from your scheduled search", "ai", null)))
+            .ToArray();
         var receipts = messages.Select(message => "read:" + message.Id).ToArray();
         var read = (await db.WorkspaceSections.Where(item => item.AppUserId == userId && receipts.Contains(item.Name))
             .Select(item => item.Name).ToListAsync(cancellationToken)).ToHashSet();
@@ -50,7 +55,7 @@ public sealed class InboxController(AppDbContext db) : ControllerBase
     {
         if (HttpContext.GetCurrentUserId() is not Guid userId)
             return Unauthorized();
-        if (id.Length > 72 || !(id.StartsWith("event-") || id.StartsWith("followup-")) ||
+        if (id.Length > 72 || !(id.StartsWith("event-") || id.StartsWith("followup-") || id.StartsWith("scout-")) ||
             !id.All(character => char.IsAsciiLetterOrDigit(character) || character == '-'))
             return BadRequest();
 

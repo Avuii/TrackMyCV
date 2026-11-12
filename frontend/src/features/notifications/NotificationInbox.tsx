@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { apiRequest } from '../../api/apiClient';
 
-type Notice = { id: string; title: string; detail: string; page: 'applications' | 'calendar'; applicationId?: string | null; read: boolean };
+type Notice = { id: string; title: string; detail: string; page: 'applications' | 'calendar' | 'ai'; applicationId?: string | null; read: boolean };
 
 export function NotificationInbox({ navigate }: { navigate: (page: Notice['page'], applicationId?: string) => void }) {
   const [items, setItems] = useState<Notice[]>([]);

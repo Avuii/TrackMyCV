@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
@@ -37,9 +38,10 @@ public sealed class JobScoutService(HttpClient client, IMemoryCache cache, ILogg
                     var result = await client.GetFromJsonAsync<Feed>(feed.Url, cancellationToken);
                     var offers = (result?.Data ?? [])
                         .Where(item => !string.IsNullOrWhiteSpace(item.Slug) && !string.IsNullOrWhiteSpace(item.Title)
-                            && !string.IsNullOrWhiteSpace(item.Company) && IsArbeitnowUrl(item.Url))
-                        .Select(item => new ScoutOffer($"{feed.Name}:{item.Slug}", item.Title, item.Company,
-                            item.Location ?? "", GetWorkMode(item),
+                            && !string.IsNullOrWhiteSpace(item.Company) && IsArbeitnowUrl(item.Url)
+                            && item.CreatedAt is > 0 and <= 253402300799)
+                        .Select(item => new ScoutOffer($"{feed.Name}:{item.Slug.Trim()}", Clean(item.Title, 220), Clean(item.Company, 180),
+                            Clean(item.Location, 160), GetWorkMode(item),
                             DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt), feed.Name, item.Url, item.Tags ?? []))
                         .ToArray();
                     cache.Set(feed.Url, offers, TimeSpan.FromMinutes(30));
@@ -65,7 +67,9 @@ public sealed class JobScoutService(HttpClient client, IMemoryCache cache, ILogg
         var roles = Normalize(preferences.Categories).Where(value => value is not "Other" and not "General").ToArray();
         var levels = Normalize(preferences.Levels);
         var locations = Normalize(preferences.Locations);
-        var modes = Normalize(preferences.WorkModes).Where(value => value != "All work modes").ToArray();
+        var modes = Normalize(preferences.WorkModes);
+        if (modes.Contains("All work modes", StringComparer.OrdinalIgnoreCase))
+            modes = [];
         var title = offer.Title;
         var searchable = string.Join(" ", offer.Tags.Prepend(title));
         var matched = roles.Where(role => ContainsTerm(searchable, role)).ToArray();
@@ -112,7 +116,25 @@ public sealed class JobScoutService(HttpClient client, IMemoryCache cache, ILogg
         }
     }
 
-    public static string OfferKey(string company, string title) => $"{company.Trim().ToUpperInvariant()}\n{title.Trim().ToUpperInvariant()}";
+    public static string OfferKey(string company, string title) =>
+        $"{Clean(company, 180).ToUpperInvariant()}\n{Clean(title, 220).ToUpperInvariant()}";
+
+    public static string? UrlKey(string? value)
+    {
+        if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("https" or "http"))
+            return null;
+        var host = uri.IdnHost.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.IdnHost[4..] : uri.IdnHost;
+        var query = uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Where(part => !part.StartsWith("utm_", StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.Ordinal);
+        return $"{host.ToLowerInvariant()}{(uri.IsDefaultPort ? "" : $":{uri.Port}")}{uri.AbsolutePath.TrimEnd('/')}?{string.Join('&', query)}";
+    }
+
+    private static string Clean(string? value, int length)
+    {
+        var clean = Regex.Replace((value ?? "").Normalize(NormalizationForm.FormKC).Trim(), @"\s+", " ");
+        return clean.Length <= length ? clean : clean[..length];
+    }
 
     private static string[] Normalize(string[]? values) => (values ?? [])
         .Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())

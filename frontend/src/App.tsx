@@ -1790,7 +1790,7 @@ function Sidebar({ page, setPage, applications, settings }: { page: Page; setPag
   );
 }
 
-function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage, onNotification }: { onNotification: (page: 'applications' | 'calendar', applicationId?: string) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
+function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage, onNotification }: { onNotification: (page: 'applications' | 'calendar' | 'ai', applicationId?: string) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
   const [open, setOpen] = useState(false);
   const isDashboard = page === 'dashboard';
   const firstName = profile.name.split(' ')[0] || 'User';
@@ -3293,9 +3293,9 @@ type AiTool = 'review' | 'cover' | 'scout';
 type JobScoutTab = 'new' | 'saved' | 'ignored' | 'added' | 'history';
 type JobScoutMatchStatus = 'new' | 'saved' | 'ignored' | 'added';
 type JobScoutRunStatus = 'completed' | 'blocked' | 'failed';
-type JobScoutState = { matches: JobScoutMatch[]; runs: JobScoutRun[] };
-type JobScoutProps = { scout: JobScoutState; setScout: Dispatch<SetStateAction<JobScoutState>> };
-const emptyScout: JobScoutState = { matches: [], runs: [] };
+type JobScoutSchedule = { intervalHours: number; minimumScore: number; nextRunAt: string | null };
+type JobScoutState = { matches: JobScoutMatch[]; runs: JobScoutRun[]; schedule: JobScoutSchedule };
+const emptyScout: JobScoutState = { matches: [], runs: [], schedule: { intervalHours: 0, minimumScore: 70, nextRunAt: null } };
 
 type JobScoutMatch = {
   id: string;
@@ -3322,6 +3322,7 @@ type JobScoutRun = {
   status: JobScoutRunStatus;
   newMatches: number;
   message: string;
+  scheduled?: boolean;
 };
 
 const jobScoutTabs: { id: JobScoutTab; label: string }[] = [
@@ -3366,9 +3367,8 @@ function AIToolsPage({
   settings,
   onOpenSettings,
   onAddApplicationFromScout,
-  scout,
-  setScout
-}: JobScoutProps & {
+  scoutRequest
+}: {
   documents: DocumentItem[];
   documentsLoading?: boolean;
   onRefreshDocuments?: () => void;
@@ -3378,6 +3378,7 @@ function AIToolsPage({
   settings: AppSettings;
   onOpenSettings?: (tab?: ProfileTab) => void;
   onAddApplicationFromScout: (match: JobScoutMatch) => Promise<void>;
+  scoutRequest: number;
 }) {
   const cvDocuments = documents.filter((document) => document.type === 'CV' && document.status !== 'Archived');
   const cvOptions = cvDocuments.map((document) => ({
@@ -3389,7 +3390,13 @@ function AIToolsPage({
     .filter((document) => document.category.toLowerCase() === 'ai generated' || document.tags?.some((tag) => tag.toLowerCase() === 'ai'))
     .sort((first, second) => (second.updatedAt || second.updated).localeCompare(first.updatedAt || first.updated))
     .slice(0, 4);
-  const [activeTool, setActiveTool] = useState<AiTool>('review');
+  const [activeTool, setActiveTool] = useState<AiTool>(() => scoutRequest ? 'scout' : 'review');
+  useEffect(() => {
+    if (scoutRequest) {
+      setActiveTool('scout');
+      setScoutTab('new');
+    }
+  }, [scoutRequest]);
   const [reviews, setReviews] = useState<CvReviewDto[]>([]);
   const [selectedReview, setSelectedReview] = useState<CvReviewDto | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(false);
@@ -3423,6 +3430,7 @@ function AIToolsPage({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
   const [coverPreviewError, setCoverPreviewError] = useState('');
   const [scoutTab, setScoutTab] = useState<JobScoutTab>('new');
+  const [scout, setScout] = useState(emptyScout);
   const { matches: scoutMatches, runs: scoutRuns } = scout;
   const [jobScoutConfiguredSources, setJobScoutConfiguredSources] = useState<string[]>([]);
   useEffect(() => {
@@ -3433,7 +3441,41 @@ function AIToolsPage({
     return () => controller.abort();
   }, []);
   const [scoutBusy, setScoutBusy] = useState(false);
-  const [scoutMinScore, setScoutMinScore] = useState(70);
+  const scoutOperation = useRef(false);
+  const scoutVersion = useRef(0);
+  const [scoutReady, setScoutReady] = useState(false);
+  const [scoutLoadError, setScoutLoadError] = useState('');
+  const [scoutReload, setScoutReload] = useState(0);
+  const [scoutScoreDraft, setScoutMinScore] = useState<number>();
+  const [scoutIntervalDraft, setScoutIntervalDraft] = useState<number>();
+  const scoutMinScore = scoutScoreDraft ?? scout.schedule.minimumScore;
+  const scoutInterval = scoutIntervalDraft ?? scout.schedule.intervalHours;
+
+  useEffect(() => {
+    if (activeTool !== 'scout') return;
+    const controller = new AbortController();
+    async function load() {
+      if (scoutOperation.current) return;
+      const version = ++scoutVersion.current;
+      try {
+        const state = await apiRequest<JobScoutState>('/api/job-scout', { signal: controller.signal });
+        if (controller.signal.aborted || version !== scoutVersion.current) return;
+        setScout(state);
+        setScoutReady(true);
+        setScoutLoadError('');
+      } catch {
+        if (!controller.signal.aborted && version === scoutVersion.current) {
+          setScoutLoadError('Could not load Job Scout. Try again.');
+        }
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => void load(), 30000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [activeTool, scoutReload, scoutRequest]);
 
   const coverCandidate = coverLetterCandidateFromProfile(profile);
   const coverProfileMissing = getCoverLetterProfileMissing(profile);
@@ -3444,8 +3486,8 @@ function AIToolsPage({
   const hasJobSources = jobScoutConfiguredSources.length > 0;
   const scoutPreferenceSummary = useMemo(() => {
     const locationSummary = settings.preferences.locationPreferences.length
-      ? settings.preferences.locationPreferences.map((location) => `${location.city} +${location.radiusKm} km`).join(', ')
-      : 'No city radius preferences';
+      ? settings.preferences.locationPreferences.map((location) => location.city).join(', ')
+      : settings.preferences.locations.join(', ') || 'No preferred cities';
     const workModeSummary = settings.preferences.workModes.includes(allWorkModes)
       ? allWorkModes
       : settings.preferences.workModes.join(', ') || 'No work modes selected';
@@ -3455,7 +3497,7 @@ function AIToolsPage({
       locations: locationSummary,
       workModes: workModeSummary
     };
-  }, [settings.preferences.categories, settings.preferences.levels, settings.preferences.locationPreferences, settings.preferences.workModes]);
+  }, [settings.preferences.categories, settings.preferences.levels, settings.preferences.locationPreferences, settings.preferences.locations, settings.preferences.workModes]);
 
   useEffect(() => {
     if (!cvDocuments.length) return;
@@ -3687,15 +3729,26 @@ function AIToolsPage({
     }
   }
 
-  async function runJobScout() {
+  async function withScoutOperation(action: () => Promise<void>) {
+    if (scoutOperation.current || !scoutReady) return;
+    scoutOperation.current = true;
+    scoutVersion.current++;
     setScoutBusy(true);
     setError('');
-    const startedAt = new Date().toISOString();
-    const id = crypto.randomUUID();
-
     try {
+      await action();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Job Scout could not complete the request.');
+    } finally {
+      scoutOperation.current = false;
+      setScoutBusy(false);
+    }
+  }
+
+  async function runJobScout() {
+    await withScoutOperation(async () => {
       const preferences = settings.preferences;
-      const result = await apiRequest<{ matches: JobScoutMatch[]; failedSources: string[] }>('/api/job-scout/search', {
+      const result = await apiRequest<{ state: JobScoutState; run: JobScoutRun }>('/api/job-scout/search', {
         method: 'POST',
         body: {
           categories: preferences.categories,
@@ -3705,44 +3758,34 @@ function AIToolsPage({
           minimumScore: scoutMinScore
         }
       });
-      setScout(current => {
-        const known = new Set(current.matches.map(match => match.id));
-        const fresh = result.matches.filter(match => !known.has(match.id));
-        const retained = current.matches.filter(match => match.status !== 'new' || result.matches.some(item => item.id === match.id));
-        const run: JobScoutRun = {
-          id, startedAt, completedAt: new Date().toISOString(), status: 'completed', newMatches: fresh.length,
-          message: result.failedSources.length ? 'Unavailable sources: ' + result.failedSources.join(', ') : 'Search completed.'
-        };
-        return { matches: [...fresh, ...retained], runs: [run, ...current.runs].slice(0, 20) };
+      setScout(result.state);
+      setScoutTab(result.run.status === 'failed' ? 'history' : 'new');
+      if (result.run.status === 'failed') setError(result.run.message);
+    });
+  }
+
+  async function saveScoutSchedule() {
+    await withScoutOperation(async () => {
+      const state = await apiRequest<JobScoutState>('/api/job-scout/schedule', {
+        method: 'PUT', body: { intervalHours: scoutInterval, minimumScore: scoutMinScore }
       });
-      setScoutTab('new');
-    } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : 'Job search could not be completed.';
-      const run: JobScoutRun = { id, startedAt, completedAt: new Date().toISOString(), status: 'failed', newMatches: 0, message };
-      setScout(current => ({ ...current, runs: [run, ...current.runs].slice(0, 20) }));
-      setScoutTab('history');
-      setError(message);
-    } finally {
-      setScoutBusy(false);
-    }
+      setScout(state);
+      setScoutIntervalDraft(undefined);
+      setScoutMinScore(undefined);
+      setToast(state.schedule.intervalHours ? 'Search schedule saved.' : 'Scheduled searches are off.');
+    });
   }
 
-  function updateScoutMatchStatus(id: string, status: JobScoutMatchStatus) {
-    setScout(current => ({ ...current, matches: current.matches.map(match => match.id === id ? { ...match, status } : match) }));
-    setScoutTab(status);
-    setToast(status === 'saved' ? 'Job match saved.' : 'Job match ignored.');
-  }
-
-  async function addScoutMatchToApplications(match: JobScoutMatch) {
-    try {
-      setError('');
-      await onAddApplicationFromScout(match);
-      setScout(current => ({ ...current, matches: current.matches.map(item => item.id === match.id ? { ...item, status: 'added' } : item) }));
-      setScoutTab('added');
-      setToast('Job match added to Applications.');
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Job match could not be added to Applications.');
-    }
+  async function updateScoutMatchStatus(match: JobScoutMatch, status: JobScoutMatchStatus) {
+    await withScoutOperation(async () => {
+      if (status === 'added') await onAddApplicationFromScout(match);
+      const state = await apiRequest<JobScoutState>('/api/job-scout/matches/status', {
+        method: 'PUT', body: { id: match.id, status }
+      });
+      setScout(state);
+      setScoutTab(status);
+      setToast(status === 'added' ? 'Job match is in Applications.' : status === 'saved' ? 'Job match saved.' : 'Job match ignored.');
+    });
   }
 
   return (
@@ -3828,7 +3871,26 @@ function AIToolsPage({
               configuredSources={jobScoutConfiguredSources}
               hasJobSources={hasJobSources}
               minScore={scoutMinScore}
-              busy={scoutBusy}
+              busy={scoutBusy || !scoutReady}
+              scheduleControls={<>
+                {scoutLoadError && <div role="alert">{scoutLoadError} <button className="text-button" type="button" onClick={() => setScoutReload(value => value + 1)}>Retry</button></div>}
+                {!scoutReady && !scoutLoadError && <p role="status">Loading Job Scout…</p>}
+                {scoutBusy && <p role="status">Updating Job Scout…</p>}
+                {scoutReady && <div className="job-scout-actions">
+                  <label className="form-field"><span>Scheduled search</span>
+                    <select value={scoutInterval} disabled={scoutBusy} onChange={event => setScoutIntervalDraft(Number(event.target.value))}>
+                      <option value={0}>Off</option>
+                      <option value={6}>Every 6 hours</option>
+                      <option value={12}>Every 12 hours</option>
+                      <option value={24}>Every 24 hours</option>
+                    </select>
+                  </label>
+                  <button className="secondary-button" type="button" disabled={scoutBusy ||
+                    (scoutInterval === scout.schedule.intervalHours && scoutMinScore === scout.schedule.minimumScore)}
+                    onClick={() => void saveScoutSchedule()}>Save schedule</button>
+                  {scout.schedule.nextRunAt && <p>Next search {formatDateTime(scout.schedule.nextRunAt)}. Runs while the API is online.</p>}
+                </div>}
+              </>}
               onMinScoreChange={setScoutMinScore}
               onViewMatches={() => setScoutTab('new')}
               onSearch={() => void runJobScout()}
@@ -3866,9 +3928,9 @@ function AIToolsPage({
               minScore={scoutMinScore}
               hasJobSources={hasJobSources}
               onTabChange={setScoutTab}
-              onSave={(match) => updateScoutMatchStatus(match.id, 'saved')}
-              onIgnore={(match) => updateScoutMatchStatus(match.id, 'ignored')}
-              onAdd={(match) => void addScoutMatchToApplications(match)}
+              onSave={(match) => void updateScoutMatchStatus(match, 'saved')}
+              onIgnore={(match) => void updateScoutMatchStatus(match, 'ignored')}
+              onAdd={(match) => void updateScoutMatchStatus(match, 'added')}
               onSearch={() => void runJobScout()}
               onOpenPreferences={() => onOpenSettings?.('preferences')}
             />
@@ -3912,6 +3974,7 @@ function JobScoutForm({
   hasJobSources,
   minScore,
   busy,
+  scheduleControls,
   onMinScoreChange,
   onViewMatches,
   onSearch,
@@ -3922,6 +3985,7 @@ function JobScoutForm({
   hasJobSources: boolean;
   minScore: number;
   busy: boolean;
+  scheduleControls: React.ReactNode;
   onMinScoreChange: (value: number) => void;
   onViewMatches: () => void;
   onSearch: () => void;
@@ -3956,11 +4020,12 @@ function JobScoutForm({
       </div>
 
       <NumberStepper label="Minimum match score" value={minScore} onChange={onMinScoreChange} min={0} max={100} unit="%" />
+      {scheduleControls}
       <a href="https://www.arbeitnow.com/" target="_blank" rel="noreferrer">Job listings by Arbeitnow</a>
 
       <div className="job-scout-actions">
         <button className="secondary-button" type="button" onClick={onViewMatches}>View matches</button>
-        <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Searching...' : 'Search now'}</button>
+        <button className="primary-button" type="submit" disabled={busy || !hasJobSources}>Search now</button>
         <button className="secondary-button" type="button" onClick={onOpenPreferences}><SlidersHorizontal size={16} /> Configure preferences</button>
       </div>
     </form>
@@ -4045,7 +4110,7 @@ function JobScoutPanel({
               <article key={run.id} className={`job-scout-run ${run.status}`}>
                 <div>
                   <strong>{run.status === 'blocked' ? 'Provider setup needed' : run.status === 'failed' ? 'Search failed' : 'Search completed'}</strong>
-                  <span>{formatDateTime(run.completedAt)}</span>
+                  <span>{run.scheduled ? 'Scheduled · ' : 'Manual · '}{formatDateTime(run.completedAt)}</span>
                   <p>{run.message}</p>
                 </div>
                 <em>{run.newMatches} new matches</em>
@@ -4056,7 +4121,7 @@ function JobScoutPanel({
           <div className="job-scout-empty">
             <Clock size={28} />
             <strong>No search history yet</strong>
-            <span>Search runs will appear here with provider status, dedupe count and new matches.</span>
+            <span>Manual and scheduled searches appear here with their results.</span>
             <button className="primary-button" type="button" onClick={onSearch}>Search now</button>
           </div>
         )
@@ -5167,9 +5232,10 @@ function useResolvedTheme(theme: Theme): 'light' | 'dark' {
   return theme === 'system' ? systemTheme : theme;
 }
 
-type MobileLayoutProps = JobScoutProps & {
+type MobileLayoutProps = {
+  scoutRequest: number;
   renderWorkspace: (application: JobApplication) => React.ReactNode;
-  onNotification: (page: 'applications' | 'calendar', applicationId?: string) => void;
+  onNotification: (page: 'applications' | 'calendar' | 'ai', applicationId?: string) => void;
   notesPage: React.ReactNode;
   initialDocumentId?: EntityId;
   initialEventId?: EntityId;
@@ -5268,8 +5334,7 @@ function MobileLayout({
   onPreviewDocument,
   onSaveCoverLetter,
   onAddApplicationFromScout,
-  scout,
-  setScout,
+  scoutRequest,
   onSyncNotificationEvent,
   onDeleteNotificationEvent,
   categoryOptions,
@@ -5330,7 +5395,7 @@ function MobileLayout({
         {page === 'companies' ? <CompaniesPage initialCompanyId={initialCompanyId} companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage initialDocumentId={initialDocumentId} documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
-        {page === 'ai' ? <AIToolsPage scout={scout} setScout={setScout} documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} settings={settings} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
+        {page === 'ai' ? <AIToolsPage scoutRequest={scoutRequest} documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} settings={settings} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
       </main>
 
       {page !== 'preparation' && <FloatingActionButton onClick={openAddApplication} label="Add application" />}
@@ -5356,7 +5421,7 @@ function MobileLayout({
   );
 }
 
-function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings, onNotification }: { onNotification: (page: 'applications' | 'calendar', applicationId?: string) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
+function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings, onNotification }: { onNotification: (page: 'applications' | 'calendar' | 'ai', applicationId?: string) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
   const meta = pageLabels[page];
   const firstName = profile.name.split(' ')[0] || 'User';
 
@@ -5859,7 +5924,7 @@ function App() {
   const [events, setEvents] = useState<CalendarEvent[]>(appInitialEvents);
   const [documents, setDocuments] = useState<DocumentItem[]>(appInitialDocuments);
   const [notes, setNotes] = useState<NoteItem[]>(appInitialNotes);
-  const [scout, setScout] = useState<JobScoutState>(emptyScout);
+  const [scoutRequest, setScoutRequest] = useState(0);
   const [preparation, setPreparation] = useState(emptyPreparation);
   const [prepareApplicationId, setPrepareApplicationId] = useState('');
   const activeAccount = useRef(authUser?.id);
@@ -5877,6 +5942,7 @@ function App() {
   const [initialCompanyId, setInitialCompanyId] = useState<number>();
   const [toast, setToast] = useState('');
   useEffect(() => {
+    if (page !== 'ai') setScoutRequest(0);
     if (page !== 'documents') setInitialDocumentId(undefined);
     if (page !== 'notes') setInitialNoteId(undefined);
     if (page !== 'calendar') setInitialEventId(undefined);
@@ -5898,12 +5964,11 @@ function App() {
   useWorkspaceSection(authUser?.id, 'preferences', settings.preferences, (preferences) => {
     setSettings(current => normalizeAppSettings({ ...current, preferences }));
   }, setToast);
-  useWorkspaceSection(authUser?.id, 'scout', scout, setScout, setToast);
   const preparationSync = useWorkspaceSection(authUser?.id, 'preparation', preparation, setPreparation, setToast);
 
   function clearWorkspaceState() {
+    setScoutRequest(0);
     activeAccount.current = undefined;
-    setScout(emptyScout);
     setPreparation(emptyPreparation);
     setPrepareApplicationId('');
     setProfile(initialProfile);
@@ -6217,9 +6282,7 @@ function App() {
         && application.position.trim().toLowerCase() === match.title.trim().toLowerCase())
     );
 
-    if (duplicate) {
-      throw new Error('This job is already in Applications.');
-    }
+    if (duplicate) return;
 
     const defaultCv = liveDocuments.find((document) => document.type === 'CV' && document.isDefault)
       || liveDocuments.find((document) => document.type === 'CV' && document.status !== 'Archived');
@@ -6368,7 +6431,8 @@ function App() {
     setPage('preparation');
   }
 
-  function openNotification(destination: 'applications' | 'calendar', applicationId?: string) {
+  function openNotification(destination: 'applications' | 'calendar' | 'ai', applicationId?: string) {
+    if (destination === 'ai') setScoutRequest(request => request + 1);
     setSelectedApplication(null);
     setNoticeApplicationId(applicationId);
     setPage(destination);
@@ -6514,8 +6578,7 @@ function App() {
         dashboardHidden={preparation.dashboard.hidden}
         applicationStatus={applicationStatus}
         onPrepare={openPreparation}
-        scout={scout}
-        setScout={setScout}
+        scoutRequest={scoutRequest}
         shellClass={shellClass}
         page={page}
         setPage={setPage}
@@ -6582,7 +6645,7 @@ function App() {
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} initialEventId={initialEventId} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
           {page === 'documents' ? <DocumentsPage initialDocumentId={initialDocumentId} documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
-          {page === 'ai' ? <AIToolsPage scout={scout} setScout={setScout} documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} settings={settings} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}
+          {page === 'ai' ? <AIToolsPage scoutRequest={scoutRequest} documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} settings={settings} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}
           {page === 'notes' ? notesPage : null}
         </div>
       </div>

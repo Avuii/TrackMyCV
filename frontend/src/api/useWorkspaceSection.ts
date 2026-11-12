@@ -27,7 +27,7 @@ function mergeChanges(base: unknown, local: unknown, remote: unknown): unknown {
 
 export function useWorkspaceSection<T>(
   account: string | undefined,
-  name: 'companies' | 'notes' | 'preferences' | 'scout' | 'preparation',
+  name: 'companies' | 'notes' | 'preferences' | 'preparation',
   value: T,
   apply: (value: T) => void,
   reportError: (message: string) => void

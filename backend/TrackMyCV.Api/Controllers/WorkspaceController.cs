@@ -39,7 +39,7 @@ public sealed class WorkspaceController(AppDbContext db) : ControllerBase
     {
         if (HttpContext.GetCurrentUserId() is not Guid userId)
             return Unauthorized();
-        if (!Shapes.TryGetValue(name, out var shape))
+        if (name == "scout" || !Shapes.TryGetValue(name, out var shape))
             return NotFound();
         if (request.Data is not JsonElement data || data.ValueKind != shape)
             return BadRequest(new { message = "Invalid workspace data." });
