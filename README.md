@@ -317,9 +317,9 @@ The [GitHub Actions deployment workflow](.github/workflows/deploy.yml) installs 
 
 **User Experience & Preparation**
 
-- [ ] Add CV-to-job comparisons, reusable templates, and interview preparation collections.
-- [ ] Add AI interview questions, job-description summaries, and application-specific suggestions.
-- [ ] Improve mobile workflows, accessibility, onboarding, loading/error states, and dashboard customization.
+- [x] Add CV-to-job comparisons, reusable templates, and interview preparation collections.
+- [x] Add AI interview questions, job-description summaries, and application-specific suggestions.
+- [x] Improve mobile workflows, accessibility, onboarding, loading/error states, and dashboard customization.
 
 ## License
 
