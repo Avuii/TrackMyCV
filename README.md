@@ -5,13 +5,16 @@
 <h1 align="center">TrackMyCV</h1>
 
 <p align="center">
-  Track job applications, organize recruitment materials, and prepare for interviews in one workspace.
+  <strong>Track applications, organize recruitment materials, and prepare for interviews in one workspace.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-active%20development-A67856?labelColor=5C5148&style=for-the-badge" alt="Status: active development" />
+  <img src="https://img.shields.io/badge/Status-Active%20Development-A67856?labelColor=5C5148&style=for-the-badge" alt="Status: Active Development" />
   <a href="https://avuii.github.io/TrackMyCV/">
-    <img src="https://img.shields.io/badge/GitHub%20Pages-Interactive%20demo-C49A6C?labelColor=7A5C42&style=for-the-badge&logo=github&logoColor=white" alt="Open the TrackMyCV demo on GitHub Pages" />
+    <img src="https://img.shields.io/badge/Live%20Demo-Open-C49A6C?labelColor=7A5C42&style=for-the-badge&logo=githubpages&logoColor=white" alt="Open interactive demo" />
+  </a>
+  <a href="https://github.com/Avuii/TrackMyCV/actions/workflows/deploy.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/Avuii/TrackMyCV/deploy.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=Demo%20Build" alt="Demo build and deployment status" />
   </a>
 </p>
 
@@ -30,105 +33,301 @@
   <img src="https://img.shields.io/badge/LaTeX-5F7476?style=for-the-badge&logo=latex&logoColor=white" alt="LaTeX" />
 </p>
 
-TrackMyCV brings together applications, employer research, interview dates, CV versions, and recruitment notes. The full-stack app runs locally with an ASP.NET Core API and SQL Server. The GitHub Pages demo uses sample data, simulated sign-in, and browser storage.
+<p align="center">
+  <a href="https://avuii.github.io/TrackMyCV/"><strong>Open Demo</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="docs/local-development.md">Local Development Guide</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://github.com/Avuii/TrackMyCV/issues">Report an Issue</a>
+</p>
 
-## Interface preview
+---
+
+## Application Preview
 
 | Dashboard | Applications |
-| --- | --- |
-| <img src="docs/screenshots/dashboard.png" alt="Recruitment dashboard" width="380" /> | <img src="docs/screenshots/applications.png" alt="Applications and recruitment statuses" width="380" /> |
+|:---:|:---:|
+| <img src="docs/screenshots/dashboard.png" alt="TrackMyCV recruitment dashboard" width="380" /> | <img src="docs/screenshots/applications.png" alt="Application tracking and recruitment statuses" width="380" /> |
 
 | Calendar | Documents |
-| --- | --- |
-| <img src="docs/screenshots/calendar.png" alt="Recruitment calendar" width="380" /> | <img src="docs/screenshots/documents.png" alt="Recruitment files and links" width="380" /> |
+|:---:|:---:|
+| <img src="docs/screenshots/calendar.png" alt="Recruitment calendar" width="380" /> | <img src="docs/screenshots/documents.png" alt="Recruitment document management" width="380" /> |
 
 <details>
-<summary>More screenshots</summary>
+<summary><strong>More screenshots</strong></summary>
 
-- [Companies](docs/screenshots/companies.png)
-- [Statistics](docs/screenshots/statistics.png)
-- [Notes](docs/screenshots/notes.png)
+| Companies | Statistics | Notes |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/companies.png" alt="Company profiles" width="260" /> | <img src="docs/screenshots/statistics.png" alt="Recruitment statistics" width="260" /> | <img src="docs/screenshots/notes.png" alt="Recruitment notes" width="260" /> |
 
 </details>
 
-## Development checklist
+## Table of Contents
 
-### Implemented
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Getting Started](#getting-started)
+- [Configuration & API](#configuration--api)
+- [Testing & Security](#testing--security)
+- [Project Status & Roadmap](#project-status--roadmap)
+- [License](#license)
+- [Author](#author)
 
-- [x] Email and password registration, sign-in, sign-out, and database-backed sessions.
-- [x] Application tracking with search, filters, recruitment statuses, next steps, and CSV import and export.
-- [x] Dashboard and recruitment statistics calculated from the user's applications.
-- [x] Calendar with month, week, and day views, upcoming events, and API-backed event storage. Events support time ranges, locations, meeting links, icons, and colors.
-- [x] Recruitment documents and links with categories, metadata, archiving, and file downloads. SQL Server stores metadata and the API stores uploaded files in `App_Data/uploads`.
-- [x] Company profiles, editable notes with checklists and attachments, job preferences, and workspace appearance settings. These features use browser storage in the full app.
-- [x] Desktop and mobile layouts, light/dark/system themes, accent colors, density, and animation settings.
-- [x] Configurable email reminders for interviews, deadlines, and follow-ups, plus weekly summaries, monthly reports, and a test-email action. Delivery requires SMTP configuration. Application follow-ups currently use a seven-day threshold.
-- [x] General CV review and job-match review, with results saved to review history.
-- [x] Editable AI-generated cover letters with PDF preview, download, and saving to Documents.
-- [x] AI Job Scout interface with profile preferences, matching controls, result tabs, run history for the current session, and handlers for saving, ignoring, and adding matches to Applications.
-- [x] Docker Compose configuration for local SQL Server and the API, EF Core migrations, and a GitHub Actions workflow for publishing the demo to GitHub Pages.
+## Overview
 
-### Remaining work
+**TrackMyCV** is a full-stack recruitment management application designed for people handling multiple job applications, interviews, documents, and employer contacts at the same time.
 
-1. **Make AI Job Scout return real offers.**
-   - [ ] Connect a permitted job API, RSS feed, or company careers source and wire it into manual search. The current source list is empty and the search handler has no provider call.
-   - [ ] Normalize and deduplicate offers, score them against job preferences, explain matches, and keep offers already tracked out of new results.
-   - [ ] Persist results, saved and ignored offers, and run history. Add scheduled searches and notifications for new matches.
-2. **Finish connecting the recruitment workspace.**
-   - [ ] Sync company profiles, notes and attachments, and job preferences through the API so they follow the account across devices.
-   - [ ] Link applications to documents by ID. The application currently stores the CV name. Extend links between applications, notes, companies, and calendar deadlines, and build an activity timeline and document usage history.
-   - [ ] Add in-app notifications and follow-up suggestions. Connect the profile's follow-up interval to the email worker and verify timing and delivery with SMTP.
-3. **Verify and deploy the full app.**
-   - [ ] Add automated coverage for authentication, application CRUD, document uploads, calendar sync, reminders, and AI flows. The GitHub Pages workflow builds the demo.
-   - [ ] Update the dependency flagged by the backend build audit (`System.Security.Cryptography.Pkcs` 9.0.4) and pin frontend dependencies with a committed lockfile.
-   - [ ] Set up a production frontend, API, and database with deployment-time migrations, persistent uploads, backups, API health checks, and monitoring.
-4. **Expand preparation and improve usability.**
-   - [ ] Add job offer and CV comparisons, reusable document templates, and interview preparation collections.
-   - [ ] Add AI interview questions, job-description summaries, and application-specific recommendations for documents and next steps.
-   - [ ] Improve mobile flows, accessibility, loading and error states, onboarding, and dashboard customization.
+It brings application tracking, recruitment analytics, interview scheduling, company research, and CV management together in one workspace. Optional AI features support CV feedback, job matching, and cover-letter preparation.
 
-## Run locally
+> [!IMPORTANT]
+> **The GitHub Pages demo and the full application are different environments.** The demo uses sample data, simulated sign-in, and browser storage. The locally running full application uses an ASP.NET Core API and SQL Server for account sessions, applications, calendar events, and document metadata. Some workspace settings, company profiles, notes, and preferences still rely on browser storage.
 
-Use Node.js 22.12 or newer, the .NET 10 SDK, and Docker with Linux containers for SQL Server. Run the following commands in PowerShell from the repository root.
+## Key Features
+
+| Area | Capabilities | Storage / availability |
+|---|---|---|
+| **Application Tracking** | Create and manage applications, recruitment stages, next steps, search, filters, CSV import/export | Full application API |
+| **Dashboard & Analytics** | Application statistics, recruitment progress, and visual summaries | Based on saved applications |
+| **Recruitment Calendar** | Month, week, and day views; interviews, deadlines, time ranges, locations, and meeting links | Full application API |
+| **Documents** | CV files, cover letters, links, categories, metadata, archives, and downloads | SQL Server metadata + API file storage |
+| **Companies & Notes** | Employer profiles, research, checklists, attachments, and preparation notes | Browser storage in the full app |
+| **AI Assistance** | General CV review, job-match review, review history, and editable cover letters with PDF output | Optional OpenAI integration |
+| **Email Notifications** | Interview, deadline, and follow-up reminders; weekly and monthly summaries; test email | Requires SMTP configuration |
+| **AI Job Scout** | Preferences, matching controls, result views, and current-session run history | Interface implemented; live offer retrieval pending |
+| **Personalization** | Light/dark/system themes, accent colors, density, animation settings, and responsive layouts | Full application |
+
+> [!NOTE]
+> The AI Job Scout interface is available, but its search handler is not yet connected to a live job-offer provider. It does not currently retrieve real vacancies.
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| **Frontend** | React, TypeScript, Vite, CSS, Lucide React |
+| **Backend** | C#, ASP.NET Core 10, REST API |
+| **Data Access** | Entity Framework Core 10 |
+| **Database** | Microsoft SQL Server 2022 |
+| **Local Infrastructure** | Docker Compose |
+| **AI & Documents** | OpenAI API, LaTeX / `pdflatex` |
+| **Notifications** | SMTP |
+| **Demo & Deployment** | Separate Vite demo, GitHub Pages, GitHub Actions |
+
+## Architecture
+
+The full application separates the React interface, ASP.NET Core API, and persistent data. External AI and email services are optional; the published demo runs independently of the backend.
+
+```mermaid
+flowchart TB
+    User[User] --> Frontend[React + TypeScript frontend]
+    Frontend --> API[ASP.NET Core 10 REST API]
+    Frontend --> Local[(Browser storage)]
+    API --> DB[(SQL Server 2022)]
+    API --> Files[(App_Data/uploads)]
+    API -. Optional CV and letter features .-> OpenAI[OpenAI API]
+    API -. Optional reminders .-> SMTP[SMTP server]
+
+    Visitor[Demo visitor] --> Demo[GitHub Pages demo]
+    Demo --> Sample[(Sample data and browser storage)]
+```
+
+### Repository Structure
+
+```text
+TrackMyCV/
+├── frontend/                 # Full React application
+├── backend/                  # ASP.NET Core API and application layers
+├── demo/                     # Standalone interactive GitHub Pages demo
+├── docs/                     # Screenshots and development guide
+├── scripts/                  # Local development launcher
+├── .github/workflows/        # Demo build and Pages deployment
+├── .env.example              # Optional integration settings
+├── docker-compose.yml       # SQL Server and API services
+└── README.md
+```
+
+Uploaded files are stored by the API under `backend/TrackMyCV.Api/App_Data/uploads`, while file metadata is stored in SQL Server. The API applies Entity Framework Core migrations automatically in Development.
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js 22.12 or newer** and npm
+- **.NET 10 SDK**
+- **Docker** with Linux containers enabled for SQL Server
+- **PowerShell** for the commands below
+
+### Installation
+
+Run the following commands from a PowerShell terminal:
 
 ```powershell
+git clone https://github.com/Avuii/TrackMyCV.git
+cd TrackMyCV
+
 Copy-Item backend/TrackMyCV.Api/appsettings.example.json backend/TrackMyCV.Api/appsettings.json
 Copy-Item .env.example .env
+
 npm install --prefix frontend
 npm run dev
 ```
 
-Create the configuration files on a fresh clone. If they already exist, keep your local settings. Open the frontend at `http://localhost:5173`. The API runs at `http://localhost:5228`, with Swagger at `/swagger`. In Development, the API applies EF Core migrations at startup.
+The development launcher starts the SQL Server container, the backend, and the frontend.
 
-To run the API in Docker or use an existing SQL Server instance, follow the [local development guide](docs/local-development.md).
+| Service | Local address |
+|---|---|
+| **Frontend** | http://localhost:5173 |
+| **Backend API** | http://localhost:5228 |
+| **Swagger UI** | http://localhost:5228/swagger |
 
-### Optional integrations
+Stop the development process with `Ctrl+C`.
 
-- Set `OPENAI_API_KEY` in `.env` to enable CV reviews and cover letter generation. The API extracts text from uploaded PDF, DOCX, TXT, or RTF files and sends the relevant content to OpenAI. Image-only PDFs require a text version. Cover-letter PDF rendering needs a LaTeX compiler such as `pdflatex`, which is included in the API Docker image.
-- Set `EMAIL__ENABLED=true` and configure the SMTP values from [`.env.example`](.env.example) to enable email delivery. Set your recipient address in the app's notification settings and use the test-email action to check delivery.
+> [!TIP]
+> To explore the interface without installing the backend, use the [interactive GitHub Pages demo](https://avuii.github.io/TrackMyCV/). To use an existing SQL Server instance or run the API in Docker, see the [local development guide](docs/local-development.md).
 
-### Build checks
+### Alternative: API in Docker
 
-```bash
+With the `.env` file configured and Docker Desktop running:
+
+```powershell
+docker compose up -d --build api
+npm --prefix frontend run dev
+```
+
+Docker Compose starts SQL Server and the API. To inspect the API logs, run `docker compose logs -f api`. Stop containers with `docker compose stop`.
+
+### Run the Demo Locally
+
+```powershell
+npm ci --prefix demo
+npm run dev --prefix demo
+```
+
+The demo uses sample data and does not require the backend or SQL Server.
+
+## Configuration & API
+
+### Environment Variables
+
+Copy [`.env.example`](.env.example) to `.env` and configure only the integrations you intend to use.
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Enables AI-assisted CV reviews and cover letters |
+| `OPENAI_MODEL` | OpenAI model used by the integration |
+| `LATEX_COMPILER` | LaTeX executable used for PDF generation, e.g. `pdflatex` |
+| `EMAIL__ENABLED` | Enables or disables email delivery |
+| `EMAIL__HOST` / `EMAIL__PORT` | SMTP server and port |
+| `EMAIL__ENABLESSL` | SMTP TLS/SSL setting |
+| `EMAIL__USERNAME` / `EMAIL__PASSWORD` | SMTP authentication |
+| `EMAIL__FROMEMAIL` / `EMAIL__FROMNAME` | Email sender identity |
+| `MSSQL_SA_PASSWORD` | SQL Server password for the Docker setup |
+
+The database connection string for a host-run backend is configured in `backend/TrackMyCV.Api/appsettings.json`. For the Docker API, Compose supplies the connection string.
+
+> [!WARNING]
+> The sample database password and connection settings are intended for local development only. Replace default credentials before exposing services outside a trusted local environment. Keep `.env`, `appsettings.json`, and other files containing secrets out of version control.
+
+### Optional Integrations
+
+**OpenAI:** Add `OPENAI_API_KEY` to `.env` to enable CV reviews and cover-letter generation. The API extracts text from supported PDF, DOCX, TXT, and RTF documents and sends relevant content to OpenAI. Image-only PDFs require a text-based version. PDF cover-letter rendering needs a LaTeX compiler; `pdflatex` is included in the API Docker image.
+
+**Email:** Set `EMAIL__ENABLED=true` and provide SMTP configuration. Enter a recipient address in the application's notification settings and use the test-email action to verify delivery.
+
+### API Reference
+
+The backend provides authenticated recruitment management endpoints. The following authentication routes are implemented:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/register` | Create an account |
+| `POST` | `/api/auth/login` | Sign in |
+| `GET` | `/api/auth/me` | Retrieve the current user |
+| `POST` | `/api/auth/logout` | Revoke the current session |
+
+The API also supports application and calendar management, document storage, and optional AI and notification workflows. See [Swagger UI](http://localhost:5228/swagger) when the backend is running for the available routes and request schemas.
+
+## Testing & Security
+
+### Build Verification
+
+Run these checks after installing the relevant dependencies:
+
+```powershell
 npm run build --prefix frontend
+npm ci --prefix demo
 npm run build --prefix demo
 dotnet build backend/TrackMyCV.slnx
 ```
 
-To run the interactive demo locally, use `npm ci --prefix demo` followed by `npm run dev --prefix demo`.
+The [GitHub Actions deployment workflow](.github/workflows/deploy.yml) installs and builds the demo before publishing it to GitHub Pages. It is **not** a complete automated test pipeline for the full-stack application.
 
-## Repository overview
+### Security & Data Handling
 
-| Path | Purpose |
-| --- | --- |
-| [`frontend/`](frontend/) | Full app interface built with React, TypeScript, Vite, CSS, and Lucide icons |
-| [`backend/`](backend/) | ASP.NET Core .NET 10 API, domain and application layers, and EF Core persistence for SQL Server |
-| [`demo/`](demo/) | Separate interactive demo with sample data and simulated sign-in |
-| [`docs/`](docs/) | Screenshots and local development guide |
-| [`docker-compose.yml`](docker-compose.yml) | Local SQL Server and API services |
-| [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | Builds and deploys the demo to GitHub Pages |
+- **Authentication:** The full backend implements email/password registration, sign-in, and sign-out with database-backed sessions.
+- **Credential handling:** Passwords and session tokens are stored as hashes; authentication routes include input validation and rate limiting.
+- **Data storage:** Account-related records, applications, calendar events, and document metadata use SQL Server. Uploaded files are stored by the API.
+- **Browser-stored data:** Company profiles, notes, job preferences, and appearance settings currently do not synchronize across devices.
+- **External processing:** When AI features are enabled, relevant extracted document text is transmitted to OpenAI.
 
+> [!IMPORTANT]
+> The hosted demo uses simulated sign-in and client-side browser storage. It is a product showcase, not an authenticated production environment. Avoid entering sensitive personal or recruitment information into the demo.
+
+## Project Status & Roadmap
+
+**Current stage:** Active development. The local full-stack application is functional; production deployment and broader test coverage are still pending.
+
+### Implemented
+
+- [x] User registration, sign-in, sign-out, and database-backed sessions.
+- [x] Application tracking, recruitment statuses, filtering, search, and CSV import/export.
+- [x] Dashboard metrics and recruitment statistics.
+- [x] Calendar with month/week/day views and API-backed events.
+- [x] Document uploads, links, metadata, archiving, and downloads.
+- [x] Company profiles, notes with checklists and attachments, and job preferences using browser storage.
+- [x] Responsive layout and appearance customization.
+- [x] Configurable interview, deadline, and follow-up email reminders, plus weekly/monthly summaries and test emails (SMTP required).
+- [x] CV review, job-match review, and saved review history (OpenAI required).
+- [x] AI-assisted cover-letter editing, PDF preview, download, and saving to Documents (OpenAI and LaTeX required).
+- [x] AI Job Scout interface, preference controls, result tabs, and session-level run history.
+- [x] Docker Compose setup, EF Core development migrations, and automated GitHub Pages demo deployment.
+
+### Planned Improvements
+
+**AI Job Scout**
+
+- [ ] Integrate a permitted job API, RSS feed, or company careers source for real offers.
+- [ ] Normalize and deduplicate offers, match them to preferences, and exclude already tracked vacancies.
+- [ ] Persist search results, saved/ignored offers, and history; introduce scheduled searches and notifications.
+
+**Connected Recruitment Workspace**
+
+- [ ] Move company profiles, notes/attachments, and job preferences to API-backed storage for cross-device access.
+- [ ] Connect applications with documents by ID, companies, notes, and calendar deadlines.
+- [ ] Add application activity timelines, document usage history, in-app notifications, and follow-up suggestions.
+- [ ] Apply user-configured follow-up intervals to reminders and verify SMTP timing and delivery.
+
+**Quality & Deployment**
+
+- [ ] Add automated tests for authentication, application CRUD, document uploads, calendar synchronization, reminders, and AI workflows.
+- [ ] Update the backend dependency flagged during the build audit (`System.Security.Cryptography.Pkcs` 9.0.4).
+- [ ] Commit a frontend lockfile and pin dependencies for reproducible builds.
+- [ ] Deploy the full frontend, API, and database with persistent uploads, backups, health checks, and monitoring.
+
+**User Experience & Preparation**
+
+- [ ] Add CV-to-job comparisons, reusable templates, and interview preparation collections.
+- [ ] Add AI interview questions, job-description summaries, and application-specific suggestions.
+- [ ] Improve mobile workflows, accessibility, onboarding, loading/error states, and dashboard customization.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+
+---
 
 ## Author
 
-Created by **[Avuii](https://github.com/Avuii)**
+Created and maintained by **[Avuii](https://github.com/Avuii)**.
