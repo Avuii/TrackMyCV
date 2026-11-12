@@ -16,6 +16,8 @@ public class AppDbContext : DbContext
 
     public DbSet<JobApplication> JobApplications => Set<JobApplication>();
 
+    public DbSet<ApplicationActivity> ApplicationActivities => Set<ApplicationActivity>();
+
     public DbSet<Company> Companies => Set<Company>();
 
     public DbSet<AppUser> AppUsers => Set<AppUser>();
@@ -37,6 +39,17 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ApplicationActivity>(entity =>
+        {
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.AppUserId, x.ApplicationId, x.OccurredAtUtc });
+            entity.HasIndex(x => new { x.AppUserId, x.DocumentId, x.OccurredAtUtc });
+            entity.Property(x => x.Company).HasMaxLength(180);
+            entity.Property(x => x.Position).HasMaxLength(220);
+            entity.Property(x => x.Kind).HasMaxLength(32);
+            entity.Property(x => x.Detail).HasMaxLength(220);
+        });
 
         modelBuilder.Entity<WorkspaceSection>(entity =>
         {

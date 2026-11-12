@@ -27,6 +27,7 @@ services:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OPENAI_MODEL: "${OPENAI_MODEL:-gpt-5-mini}"
       LATEX_COMPILER: pdflatex
+      TZ: "${TZ:-UTC}"
       EMAIL__ENABLED: "${EMAIL__ENABLED:-false}"
       EMAIL__HOST: "${EMAIL__HOST:-}"
       EMAIL__PORT: "${EMAIL__PORT:-587}"

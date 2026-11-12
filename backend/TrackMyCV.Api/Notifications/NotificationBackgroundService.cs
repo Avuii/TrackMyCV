@@ -8,14 +8,6 @@ namespace TrackMyCV.Api.Notifications;
 
 public class NotificationBackgroundService : BackgroundService
 {
-    private static readonly ApplicationStatus[] FollowUpStatuses =
-    [
-        ApplicationStatus.Applied,
-        ApplicationStatus.InProgress,
-        ApplicationStatus.Interview,
-        ApplicationStatus.TaskOrTest
-    ];
-
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationBackgroundService> _logger;
     private readonly TimeProvider _clock;
@@ -165,9 +157,10 @@ public class NotificationBackgroundService : BackgroundService
             return;
         }
 
-        var dueOnOrBefore = DateOnly.FromDateTime(now.AddDays(-7));
+        var days = await FollowUpPolicy.GetDaysAsync(dbContext, settings.AppUserId, cancellationToken);
+        var dueOnOrBefore = DateOnly.FromDateTime(now.AddDays(-days));
         var applications = await dbContext.JobApplications
-            .Where(x => x.AppUserId == settings.AppUserId && FollowUpStatuses.Contains(x.Status))
+            .Where(x => x.AppUserId == settings.AppUserId && FollowUpPolicy.ActiveStatuses.Contains(x.Status))
             .ToListAsync(cancellationToken);
 
         foreach (var application in applications)
@@ -239,7 +232,7 @@ public class NotificationBackgroundService : BackgroundService
             .Where(x => x.AppUserId == userId)
             .ToListAsync(cancellationToken);
 
-        var active = applications.Count(x => FollowUpStatuses.Contains(x.Status));
+        var active = applications.Count(x => FollowUpPolicy.ActiveStatuses.Contains(x.Status));
         var interviews = applications.Count(x => x.Status is ApplicationStatus.Interview or ApplicationStatus.TaskOrTest or ApplicationStatus.Offer);
         var offers = applications.Count(x => x.Status == ApplicationStatus.Offer);
         var rejected = applications.Count(x => x.Status == ApplicationStatus.Rejected);

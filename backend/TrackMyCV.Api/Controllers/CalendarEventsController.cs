@@ -56,6 +56,9 @@ public class CalendarEventsController : ControllerBase
         var calendarEvent = await _dbContext.NotificationCalendarEvents
             .FirstOrDefaultAsync(x => x.AppUserId == userId.Value && x.ClientEventId == clientEventId);
 
+        if (!await CanLinkApplication(_dbContext, userId.Value, request.ApplicationId, calendarEvent?.ApplicationId))
+            return BadRequest(new { message = "Select an application from your workspace." });
+
         if (calendarEvent is null)
         {
             calendarEvent = new NotificationCalendarEvent
@@ -94,6 +97,9 @@ public class CalendarEventsController : ControllerBase
         {
             return NotFound();
         }
+
+        if (!await CanLinkApplication(_dbContext, userId.Value, request.ApplicationId, calendarEvent.ApplicationId))
+            return BadRequest(new { message = "Select an application from your workspace." });
 
         ApplyRequest(calendarEvent, request);
         await _dbContext.SaveChangesAsync();
@@ -163,7 +169,7 @@ public class CalendarEventsController : ControllerBase
     {
         calendarEvent.Title = Clean(request.Title, 220);
         calendarEvent.Company = Clean(request.Company, 180);
-        calendarEvent.ApplicationId = Clean(request.ApplicationId, 120);
+        calendarEvent.ApplicationId = NormalizeApplicationId(request.ApplicationId);
         calendarEvent.EventType = Clean(request.EventType, 100);
         calendarEvent.EventDate = request.EventDate;
         calendarEvent.StartTime = request.StartTime;
@@ -174,6 +180,16 @@ public class CalendarEventsController : ControllerBase
         calendarEvent.Icon = Clean(request.Icon, 80);
         calendarEvent.Color = Clean(request.Color, 40);
         calendarEvent.UpdatedAt = DateTime.UtcNow;
+    }
+
+    internal static string NormalizeApplicationId(string? value) =>
+        Guid.TryParse(value, out var id) ? id.ToString() : Clean(value, 120);
+
+    internal static async Task<bool> CanLinkApplication(AppDbContext db, Guid userId, string? requested, string? previous)
+    {
+        var link = NormalizeApplicationId(requested);
+        return link.Length == 0 || link == previous ||
+            (Guid.TryParse(link, out var id) && await db.JobApplications.AnyAsync(item => item.AppUserId == userId && item.Id == id));
     }
 
     private static CalendarEventDto MapToDto(NotificationCalendarEvent calendarEvent)

@@ -105,6 +105,7 @@ export interface ApplicationDocument {
 export interface JobApplication {
   id: ApplicationId;
   companyId?: string | null;
+  workspaceCompanyId?: number | null;
   company: string;
   position: string;
   category: string;

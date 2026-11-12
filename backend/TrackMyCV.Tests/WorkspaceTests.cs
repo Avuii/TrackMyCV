@@ -162,6 +162,7 @@ public sealed class WorkspaceTests : IAsyncLifetime
         var script = sql.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent);
         Assert.Contains("CREATE TABLE [WorkspaceSections]", script);
         Assert.Contains("FK_JobApplications_UserDocuments_DocumentId", script);
+        Assert.Contains("CREATE TABLE [ApplicationActivities]", script);
     }
 
     private static JsonElement ReadInbox(IActionResult result) =>

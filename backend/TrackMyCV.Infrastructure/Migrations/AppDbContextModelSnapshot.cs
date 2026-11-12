@@ -22,6 +22,24 @@ namespace TrackMyCV.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.ApplicationActivity", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("AppUserId").HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("ApplicationId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Company").IsRequired().HasMaxLength(180).HasColumnType("nvarchar(180)");
+                    b.Property<string>("Position").IsRequired().HasMaxLength(220).HasColumnType("nvarchar(220)");
+                    b.Property<string>("Kind").IsRequired().HasMaxLength(32).HasColumnType("nvarchar(32)");
+                    b.Property<string>("Detail").IsRequired().HasMaxLength(220).HasColumnType("nvarchar(220)");
+                    b.Property<Guid?>("DocumentId").HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("OccurredAtUtc").HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+                    b.HasIndex("AppUserId", "ApplicationId", "OccurredAtUtc");
+                    b.HasIndex("AppUserId", "DocumentId", "OccurredAtUtc");
+                    b.ToTable("ApplicationActivities");
+                });
+
             modelBuilder.Entity("TrackMyCV.Domain.Entities.AppUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -228,6 +246,9 @@ namespace TrackMyCV.Infrastructure.Migrations
 
                     b.Property<int>("WorkMode")
                         .HasColumnType("int");
+
+                    b.Property<long?>("WorkspaceCompanyId")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -596,6 +617,15 @@ namespace TrackMyCV.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.ApplicationActivity", b =>
+                {
+                    b.HasOne("TrackMyCV.Domain.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TrackMyCV.Domain.Entities.WorkspaceSection", b =>

@@ -108,6 +108,7 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
         var job = await CreateApplication(owner);
         var entry = Deadline(job.Id);
         const string path = "/api/calendar-events";
+        Assert.Equal(HttpStatusCode.BadRequest, (await other.PostAsJsonAsync(path, entry)).StatusCode);
         await Read<CalendarEventDto>(await owner.PostAsJsonAsync(path, entry));
         await Read<CalendarEventDto>(await owner.PostAsJsonAsync(path, entry));
         var received = Assert.Single((await secondDevice.GetFromJsonAsync<CalendarEventDto[]>(path))!);
@@ -148,6 +149,85 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var sent = await db.NotificationEmailLogs.SingleAsync();
         Assert.Equal("deadline-1:deadline", sent.NotificationKey);
+    }
+
+    [Fact]
+    public async Task WorkspaceLinksAndHistorySurviveReloadAndStayPrivate()
+    {
+        using var owner = await SignedInClient("owner");
+        using var other = await SignedInClient("other");
+        var cv = await UploadCv(owner);
+        const long companyId = 1_800_000_000_123;
+        var job = await Read<JobApplicationDto>(await owner.PostAsJsonAsync("/api/applications", new CreateJobApplicationDto
+        {
+            WorkspaceCompanyId = companyId, DocumentId = cv.Id, CompanyName = "Example",
+            Position = "Developer", DateApplied = new DateOnly(2026, 11, 11)
+        }));
+        await Read<JsonElement>(await owner.PutAsJsonAsync("/api/workspace/companies",
+            new { data = new[] { new { id = companyId, name = "Example" } } }));
+        const string attachment = "data:text/plain;base64,Y3Y=";
+        await Read<JsonElement>(await owner.PutAsJsonAsync("/api/workspace/notes", new
+        {
+            data = new[] { new { id = 1, applicationId = job.Id, attachments = new[] { new { id = 1, dataUrl = attachment } } } }
+        }));
+
+        using var secondDevice = _api.CreateClient();
+        var login = await Read<AuthResponse>(await secondDevice.PostAsJsonAsync("/api/auth/login",
+            new { email = "owner@example.test", password = Password }));
+        secondDevice.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
+        var applicationPath = $"/api/applications/{job.Id}";
+        var reloaded = await secondDevice.GetFromJsonAsync<JobApplicationDto>(applicationPath);
+        Assert.Equal(companyId, reloaded!.WorkspaceCompanyId);
+        Assert.Equal(cv.Id, reloaded.DocumentId);
+        var notes = await secondDevice.GetFromJsonAsync<JsonElement>("/api/workspace/notes");
+        Assert.Equal(job.Id, notes.GetProperty("data")[0].GetProperty("applicationId").GetGuid());
+        Assert.Equal(attachment, notes.GetProperty("data")[0].GetProperty("attachments")[0].GetProperty("dataUrl").GetString());
+        Assert.Equal(JsonValueKind.Null, (await other.GetFromJsonAsync<JsonElement>("/api/workspace/notes")).GetProperty("data").ValueKind);
+
+        var update = new UpdateJobApplicationDto
+        {
+            WorkspaceCompanyId = companyId, CompanyName = job.CompanyName, Position = job.Position, DateApplied = job.DateApplied,
+            Status = ApplicationStatus.Interview, NextStep = "Prepare examples"
+        };
+        Assert.Equal(HttpStatusCode.NoContent, (await secondDevice.PutAsJsonAsync(applicationPath, update)).StatusCode);
+        var timeline = await owner.GetFromJsonAsync<JsonElement>($"{applicationPath}/activity");
+        Assert.Equal(4, timeline.GetProperty("activity").GetArrayLength());
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"{applicationPath}/activity")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync(applicationPath)).StatusCode);
+
+        var usagePath = $"/api/documents/{cv.Id}/usage";
+        var usage = await secondDevice.GetFromJsonAsync<JsonElement[]>(usagePath);
+        Assert.Equal(new[] { "document-unlinked", "document-linked" }, usage!.Select(entry => entry.GetProperty("kind").GetString()));
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(usagePath)).StatusCode);
+    }
+
+    [Fact]
+    public async Task FollowUpUsesTheSyncedIntervalForInboxAndEmail()
+    {
+        using var owner = await SignedInClient("owner");
+        var date = DateOnly.FromDateTime(DateTime.UtcNow);
+        var job = await Read<JobApplicationDto>(await owner.PostAsJsonAsync("/api/applications", new CreateJobApplicationDto
+        {
+            CompanyName = "Example", Position = "Developer", DateApplied = date.AddDays(-4),
+            LastContact = date.AddDays(-2), Status = ApplicationStatus.Applied
+        }));
+        await Read<JsonElement>(await owner.PutAsJsonAsync("/api/workspace/preferences", new { data = new { followUpDays = 3 } }));
+        var settings = new NotificationSettingsRequest("owner@example.test", false, true, false, false, false, "15 minutes before");
+        await Read<NotificationSettingsDto>(await owner.PutAsJsonAsync("/api/notifications/settings", settings));
+        _api.Clock.Now = new DateTimeOffset(date.ToDateTime(new TimeOnly(9, 0)), TimeSpan.Zero);
+        using var worker = ActivatorUtilities.CreateInstance<NotificationBackgroundService>(_api.Services);
+
+        Assert.Empty((await owner.GetFromJsonAsync<JsonElement[]>($"/api/inbox?today={date:yyyy-MM-dd}&time=09:00"))!);
+        await worker.ScanAsync(default);
+        Assert.Empty(_api.Email.Attempts);
+
+        _api.Clock.Now = _api.Clock.Now.AddDays(1);
+        var due = date.AddDays(1);
+        var notice = Assert.Single((await owner.GetFromJsonAsync<JsonElement[]>($"/api/inbox?today={due:yyyy-MM-dd}&time=09:00"))!);
+        Assert.Equal(job.Id, notice.GetProperty("applicationId").GetGuid());
+        await worker.ScanAsync(default);
+        await worker.ScanAsync(default);
+        Assert.Equal(("owner@example.test", "Follow up: Example"), Assert.Single(_api.Email.Attempts));
     }
 
     [Fact]
@@ -206,7 +286,7 @@ public sealed class ApiWorkflowTests : IAsyncLifetime
         }));
 
     private static CalendarEventRequest Deadline(Guid applicationId) =>
-        new("deadline-1", "Application deadline", "Example", applicationId.ToString(), "Application deadline",
+        new("deadline-1", "Application deadline", "Example", applicationId == Guid.Empty ? "" : applicationId.ToString(), "Application deadline",
             new DateOnly(2026, 11, 12), new TimeOnly(10, 0), null, "", "", "", "", "");
 
     private static MultipartFormDataContent CvForm(string fileName)

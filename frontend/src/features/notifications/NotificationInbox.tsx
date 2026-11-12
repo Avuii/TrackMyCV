@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { apiRequest } from '../../api/apiClient';
 
-type Notice = { id: string; title: string; detail: string; page: 'applications' | 'calendar'; read: boolean };
+type Notice = { id: string; title: string; detail: string; page: 'applications' | 'calendar'; applicationId?: string | null; read: boolean };
 
-export function NotificationInbox({ navigate }: { navigate: (page: Notice['page']) => void }) {
+export function NotificationInbox({ navigate }: { navigate: (page: Notice['page'], applicationId?: string) => void }) {
   const [items, setItems] = useState<Notice[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
@@ -38,7 +38,7 @@ export function NotificationInbox({ navigate }: { navigate: (page: Notice['page'
     try {
       if (!item.read) await apiRequest('/api/inbox/' + encodeURIComponent(item.id) + '/read', { method: 'PUT' });
       setItems(previous => previous.map(notice => notice.id === item.id ? { ...notice, read: true } : notice));
-      navigate(item.page);
+      navigate(item.page, item.applicationId ?? undefined);
       setOpen(false);
     } catch {
       setError('Could not mark this notification as read.');

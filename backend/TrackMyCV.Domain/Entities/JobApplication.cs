@@ -15,6 +15,8 @@ public class JobApplication : BaseEntity
 
     public Guid? CompanyId { get; set; }
 
+    public long? WorkspaceCompanyId { get; set; }
+
     public Company? Company { get; set; }
 
     public string CompanyName { get; set; } = string.Empty;

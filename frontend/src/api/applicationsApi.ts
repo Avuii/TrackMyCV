@@ -6,6 +6,7 @@ type BackendEnumValue = number | string;
 export interface JobApplicationDto {
   id: string;
   companyId: string | null;
+  workspaceCompanyId?: number | null;
   companyName: string;
   position: string;
   category: string;
@@ -33,6 +34,7 @@ export type ApplicationUpsertInput = Omit<JobApplication, 'id'> & {
 
 interface JobApplicationRequest {
   companyId: string | null;
+  workspaceCompanyId: number | null;
   companyName: string;
   position: string;
   category: string;
@@ -244,6 +246,7 @@ export function mapApplicationFromApi(dto: JobApplicationDto): JobApplication {
   return {
     id: dto.id,
     companyId: dto.companyId,
+    workspaceCompanyId: dto.workspaceCompanyId,
     company: dto.companyName,
     position: dto.position,
     category: dto.category,
@@ -267,6 +270,7 @@ export function mapApplicationFromApi(dto: JobApplicationDto): JobApplication {
 export function mapApplicationToApi(application: ApplicationUpsertInput): JobApplicationRequest {
   return {
     companyId: application.companyId ?? null,
+    workspaceCompanyId: application.workspaceCompanyId ?? null,
     companyName: application.company,
     position: application.position,
     category: application.category,

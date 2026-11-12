@@ -361,6 +361,22 @@ public class DocumentsController : ControllerBase
         return PhysicalFile(absolutePath, document.ContentType, document.OriginalFileName);
     }
 
+    [HttpGet("{id:guid}/usage")]
+    public async Task<IActionResult> GetUsage(Guid id, CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetCurrentUserId() is not Guid userId)
+            return Unauthorized();
+        if (!await _dbContext.UserDocuments.AnyAsync(document => document.Id == id && document.AppUserId == userId, cancellationToken))
+            return NotFound();
+
+        var history = await _dbContext.ApplicationActivities.AsNoTracking()
+            .Where(item => item.AppUserId == userId && item.DocumentId == id)
+            .OrderByDescending(item => item.OccurredAtUtc).ThenBy(item => item.Id).Take(100)
+            .Select(item => new { item.Id, item.Kind, item.Company, item.Position, item.OccurredAtUtc })
+            .ToListAsync(cancellationToken);
+        return Ok(history);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
@@ -385,6 +401,8 @@ public class DocumentsController : ControllerBase
             .Where(item => item.AppUserId == document.AppUserId && item.DocumentId == id).ToListAsync();
         foreach (var application in applications)
         {
+            _dbContext.ApplicationActivities.Add(ApplicationActivity.Record(application, document.AppUserId,
+                "document-unlinked", document.Name, id));
             application.DocumentId = null;
             application.CvName = string.Empty;
         }

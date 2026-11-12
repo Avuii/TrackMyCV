@@ -58,3 +58,21 @@ On Windows you can also double-click:
 ```text
 start-dev.cmd
 ```
+
+## Email reminders from a local backend
+
+The local API can send reminders through an existing SMTP account. For the Gmail setup used by NearEarth, place these settings in the ignored root `.env` file and restart the API:
+
+```dotenv
+EMAIL__ENABLED=true
+EMAIL__HOST=smtp.gmail.com
+EMAIL__PORT=587
+EMAIL__ENABLESSL=true
+EMAIL__USERNAME=your-account@gmail.com
+EMAIL__PASSWORD=your-app-password
+EMAIL__FROMEMAIL=your-account@gmail.com
+```
+
+When running the API in Docker, set `TZ` to the time zone used for your calendar, for example `Europe/Warsaw`.
+
+Set the recipient in **Profile → Notifications** and use **Send test email** to verify delivery to that inbox. In **Preferences**, set **Suggest follow-up after** to choose the delay from the last contact or the application date. The same delay applies to in-app suggestions and email follow-ups. The local API checks for due reminders on startup and every five minutes while it is running.

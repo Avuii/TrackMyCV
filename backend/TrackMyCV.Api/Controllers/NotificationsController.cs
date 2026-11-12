@@ -124,6 +124,9 @@ public class NotificationsController : ControllerBase
         var existing = await _dbContext.NotificationCalendarEvents
             .FirstOrDefaultAsync(x => x.AppUserId == userId.Value && x.ClientEventId == request.ClientEventId);
 
+        if (!await CalendarEventsController.CanLinkApplication(_dbContext, userId.Value, request.ApplicationId, existing?.ApplicationId))
+            return BadRequest(new { message = "Select an application from your workspace." });
+
         if (existing is null)
         {
             existing = new NotificationCalendarEvent
@@ -136,7 +139,7 @@ public class NotificationsController : ControllerBase
 
         existing.Title = Clean(request.Title, 220);
         existing.Company = Clean(request.Company, 180);
-        existing.ApplicationId = Clean(request.ApplicationId, 120);
+        existing.ApplicationId = CalendarEventsController.NormalizeApplicationId(request.ApplicationId);
         existing.EventType = Clean(request.EventType, 100);
         existing.EventDate = request.EventDate;
         existing.StartTime = request.StartTime;

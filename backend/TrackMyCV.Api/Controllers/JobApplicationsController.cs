@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrackMyCV.Infrastructure.Data;
 using TrackMyCV.Api.Auth;
+using TrackMyCV.Api.Notifications;
 using TrackMyCV.Application.Applications.DTOs;
 using TrackMyCV.Application.Applications.Interfaces;
 using TrackMyCV.Domain.Entities;
@@ -83,6 +84,7 @@ public class JobApplicationsController : ControllerBase
         {
             AppUserId = userId.Value,
             CompanyId = dto.CompanyId,
+            WorkspaceCompanyId = dto.WorkspaceCompanyId,
             CompanyName = Clean(dto.CompanyName, 180),
             Position = Clean(dto.Position, 220),
             Category = Clean(dto.Category, 100),
@@ -102,6 +104,8 @@ public class JobApplicationsController : ControllerBase
             CvName = Clean(document?.Name ?? dto.CvName, 180)
         };
 
+        if (document is not null)
+            _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "document-linked", document.Name, document.Id));
         var created = await _repository.CreateAsync(application);
 
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, MapToDto(created));
@@ -135,7 +139,13 @@ public class JobApplicationsController : ControllerBase
         if (dto.DocumentId.HasValue && document is null)
             return BadRequest(new { message = "Select a document from your workspace." });
 
+        var previousStatus = application.Status;
+        var previousContact = application.LastContact;
+        var previousStep = application.NextStep;
+        var previousDocumentId = application.DocumentId;
+        var previousDocumentName = application.CvName;
         application.CompanyId = dto.CompanyId;
+        application.WorkspaceCompanyId = dto.WorkspaceCompanyId;
         application.CompanyName = Clean(dto.CompanyName, 180);
         application.Position = Clean(dto.Position, 220);
         application.Category = Clean(dto.Category, 100);
@@ -153,6 +163,20 @@ public class JobApplicationsController : ControllerBase
         application.Notes = Clean(dto.Notes, 6000);
         application.DocumentId = document?.Id;
         application.CvName = Clean(document?.Name ?? dto.CvName, 180);
+
+        if (previousStatus != application.Status)
+            _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "status", application.Status.ToString()));
+        if (previousContact != application.LastContact)
+            _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "contact", application.LastContact?.ToString("yyyy-MM-dd") ?? ""));
+        if (previousStep != application.NextStep)
+            _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "next-step", application.NextStep));
+        if (previousDocumentId != application.DocumentId)
+        {
+            if (previousDocumentId.HasValue)
+                _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "document-unlinked", previousDocumentName, previousDocumentId));
+            if (document is not null)
+                _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "document-linked", document.Name, document.Id));
+        }
 
         await _repository.UpdateAsync(application);
 
@@ -176,9 +200,36 @@ public class JobApplicationsController : ControllerBase
             return NotFound();
         }
 
+        if (application.DocumentId is Guid documentId)
+            _db.ApplicationActivities.Add(ApplicationActivity.Record(application, userId.Value, "application-deleted", application.CvName, documentId));
         await _repository.DeleteAsync(application);
 
         return NoContent();
+    }
+
+    [HttpGet("{id:guid}/activity")]
+    public async Task<IActionResult> GetActivity(Guid id, CancellationToken cancellationToken)
+    {
+        if (HttpContext.GetCurrentUserId() is not Guid userId)
+            return Unauthorized();
+
+        var application = await _db.JobApplications.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == id && item.AppUserId == userId, cancellationToken);
+        if (application is null)
+            return NotFound();
+
+        var activity = await _db.ApplicationActivities.AsNoTracking()
+            .Where(item => item.AppUserId == userId && item.ApplicationId == id)
+            .OrderByDescending(item => item.OccurredAtUtc).ThenBy(item => item.Id).Take(100)
+            .Select(item => new { item.Id, item.Kind, item.Detail, item.OccurredAtUtc })
+            .ToListAsync(cancellationToken);
+        DateOnly? followUpDueOn = null;
+        if (FollowUpPolicy.ActiveStatuses.Contains(application.Status))
+        {
+            var days = await FollowUpPolicy.GetDaysAsync(_db, userId, cancellationToken);
+            followUpDueOn = (application.LastContact ?? application.DateApplied).AddDays(days);
+        }
+        return Ok(new { application.CreatedAt, Activity = activity, FollowUpDueOn = followUpDueOn });
     }
 
     private static JobApplicationDto MapToDto(JobApplication application)
@@ -187,6 +238,7 @@ public class JobApplicationsController : ControllerBase
         {
             Id = application.Id,
             CompanyId = application.CompanyId,
+            WorkspaceCompanyId = application.WorkspaceCompanyId,
             CompanyName = application.CompanyName,
             Position = application.Position,
             Category = application.Category,

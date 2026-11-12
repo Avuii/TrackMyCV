@@ -65,6 +65,7 @@ import { apiRequest, clearAuthToken, getAuthToken } from './api/apiClient';
 import type { ApplicationUpsertInput } from './api/applicationsApi';
 import { useWorkspaceSection } from './api/useWorkspaceSection';
 import { NotificationInbox } from './features/notifications/NotificationInbox';
+import { ApplicationTimeline, DocumentUsageHistory } from './features/applications/components/WorkspaceHistory';
 import { dashboardWidgets, emptyPreparation, PreparationPage, type DashboardWidget, type PreparationWorkspace } from './features/preparation/PreparationPage';
 import { type StoredDocument } from './api/documentsApi';
 import { aiApi, type CoverLetterCandidate, type CoverLetterGenerateResponse, type CvReviewDto, type CvReviewRequest } from './api/aiApi';
@@ -117,7 +118,7 @@ type Company = {
 };
 
 type CalendarEvent = {
-  id: number;
+  id: EntityId;
   title: string;
   company: string;
   applicationId?: EntityId;
@@ -176,6 +177,7 @@ type NoteItem = {
   title: string;
   company: string;
   application: string;
+  applicationId?: EntityId;
   tag: string;
   tags?: string[];
   type?: string;
@@ -508,7 +510,7 @@ const apiApplicationToUi = (application: ApiJobApplication): JobApplication => {
   return {
     id: cleanApplication.id,
     company: cleanApplication.company,
-    companyId: cleanApplication.companyId,
+    companyId: cleanApplication.workspaceCompanyId ?? cleanApplication.companyId,
     domain: safeDomain(cleanApplication.company),
     position: cleanApplication.position,
     category: cleanApplication.category || 'Other',
@@ -559,6 +561,7 @@ const apiDocumentToUi = (document: StoredDocument): DocumentItem => {
 
 const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput => ({
   companyId: typeof application.companyId === 'string' ? application.companyId : null,
+  workspaceCompanyId: typeof application.companyId === 'number' ? application.companyId : null,
   company: application.company,
   position: application.position,
   category: application.category,
@@ -608,7 +611,7 @@ const apiTime = (time?: string) => `${minutesToTime(timeToMinutes(time))}:00`;
 const uiTime = (time?: string | null) => time ? minutesToTime(timeToMinutes(time.slice(0, 5))) : undefined;
 
 const calendarEventFromApi = (event: CalendarEventDto): CalendarEvent => normalizeCalendarEvent({
-  id: Number(event.clientEventId) || makeId(),
+  id: event.clientEventId,
   title: event.title,
   company: event.company,
   applicationId: event.applicationId || undefined,
@@ -1212,7 +1215,7 @@ function calculateStats(applications: JobApplication[]) {
 }
 
 function companyStats(company: Company, applications: JobApplication[]) {
-  const related = applications.filter((app) => app.company === company.name || app.companyId === company.id);
+  const related = applications.filter((app) => app.companyId != null ? app.companyId === company.id : app.company === company.name);
   const responses = related.filter((app) => !['Saved', 'Applied', 'No response', 'Ghosted', 'Archived'].includes(app.status)).length;
   return {
     count: related.length,
@@ -1513,13 +1516,6 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-function downloadDataUrl(dataUrl: string, fileName: string) {
-  const link = document.createElement('a');
-  link.href = dataUrl;
-  link.download = fileName;
-  link.click();
-}
-
 function downloadJson(filename: string, data: unknown, setToast: (value: string) => void) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1794,7 +1790,7 @@ function Sidebar({ page, setPage, applications, settings }: { page: Page; setPag
   );
 }
 
-function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage }: { page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
+function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onOpenSettings, onLogout, setPage, onNotification }: { onNotification: (page: 'applications' | 'calendar', applicationId?: string) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenApplication: () => void; onOpenSettings: (tab?: ProfileTab) => void; onLogout: () => void; setPage: (page: Page) => void }) {
   const [open, setOpen] = useState(false);
   const isDashboard = page === 'dashboard';
   const firstName = profile.name.split(' ')[0] || 'User';
@@ -1810,7 +1806,7 @@ function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onO
       <div className="topbar-title"><h1>{title}</h1><p>{subtitle}</p></div>
       <div className="topbar-actions">
         <button className="icon-button" type="button" aria-label="Search" onClick={() => setPage('applications')}><Search size={19} /></button>
-        <NotificationInbox navigate={setPage} />
+        <NotificationInbox navigate={onNotification} />
         <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>{resolvedTheme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button>
         <div className="profile-wrap">
           <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><ProfileAvatar profile={profile} className="avatar-soft" iconSize={18} /><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
@@ -2117,6 +2113,7 @@ function ApplicationsPage({
   onOpenApplication,
   onOpenEditApplication,
   onPrepare,
+  renderWorkspace,
   onStatusChange,
   onDelete,
   selectedApplication,
@@ -2129,6 +2126,7 @@ function ApplicationsPage({
   onOpenApplication: () => void;
   onOpenEditApplication: (app: JobApplication) => void;
   onPrepare: (app: JobApplication) => void;
+  renderWorkspace: (app: JobApplication) => React.ReactNode;
   onStatusChange: (id: EntityId, status: Status) => void;
   onDelete: (id: EntityId) => void;
   selectedApplication: JobApplication | null;
@@ -2280,6 +2278,7 @@ function ApplicationsPage({
       {previewApplication ? (
         <ApplicationDetailsModal
           application={previewApplication}
+          workspace={renderWorkspace(previewApplication)}
           onClose={() => setPreviewApplication(null)}
           onPrepare={() => onPrepare(previewApplication)}
           onEdit={() => {
@@ -2394,7 +2393,7 @@ function DesktopApplicationsList({
 }
 
 function ApplicationDetails({ application, onEdit }: { application: JobApplication; onEdit: () => void }) {
-  return <div className="details-grid"><div><div className="details-heading"><CompanyLogo name={application.company} domain={application.domain} large /><div><h2>{application.company}</h2><p>{application.position}</p></div><StatusBadge status={application.status} /></div><div className="details-actions"><button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Open offer</button><button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button></div></div><div className="details-lists"><InfoList title="Requirements" text={application.requirements} /><InfoList title="Benefits" text={application.benefits} /><InfoList title="Details" text={`${application.location}, ${application.workMode}, ${application.source}, ${application.cv}`} /></div><div className="timeline-card"><h3>Recruitment timeline</h3>{['Saved offer', 'CV sent', application.lastContact ? 'Company response' : 'Waiting', application.nextStep].map((item, index) => <div className="timeline-row" key={`${item}-${index}`}><span /><div><strong>{item}</strong><small>{index === 0 ? formatDate(application.dateApplied) : index === 1 ? formatDate(application.dateApplied) : index === 2 ? formatDate(application.lastContact) : 'Next step'}</small></div></div>)}</div></div>;
+  return <div className="details-grid"><div><div className="details-heading"><CompanyLogo name={application.company} domain={application.domain} large /><div><h2>{application.company}</h2><p>{application.position}</p></div><StatusBadge status={application.status} /></div><div className="details-actions"><button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Open offer</button><button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button></div></div><div className="details-lists"><InfoList title="Requirements" text={application.requirements} /><InfoList title="Benefits" text={application.benefits} /><InfoList title="Details" text={`${application.location}, ${application.workMode}, ${application.source}, ${application.cv}`} /></div></div>;
 }
 
 
@@ -2402,12 +2401,14 @@ function ApplicationDetailsModal({
   application,
   onClose,
   onEdit,
-  onPrepare
+  onPrepare,
+  workspace
 }: {
   application: JobApplication;
   onClose: () => void;
   onEdit: () => void;
   onPrepare: () => void;
+  workspace: React.ReactNode;
 }) {
   return (
     <BaseModal
@@ -2417,6 +2418,7 @@ function ApplicationDetailsModal({
     >
       <div className="application-details-modal custom-scroll">
         <ApplicationDetails application={application} onEdit={onEdit} />
+        {workspace}
 
         {application.notes ? (
           <section className="application-modal-note">
@@ -2445,11 +2447,11 @@ function InfoList({ title, text }: { title: string; text: string }) {
   return <div className="info-list"><h3>{title}</h3><div>{items.map((item) => <span key={item}>{item}</span>)}</div></div>;
 }
 
-function CompaniesPage({ companies, applications, setCompanies, setToast }: { companies: Company[]; applications: JobApplication[]; setCompanies: (companies: Company[]) => void; setToast: (value: string) => void }) {
+function CompaniesPage({ companies, initialCompanyId, applications, setCompanies, setToast }: { companies: Company[]; initialCompanyId?: number; applications: JobApplication[]; setCompanies: (companies: Company[]) => void; setToast: (value: string) => void }) {
   const [query, setQuery] = useState('');
   const [industry, setIndustry] = useState('All');
   const [location, setLocation] = useState('All');
-  const [modal, setModal] = useState<Company | null>(null);
+  const [modal, setModal] = useState<Company | null>(() => companies.find(company => company.id === initialCompanyId) ?? null);
   const locations = ['All', ...Array.from(new Set(companies.map((company) => company.location))).filter(Boolean)];
   const filtered = companies.filter((company) => `${company.name} ${company.industry} ${company.location}`.toLowerCase().includes(query.toLowerCase()) && (industry === 'All' || company.industry === industry) && (location === 'All' || company.location === location));
   function save(company: Company) {
@@ -2486,14 +2488,14 @@ function BarList({ rows }: { rows: [string, string][] }) {
   return <div className="bar-chart-list">{rows.map(([label, value]) => <div className="bar-row" key={label}><span>{label}</span><div><span style={{ width: `${(Number(value) / max) * 100}%` }} /></div><strong>{value}</strong></div>)}</div>;
 }
 
-function CalendarPage({ events, applications, setEvents, setToast, onSyncNotificationEvent, onDeleteNotificationEvent }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void; onSyncNotificationEvent?: (event: CalendarEvent) => void; onDeleteNotificationEvent?: (id: number) => void }) {
+function CalendarPage({ events, applications, initialEventId, onSyncNotificationEvent, onDeleteNotificationEvent }: { events: CalendarEvent[]; applications: JobApplication[]; initialEventId?: EntityId; onSyncNotificationEvent: (event: CalendarEvent) => Promise<boolean>; onDeleteNotificationEvent: (id: EntityId) => Promise<void> }) {
   const [view, setView] = useState<CalendarView>('Month');
-  const [modal, setModal] = useState<CalendarEvent | null>(null);
+  const [modal, setModal] = useState<CalendarEvent | null>(() => events.find(event => event.id === initialEventId) ?? null);
   const dayScheduleRef = useRef<HTMLDivElement | null>(null);
   const sorted = events.map(normalizeCalendarEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
   const [dayDate, setDayDate] = useState(() => toDate(today()));
-  const [monthDate, setMonthDate] = useState(() => startOfMonth(today()));
+  const [monthDate, setMonthDate] = useState(() => startOfMonth(modal?.date ?? today()));
   const monthCells = getMonthCells(monthDate);
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const selectedDayIso = toIsoDate(dayDate);
@@ -2510,17 +2512,12 @@ function CalendarPage({ events, applications, setEvents, setToast, onSyncNotific
     dayScheduleRef.current?.scrollTo({ top: scrollTarget, behavior: 'smooth' });
   }, [view, selectedDayIso]);
 
-  function save(event: CalendarEvent) {
-    const normalized = normalizeCalendarEvent(event);
-    if (events.some((item) => item.id === normalized.id)) setEvents(events.map((item) => item.id === normalized.id ? normalized : item));
-    else setEvents([normalized, ...events]);
-    setModal(null);
-    setToast('Calendar event saved.');
-    onSyncNotificationEvent?.(normalized);
+  async function save(event: CalendarEvent) {
+    if (await onSyncNotificationEvent(event)) setModal(null);
   }
-  function remove(id: number) { setEvents(events.filter((event) => event.id !== id)); setToast('Calendar event removed.'); onDeleteNotificationEvent?.(id); }
+  function remove(id: EntityId) { void onDeleteNotificationEvent(id); }
   function newEvent(date = today(), time = '10:00') {
-    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date, time, endTime: addMinutesToTime(time, 60), type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
+    setModal({ id: 0, title: '', company: '', date, time, endTime: addMinutesToTime(time, 60), type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
   }
   return (
     <section className="page-section">
@@ -2624,12 +2621,14 @@ function EventCard({ event, onEdit, onDelete, compact = false }: { event: Calend
   return <CalendarEventCard event={event} variant={compact ? 'upcoming' : 'week'} onEdit={onEdit} onDelete={onDelete} />;
 }
 
-function EventModal({ event, applications, onClose, onSave }: { event: CalendarEvent; applications: JobApplication[]; onClose: () => void; onSave: (event: CalendarEvent) => void }) {
+function EventModal({ event, applications, onClose, onSave }: { event: CalendarEvent; applications: JobApplication[]; onClose: () => void; onSave: (event: CalendarEvent) => Promise<void> }) {
   const [form, setForm] = useState(() => normalizeCalendarEvent(event));
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   function set<K extends keyof CalendarEvent>(key: K, value: CalendarEvent[K]) { setForm((current) => ({ ...current, [key]: value })); }
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
 
     if (!form.title.trim()) {
       setError('Add an event title.');
@@ -2641,14 +2640,32 @@ function EventModal({ event, applications, onClose, onSave }: { event: CalendarE
       return;
     }
 
-    onSave(normalizeCalendarEvent({ ...form, id: form.id || makeId(), title: form.title.trim() }));
+    const draft = normalizeCalendarEvent({ ...form, id: form.id || makeId(), title: form.title.trim() });
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } finally {
+      setSaving(false);
+    }
   }
   return (
     <BaseModal title={form.id ? 'Edit event' : 'Add event'} subtitle="Plan interviews, follow-ups and recruitment tasks." onClose={onClose}>
       <form className="modal-form" onSubmit={submit}>
         <div className="form-grid">
           <TextField label="Event title" value={form.title} onChange={(v) => { set('title', v); setError(''); }} placeholder="HR interview" />
-          <div className="form-field"><span>Company</span><CustomSelect value={form.company || 'General'} options={['General', ...Array.from(new Set(applications.map((app) => app.company)))]} onChange={(v) => set('company', v)} /></div>
+          <label className="form-field"><span>Linked application</span>
+            <select value={String(form.applicationId ?? '')} onChange={event => {
+              const application = applications.find(item => String(item.id) === event.target.value);
+              setForm(current => ({ ...current, applicationId: application?.id, company: application?.company ?? current.company }));
+            }}>
+              <option value="">No linked application</option>
+              {form.applicationId && !applications.some(item => String(item.id) === String(form.applicationId)) && (
+                <option value={String(form.applicationId)}>Previously linked application</option>
+              )}
+              {applications.map(item => <option key={item.id} value={item.id}>{item.company} · {item.position}</option>)}
+            </select>
+          </label>
+          <TextField label="Company" value={form.company} onChange={(value) => set('company', value)} />
           <div className="form-field"><span>Type</span><CustomSelect value={form.type} options={eventTypes} onChange={(v) => set('type', v)} /></div>
           <TextField label="Date" type="date" value={form.date} onChange={(v) => set('date', v)} />
           <TextField label="Start time" type="time" value={form.time} onChange={(v) => { set('time', v); if (timeToMinutes(form.endTime) <= timeToMinutes(v)) set('endTime', addMinutesToTime(v, 60)); setError(''); }} />
@@ -2675,7 +2692,10 @@ function EventModal({ event, applications, onClose, onSave }: { event: CalendarE
         </div>
         <TextAreaField label="Detailed plan" value={form.notes} onChange={(v) => set('notes', v)} placeholder="09:00 intro, 09:20 technical questions, 09:50 next steps" />
         {error ? <p className="form-error" role="alert">{error}</p> : null}
-        <ModalFooter onClose={onClose} submitLabel="Save event" />
+        <footer className="modal-footer inner">
+          <button className="secondary-button" type="button" onClick={onClose}>Cancel</button>
+          <button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save event'}</button>
+        </footer>
       </form>
     </BaseModal>
   );
@@ -2700,6 +2720,7 @@ function LegacyDocumentsPage({ documents, setDocuments, onExport, setToast }: { 
 }
 
 type DocumentsPageProps = {
+  initialDocumentId?: EntityId;
   documents: DocumentItem[];
   applications: JobApplication[];
   setDocuments: (docs: DocumentItem[]) => void;
@@ -2717,11 +2738,11 @@ type DocumentsPageProps = {
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
 };
 
-function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onUpdateDocumentTitle, onDownloadDocument, onPreviewDocument }: DocumentsPageProps) {
+function DocumentsPage({ documents, applications, setDocuments, onExport, setToast, initialDocumentId, loading = false, error = null, onRefresh, onUploadDocument, onCreateDocumentLink, onDeleteDocument, onArchiveDocument, onUpdateDocumentTitle, onDownloadDocument, onPreviewDocument }: DocumentsPageProps) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
   const [linkModal, setLinkModal] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(() => documents.find(doc => doc.id === initialDocumentId) ?? null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const filtered = documents.filter((doc) => `${doc.name} ${doc.type} ${doc.category} ${doc.tags?.join(' ') ?? ''}`.toLowerCase().includes(query.toLowerCase()) && (type === 'All' || doc.type === type));
   const cvCount = documents.filter((doc) => doc.type === 'CV').length;
@@ -3012,6 +3033,7 @@ function DocumentDetailsModal({
             </div>
           )) : <p>No assigned applications yet.</p>}
         </section>
+        <DocumentUsageHistory documentId={String(document.id)} />
         <footer className="modal-footer inner">
           {isLink ? <button className="secondary-button" type="button" onClick={() => window.open(document.url, '_blank')}><ExternalLink size={17} /> Open link</button> : null}
           {document.url ? <button className="secondary-button" type="button" onClick={() => onCopyLink(document)}><LinkIcon size={17} /> Copy link</button> : null}
@@ -4300,8 +4322,8 @@ function CoverLetterEditor({ result, value, fileName, mode, previewUrl, previewE
   );
 }
 
-function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes: (notes: NoteItem[]) => void; setToast: (value: string) => void }) {
-  const [selectedId, setSelectedId] = useState(notes[0]?.id || 0);
+function NotesPage({ notes, setNotes, setToast, applications, initialNoteId }: { notes: NoteItem[]; setNotes: Dispatch<SetStateAction<NoteItem[]>>; setToast: (value: string) => void; applications: JobApplication[]; initialNoteId?: number }) {
+  const [selectedId, setSelectedId] = useState(initialNoteId ?? notes[0]?.id ?? 0);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [noteMenuOpen, setNoteMenuOpen] = useState(false);
@@ -4338,7 +4360,7 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
   }, [noteMenuOpen]);
   function patchNote(patch: Partial<NoteItem>) {
     if (!selected) return;
-    setNotes(notes.map((note) => note.id === selected.id ? { ...note, ...patch, updated: today(), lastEdited: today() } : note));
+    setNotes(current => current.map((note) => note.id === selected.id ? { ...note, ...patch, updated: today(), lastEdited: today() } : note));
   }
   function patchNoteBody(body: string) {
     patchNote({ body, preview: body.slice(0, 120) });
@@ -4419,7 +4441,9 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
         dataUrl: await readFileAsDataUrl(file),
         addedAt: today()
       })));
-      patchNote({ attachments: [...selectedAttachments, ...nextAttachments] });
+      setNotes(current => current.map(note => note.id === selected.id
+        ? { ...note, attachments: [...(note.attachments ?? []), ...nextAttachments], updated: today(), lastEdited: today() }
+        : note));
       setToast(nextAttachments.length === 1 ? 'Attachment added.' : `${nextAttachments.length} attachments added.`);
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Attachment could not be added.');
@@ -4433,8 +4457,16 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
     setToast('Attachment removed.');
   }
   function openAttachment(attachment: NoteAttachment) {
-    const opened = window.open(attachment.dataUrl, '_blank');
-    if (!opened) downloadDataUrl(attachment.dataUrl, attachment.name);
+    const match = /^data:[^,]*;base64,([A-Za-z0-9+/=]*)$/.exec(attachment.dataUrl);
+    if (!match) {
+      setToast('The attachment could not be opened.');
+      return;
+    }
+    try {
+      downloadBlob(base64ToBlob(match[1], 'application/octet-stream'), attachment.name);
+    } catch {
+      setToast('The attachment could not be opened.');
+    }
   }
   function addChecklistItem() { if (!selected) return; patchNote({ checklist: [...selectedChecklist, { id: makeId(), text: 'New checklist item', done: false }] }); }
   function updateChecklist(id: number, patch: Partial<ChecklistItem>) { if (!selected) return; patchNote({ checklist: selectedChecklist.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
@@ -4485,7 +4517,20 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
             </div>
             <div className="form-grid">
               <TextField label="Company" value={selected.company} onChange={(value) => patchNote({ company: value })} />
-              <TextField label="Application" value={selected.application} onChange={(value) => patchNote({ application: value })} />
+              <label className="form-field"><span>Linked application</span>
+                <select value={String(selected.applicationId ?? '')} onChange={event => {
+                  const application = applications.find(item => String(item.id) === event.target.value);
+                  patchNote({ applicationId: application?.id, application: application?.position ?? 'General',
+                    company: application?.company ?? selected.company });
+                }}>
+                  <option value="">{selected.application && selected.application !== 'General' && !selected.applicationId
+                    ? `${selected.application} (saved label)` : 'No linked application'}</option>
+                  {selected.applicationId && !applications.some(item => String(item.id) === String(selected.applicationId)) && (
+                    <option value={String(selected.applicationId)}>{selected.application} (previously linked)</option>
+                  )}
+                  {applications.map(item => <option key={item.id} value={item.id}>{item.company} · {item.position}</option>)}
+                </select>
+              </label>
               <TextField label="Type" value={selected.type || selected.tag} onChange={(value) => patchNote({ type: value, tag: value })} />
               <TextField label="Tags" value={(selected.tags ?? [selected.tag]).join(', ')} onChange={(value) => patchNote({ tags: value.split(',').map((tag) => tag.trim()).filter(Boolean) })} />
             </div>
@@ -4524,7 +4569,7 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
                         <small>{formatFileSize(attachment.size)} · added {formatDate(attachment.addedAt)}</small>
                       </div>
                       <button className="ghost-icon" type="button" aria-label={`Open ${attachment.name}`} onClick={() => openAttachment(attachment)}><ExternalLink size={16} /></button>
-                      <button className="ghost-icon" type="button" aria-label={`Download ${attachment.name}`} onClick={() => downloadDataUrl(attachment.dataUrl, attachment.name)}><Download size={16} /></button>
+                      <button className="ghost-icon" type="button" aria-label={`Download ${attachment.name}`} onClick={() => openAttachment(attachment)}><Download size={16} /></button>
                       <button className="ghost-icon danger" type="button" aria-label={`Remove ${attachment.name}`} onClick={() => removeAttachment(attachment.id)}><Trash2 size={16} /></button>
                     </div>
                   ))}
@@ -4587,12 +4632,17 @@ function ApplicationModal({ application, companies, documents, categoryOptions, 
   const cvOptions = documents.filter(doc => doc.status !== 'Archived' || doc.id === application?.documentId);
   const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: '' });
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [key]: value })); }
-  function chooseCompany(name: string) { const company = companies.find((item) => item.name === name); setForm((current) => ({ ...current, company: name, companyId: company?.id, domain: company?.domain || safeDomain(name), offerUrl: current.offerUrl || company?.website || '' })); }
+  function chooseCompany(id: string) {
+    const company = companies.find(item => String(item.id) === id);
+    setForm(current => company
+      ? { ...current, company: company.name, companyId: company.id, domain: company.domain || safeDomain(company.name) }
+      : { ...current, companyId: undefined });
+  }
   function submit(event: FormEvent) {
     event.preventDefault();
     onSave({ ...form, id: application?.id || makeId(), domain: safeDomain(form.company, form.domain), cv: form.cv === 'No CV selected' ? '' : form.cv });
   }
-  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="Example Company" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder=".NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>Application document</span><select aria-label="Application document" value={form.documentId || (form.cv ? 'legacy' : '')} onChange={(event) => {
+  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><label className="form-field"><span>Saved company</span><select value={companies.some(company => company.id === form.companyId) ? String(form.companyId) : ''} onChange={event => chooseCompany(event.target.value)}><option value="">Custom company</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}{company.location ? ' · ' + company.location : ''}</option>)}</select></label><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="Example Company" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder=".NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>Application document</span><select aria-label="Application document" value={form.documentId || (form.cv ? 'legacy' : '')} onChange={(event) => {
     const id = event.target.value;
     const doc = cvOptions.find(item => String(item.id) === id);
     setForm(current => ({ ...current, documentId: doc ? id : null, cv: doc?.name ?? (id === 'legacy' ? application?.cv || '' : '') }));
@@ -4966,7 +5016,7 @@ function PreferencesTab({ settings, setSettings }: { settings: AppSettings; setS
       <div className="rules-grid">
         <NumberStepper label="Mark as no response after" value={prefs.noResponseDays} onChange={(value) => patch({ noResponseDays: value })} />
         <NumberStepper label="Mark as ghosted after" value={prefs.ghostedDays} onChange={(value) => patch({ ghostedDays: value })} />
-        <NumberStepper label="Suggest follow-up after" value={prefs.followUpDays} onChange={(value) => patch({ followUpDays: value })} />
+        <NumberStepper label="Suggest follow-up after" min={1} value={prefs.followUpDays} onChange={(value) => patch({ followUpDays: value })} />
       </div>
     </div>
   );
@@ -5118,6 +5168,12 @@ function useResolvedTheme(theme: Theme): 'light' | 'dark' {
 }
 
 type MobileLayoutProps = JobScoutProps & {
+  renderWorkspace: (application: JobApplication) => React.ReactNode;
+  onNotification: (page: 'applications' | 'calendar', applicationId?: string) => void;
+  notesPage: React.ReactNode;
+  initialDocumentId?: EntityId;
+  initialEventId?: EntityId;
+  initialCompanyId?: number;
   preparationPage: React.ReactNode;
   dashboardControls: React.ReactNode;
   dashboardHidden: DashboardWidget[];
@@ -5137,9 +5193,7 @@ type MobileLayoutProps = JobScoutProps & {
   documents: DocumentItem[];
   notes: NoteItem[];
   setCompanies: (companies: Company[]) => void;
-  setEvents: (events: CalendarEvent[]) => void;
   setDocuments: (documents: DocumentItem[]) => void;
-  setNotes: (notes: NoteItem[]) => void;
   setToast: (value: string) => void;
   onOpenApplication: () => void;
   onOpenEditApplication: (application: JobApplication) => void;
@@ -5160,14 +5214,20 @@ type MobileLayoutProps = JobScoutProps & {
   onPreviewDocument?: (doc: DocumentItem) => Promise<string>;
   onSaveCoverLetter: (input: SaveCoverLetterInput) => Promise<void>;
   onAddApplicationFromScout: (match: JobScoutMatch) => Promise<void>;
-  onSyncNotificationEvent?: (event: CalendarEvent) => void;
-  onDeleteNotificationEvent?: (id: number) => void;
+  onSyncNotificationEvent: (event: CalendarEvent) => Promise<boolean>;
+  onDeleteNotificationEvent: (id: EntityId) => Promise<void>;
   categoryOptions: string[];
   levelOptions: string[];
   children?: React.ReactNode;
 };
 
 function MobileLayout({
+  renderWorkspace,
+  onNotification,
+  notesPage,
+  initialDocumentId,
+  initialEventId,
+  initialCompanyId,
   preparationPage,
   dashboardControls,
   dashboardHidden,
@@ -5187,9 +5247,7 @@ function MobileLayout({
   documents,
   notes,
   setCompanies,
-  setEvents,
   setDocuments,
-  setNotes,
   setToast,
   onOpenApplication,
   onOpenEditApplication,
@@ -5233,7 +5291,7 @@ function MobileLayout({
         resolvedTheme={resolvedTheme}
         setTheme={setTheme}
         onOpenSettings={onOpenSettings}
-        navigate={setPage}
+        onNotification={onNotification}
       />
 
       <main className="mobile-content custom-scroll">
@@ -5254,6 +5312,7 @@ function MobileLayout({
             onOpenApplication={openAddApplication}
             onOpenEditApplication={onOpenEditApplication}
             onPrepare={onPrepare}
+            renderWorkspace={renderWorkspace}
             onStatusChange={onStatusChange}
             onDelete={onDeleteApplication}
             onExport={onExport}
@@ -5263,14 +5322,14 @@ function MobileLayout({
         )) : null}
 
         {page === 'calendar' ? (
-          <MobileCalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={onSyncNotificationEvent} onDeleteNotificationEvent={onDeleteNotificationEvent} />
+          <MobileCalendarPage events={events} applications={applications} initialEventId={initialEventId} onSyncNotificationEvent={onSyncNotificationEvent} onDeleteNotificationEvent={onDeleteNotificationEvent} />
         ) : null}
 
-        {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
+        {page === 'notes' ? notesPage : null}
         {page === 'preparation' ? preparationPage : null}
-        {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
+        {page === 'companies' ? <CompaniesPage initialCompanyId={initialCompanyId} companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
-        {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
+        {page === 'documents' ? <DocumentsPage initialDocumentId={initialDocumentId} documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
         {page === 'ai' ? <AIToolsPage scout={scout} setScout={setScout} documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} settings={settings} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
       </main>
 
@@ -5297,7 +5356,7 @@ function MobileLayout({
   );
 }
 
-function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings, navigate }: { navigate: (page: Page) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
+function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings, onNotification }: { onNotification: (page: 'applications' | 'calendar', applicationId?: string) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
   const meta = pageLabels[page];
   const firstName = profile.name.split(' ')[0] || 'User';
 
@@ -5306,7 +5365,7 @@ function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings, 
       <div className="mobile-header-top">
         <Logo />
         <div className="mobile-header-actions">
-          <NotificationInbox navigate={navigate} />
+          <NotificationInbox navigate={onNotification} />
           <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>
             {resolvedTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
@@ -5494,7 +5553,7 @@ function MobileActionItem({ application, onClick }: { application: JobApplicatio
   );
 }
 
-function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onPrepare, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onPrepare: (app: JobApplication) => void; onStatusChange: (id: EntityId, status: Status) => void; onDelete: (id: EntityId) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
+function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onPrepare, renderWorkspace, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { renderWorkspace: (app: JobApplication) => React.ReactNode; applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onPrepare: (app: JobApplication) => void; onStatusChange: (id: EntityId, status: Status) => void; onDelete: (id: EntityId) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All');
   const [category, setCategory] = useState('All');
@@ -5602,6 +5661,7 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
       {details ? (
         <ApplicationDetailsSheet
           application={details}
+          workspace={renderWorkspace(details)}
           onClose={() => setDetails(null)}
           onPrepare={() => onPrepare(details)}
           onEdit={() => {
@@ -5673,7 +5733,7 @@ function MobileFiltersSheet({ status, setStatus, category, setCategory, level, s
   );
 }
 
-function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete, onPrepare }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void; onPrepare: () => void }) {
+function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete, onPrepare, workspace }: { workspace: React.ReactNode; application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void; onPrepare: () => void }) {
   return (
     <MobileBottomSheet title="Application details" subtitle={`${application.company} · ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
       <div className="mobile-detail-hero">
@@ -5704,6 +5764,7 @@ function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete, onPre
         <h3>Notes</h3>
         <p>{application.notes || 'No notes saved yet.'}</p>
       </div>
+      {workspace}
 
       <button className="primary-button" type="button" onClick={onPrepare}>Prepare for interview</button>
       <div className="mobile-sheet-actions sticky-actions">
@@ -5715,8 +5776,8 @@ function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete, onPre
   );
 }
 
-function MobileCalendarPage({ events, applications, setEvents, setToast, onSyncNotificationEvent, onDeleteNotificationEvent }: { events: CalendarEvent[]; applications: JobApplication[]; setEvents: (events: CalendarEvent[]) => void; setToast: (value: string) => void; onSyncNotificationEvent?: (event: CalendarEvent) => void; onDeleteNotificationEvent?: (id: number) => void }) {
-  const [modal, setModal] = useState<CalendarEvent | null>(null);
+function MobileCalendarPage({ events, applications, initialEventId, onSyncNotificationEvent, onDeleteNotificationEvent }: { events: CalendarEvent[]; applications: JobApplication[]; initialEventId?: EntityId; onSyncNotificationEvent: (event: CalendarEvent) => Promise<boolean>; onDeleteNotificationEvent: (id: EntityId) => Promise<void> }) {
+  const [modal, setModal] = useState<CalendarEvent | null>(() => events.find(event => event.id === initialEventId) ?? null);
   const sorted = events.map(normalizeCalendarEvent).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const grouped = sorted.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
     acc[event.date] = acc[event.date] || [];
@@ -5724,23 +5785,12 @@ function MobileCalendarPage({ events, applications, setEvents, setToast, onSyncN
     return acc;
   }, {});
 
-  function save(event: CalendarEvent) {
-    const normalized = normalizeCalendarEvent(event);
-    if (events.some((item) => item.id === normalized.id)) setEvents(events.map((item) => item.id === normalized.id ? normalized : item));
-    else setEvents([normalized, ...events]);
-    setModal(null);
-    setToast('Calendar event saved.');
-    onSyncNotificationEvent?.(normalized);
-  }
-
-  function remove(id: number) {
-    setEvents(events.filter((event) => event.id !== id));
-    setToast('Calendar event removed.');
-    onDeleteNotificationEvent?.(id);
+  async function save(event: CalendarEvent) {
+    if (await onSyncNotificationEvent(event)) setModal(null);
   }
 
   function addEvent() {
-    setModal({ id: 0, title: '', company: applications[0]?.company || '', applicationId: applications[0]?.id, date: today(), time: '10:00', endTime: '11:00', type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
+    setModal({ id: 0, title: '', company: '', date: today(), time: '10:00', endTime: '11:00', type: 'HR interview', location: 'Online', meetingLink: '', notes: '', icon: DEFAULT_EVENT_ICON, color: DEFAULT_EVENT_COLOR });
   }
 
   return (
@@ -5761,7 +5811,7 @@ function MobileCalendarPage({ events, applications, setEvents, setToast, onSyncN
                   <div><strong>{event.title}</strong><small>{event.company} · {event.location}</small></div>
                 </button>
                 <button className="ghost-icon" type="button" onClick={() => setModal(event)}><Pencil size={16} /></button>
-                <button className="ghost-icon danger" type="button" onClick={() => remove(event.id)}><Trash2 size={16} /></button>
+                <button className="ghost-icon danger" type="button" onClick={() => void onDeleteNotificationEvent(event.id)} aria-label="Delete event"><Trash2 size={16} /></button>
               </div>
             ))}
           </section>
@@ -5820,7 +5870,18 @@ function App() {
   const [settingsTab, setSettingsTab] = useState<ProfileTab>('profile');
   const [editingApplication, setEditingApplication] = useState<JobApplication | null | undefined>(undefined);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+  const [noticeApplicationId, setNoticeApplicationId] = useState<string>();
+  const [initialDocumentId, setInitialDocumentId] = useState<EntityId>();
+  const [initialNoteId, setInitialNoteId] = useState<number>();
+  const [initialEventId, setInitialEventId] = useState<EntityId>();
+  const [initialCompanyId, setInitialCompanyId] = useState<number>();
   const [toast, setToast] = useState('');
+  useEffect(() => {
+    if (page !== 'documents') setInitialDocumentId(undefined);
+    if (page !== 'notes') setInitialNoteId(undefined);
+    if (page !== 'calendar') setInitialEventId(undefined);
+    if (page !== 'companies') setInitialCompanyId(undefined);
+  }, [page]);
   const applicationsApi = useApplications(isLoggedIn);
   const documentsApiState = useDocuments(isLoggedIn);
   const liveApplications = useMemo(
@@ -5833,7 +5894,7 @@ function App() {
   );
 
   useWorkspaceSection(authUser?.id, 'companies', companies, setCompanies, setToast);
-  useWorkspaceSection(authUser?.id, 'notes', notes, setNotes, setToast);
+  const notesSync = useWorkspaceSection(authUser?.id, 'notes', notes, setNotes, setToast);
   useWorkspaceSection(authUser?.id, 'preferences', settings.preferences, (preferences) => {
     setSettings(current => normalizeAppSettings({ ...current, preferences }));
   }, setToast);
@@ -5854,6 +5915,11 @@ function App() {
     setNotes(appInitialNotes);
     setTheme(normalizeTheme(readStorage('trackmycv.login-theme', initialTheme)));
     setSelectedApplication(null);
+    setNoticeApplicationId(undefined);
+    setInitialDocumentId(undefined);
+    setInitialNoteId(undefined);
+    setInitialEventId(undefined);
+    setInitialCompanyId(undefined);
     setEditingApplication(undefined);
     setSettingsOpen(false);
   }
@@ -5886,7 +5952,6 @@ function App() {
     setDocuments(readUserStorage(user.id, STORAGE.documents, appInitialDocuments));
     setNotes(readUserStorage(user.id, STORAGE.notes, appInitialNotes));
     setTheme(normalizeTheme(readUserStorage(user.id, STORAGE.theme, readStorage('trackmycv.login-theme', initialTheme))));
-    void syncNotificationEvents(savedEvents);
   }
 
   useEffect(() => {
@@ -5906,23 +5971,8 @@ function App() {
 
   useEffect(() => {
     if (!authUser) return;
-    writeUserStorage(authUser.id, STORAGE.companies, companies);
-  }, [authUser, companies]);
-
-  useEffect(() => {
-    if (!authUser) return;
-    writeUserStorage(authUser.id, STORAGE.events, events);
-  }, [authUser, events]);
-
-  useEffect(() => {
-    if (!authUser) return;
     writeUserStorage(authUser.id, STORAGE.documents, documents);
   }, [authUser, documents]);
-
-  useEffect(() => {
-    if (!authUser) return;
-    writeUserStorage(authUser.id, STORAGE.notes, notes);
-  }, [authUser, notes]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -5956,17 +6006,33 @@ function App() {
     const localEvents = readUserStorage(authUser.id, STORAGE.events, appInitialEvents).map(normalizeCalendarEvent);
 
     calendarEventsApi.getAll()
-      .then((items) => {
+      .then(async (items) => {
         if (!active) return;
         const remoteEvents = items.map(calendarEventFromApi);
 
-        if (remoteEvents.length || !localEvents.length) {
+        const migrationKey = userStorageKey(authUser.id, STORAGE.events + '.migration');
+        if (!localEvents.length || (remoteEvents.length && !readStorage(migrationKey, false))) {
           setEvents(remoteEvents);
+          removeStorage(userStorageKey(authUser.id, STORAGE.events));
+          removeStorage(migrationKey);
           return;
         }
 
-        setEvents(localEvents);
-        void syncNotificationEvents(localEvents);
+        writeStorage(migrationKey, true);
+        const toMigrate = localEvents.filter(event => !remoteEvents.some(item => String(item.id) === String(event.id)));
+        const migrated = await Promise.allSettled(toMigrate.map(event => calendarEventsApi.upsert(
+          calendarEventToApi({ ...event, applicationId: typeof event.applicationId === 'string' ? event.applicationId : undefined })
+        )));
+        if (!active) return;
+        setEvents([...remoteEvents, ...migrated.flatMap(result => result.status === 'fulfilled' ? [calendarEventFromApi(result.value)] : [])]);
+        const failedEvents = toMigrate.filter((_, index) => migrated[index].status === 'rejected');
+        if (failedEvents.length) {
+          writeUserStorage(authUser.id, STORAGE.events, failedEvents);
+          setToast('Some older calendar events could not be migrated.');
+        } else {
+          removeStorage(userStorageKey(authUser.id, STORAGE.events));
+          removeStorage(migrationKey);
+        }
       })
       .catch((error) => {
         if (!active) return;
@@ -6054,38 +6120,29 @@ function App() {
     }
   }
 
-  async function syncNotificationEvents(eventsForUser: CalendarEvent[], showErrors = false) {
-    if (!getAuthToken() || !eventsForUser.length) return;
+  async function syncNotificationEvent(event: CalendarEvent) {
+    if (!getAuthToken()) return false;
 
-    const results = await Promise.allSettled(
-      eventsForUser.map((event) => calendarEventsApi.upsert(calendarEventToApi(event)))
-    );
-
-    if (showErrors && results.some((result) => result.status === 'rejected')) {
-      setToast('Calendar event could not be synced.');
+    try {
+      const nextEvent = calendarEventFromApi(await calendarEventsApi.upsert(calendarEventToApi(event)));
+      setEvents(current => current.some(item => item.id === nextEvent.id)
+        ? current.map(item => item.id === nextEvent.id ? nextEvent : item)
+        : [nextEvent, ...current]);
+      setToast('Calendar event saved.');
+      return true;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Calendar event could not be synced.');
+      return false;
     }
   }
 
-  function syncNotificationEvent(event: CalendarEvent) {
-    if (!getAuthToken()) return;
-
-    void calendarEventsApi.upsert(calendarEventToApi(event))
-      .then((savedEvent) => {
-        const nextEvent = calendarEventFromApi(savedEvent);
-        setEvents((current) => current.some((item) => item.id === nextEvent.id)
-          ? current.map((item) => item.id === nextEvent.id ? nextEvent : item)
-          : [nextEvent, ...current]);
-      })
-      .catch((error) => {
-        setToast(error instanceof Error ? error.message : 'Calendar event could not be synced.');
-      });
-  }
-
-  async function deleteNotificationEvent(id: number) {
+  async function deleteNotificationEvent(id: EntityId) {
     if (!getAuthToken()) return;
 
     try {
       await calendarEventsApi.remove(id);
+      setEvents(current => current.filter(event => event.id !== id));
+      setToast('Calendar event removed.');
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Calendar event could not be removed.');
     }
@@ -6108,7 +6165,7 @@ function App() {
     const application = liveApplications.find((app) => app.id === id);
     if (!application) return;
     try {
-      const updated = await applicationsApi.updateApplication(id, uiApplicationToApi({ ...application, status, lastContact: application.lastContact || today() }));
+      const updated = await applicationsApi.updateApplication(id, uiApplicationToApi({ ...application, status }));
       setSelectedApplication(apiApplicationToUi(updated));
       setToast('Status updated.');
     } catch (error) {
@@ -6306,8 +6363,56 @@ function App() {
   }} />;
 
   function openPreparation(application: JobApplication) {
+    setNoticeApplicationId(undefined);
     setPrepareApplicationId(String(application.id));
     setPage('preparation');
+  }
+
+  function openNotification(destination: 'applications' | 'calendar', applicationId?: string) {
+    setSelectedApplication(null);
+    setNoticeApplicationId(applicationId);
+    setPage(destination);
+  }
+
+  function renderWorkspace(application: JobApplication) {
+    const company = companies.find(item => item.id === application.companyId);
+    const document = liveDocuments.find(item => item.id === application.documentId);
+    const linkedNotes = notes.filter(note => String(note.applicationId ?? '') === String(application.id));
+    const linkedEvents = events.filter(event => String(event.applicationId ?? '') === String(application.id))
+      .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+    function navigate(destination: Page) {
+      setNoticeApplicationId(undefined);
+      setPage(destination);
+    }
+
+    return <>
+      <section className="timeline-card workspace-history">
+        <h3>Linked workspace</h3>
+        <ul>
+          {company && <li><button className="text-button" type="button" onClick={() => {
+            setInitialCompanyId(company.id);
+            navigate('companies');
+          }}>Company · {company.name}</button></li>}
+          {document && <li><button className="text-button" type="button" onClick={() => {
+            setInitialDocumentId(document.id);
+            navigate('documents');
+          }}>Document · {document.name}</button></li>}
+          {linkedNotes.map(note => <li key={note.id}><button className="text-button" type="button" onClick={() => {
+            setInitialNoteId(note.id);
+            navigate('notes');
+          }}>Note · {note.title}</button></li>)}
+          {linkedEvents.map(event => <li key={event.id}><button className="text-button" type="button" onClick={() => {
+            setInitialEventId(event.id);
+            navigate('calendar');
+          }}>
+            {event.title} · {formatDate(event.date)} · {event.time}
+          </button></li>)}
+        </ul>
+        {!company && !document && !linkedNotes.length && !linkedEvents.length && <p>No linked records yet.</p>}
+      </section>
+      <ApplicationTimeline applicationId={String(application.id)} today={today()} />
+    </>;
   }
 
   function addFirstApplication() {
@@ -6367,8 +6472,28 @@ function App() {
     </div>
   );
 
+  const notesPage = <>
+    {(!notesSync.ready || notesSync.error) && <LoadStatus label="notes" error={notesSync.error} retry={notesSync.retry} />}
+    {notesSync.ready && <NotesPage key={initialNoteId} notes={notes} setNotes={setNotes} setToast={setToast}
+      applications={liveApplications} initialNoteId={initialNoteId} />}
+  </>;
+  const noticeApplication = liveApplications.find(item => item.id === noticeApplicationId);
+  const noticeProps = noticeApplication ? {
+    application: noticeApplication,
+    workspace: renderWorkspace(noticeApplication),
+    onClose: () => setNoticeApplicationId(undefined),
+    onPrepare: () => openPreparation(noticeApplication),
+    onEdit: () => { setNoticeApplicationId(undefined); setEditingApplication(noticeApplication); }
+  } : null;
+
   const commonOverlays = (
     <>
+      {noticeProps && (isMobile
+        ? <ApplicationDetailsSheet {...noticeProps} onDelete={() => {
+          void deleteApplication(noticeProps.application.id);
+          setNoticeApplicationId(undefined);
+        }} />
+        : <ApplicationDetailsModal {...noticeProps} />)}
       {settingsOpen ? <ProfileCustomizationModal profile={profile} setProfile={setProfile} settings={settings} setSettings={setSettings} activeTab={settingsTab} setActiveTab={setSettingsTab} theme={theme} setTheme={setTheme} onClose={() => setSettingsOpen(false)} onImportCsv={importApplicationsCsv} onExport={() => exportCsv(liveApplications, setToast)} onBackup={backup} onReset={resetWorkspace} onSaveSettings={saveNotificationSettings} onSendNotificationTest={sendNotificationTestEmail} /> : null}
       {editingApplication !== undefined ? <ApplicationModal application={editingApplication || undefined} companies={companies} documents={liveDocuments} categoryOptions={categoryOptions} levelOptions={levelOptions} onClose={() => setEditingApplication(undefined)} onSave={saveApplication} /> : null}
       {toast ? <Toast message={toast} /> : null}
@@ -6378,6 +6503,12 @@ function App() {
   if (isMobile) {
     return (
       <MobileLayout
+        renderWorkspace={renderWorkspace}
+        onNotification={openNotification}
+        notesPage={notesPage}
+        initialDocumentId={initialDocumentId}
+        initialEventId={initialEventId}
+        initialCompanyId={initialCompanyId}
         preparationPage={preparationPage}
         dashboardControls={dashboardControls}
         dashboardHidden={preparation.dashboard.hidden}
@@ -6399,9 +6530,7 @@ function App() {
         documents={liveDocuments}
         notes={notes}
         setCompanies={setCompanies}
-        setEvents={setEvents}
         setDocuments={setDocuments}
-        setNotes={setNotes}
         setToast={setToast}
         onOpenApplication={() => setEditingApplication(null)}
         onOpenEditApplication={(app) => setEditingApplication(app)}
@@ -6436,7 +6565,7 @@ function App() {
     <div className={shellClass}>
       <Sidebar page={page} setPage={setPage} applications={liveApplications} settings={settings} />
       <div className="workspace">
-        <Topbar page={page} profile={profile} resolvedTheme={resolvedTheme} setTheme={setTheme} onOpenApplication={() => { setPage('applications'); setEditingApplication(null); }} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} />
+        <Topbar onNotification={openNotification} page={page} profile={profile} resolvedTheme={resolvedTheme} setTheme={setTheme} onOpenApplication={() => { setPage('applications'); setEditingApplication(null); }} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} />
         <div className="content custom-scroll">
           {page === 'dashboard' ? (applicationStatus || <>
             {dashboardControls}
@@ -6446,15 +6575,15 @@ function App() {
           {page === 'preparation' ? preparationPage : null}
           {page === 'applications' ? (
             applicationStatus || (
-              <ApplicationsPage applications={liveApplications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onPrepare={openPreparation} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(liveApplications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} />
+              <ApplicationsPage renderWorkspace={renderWorkspace} applications={liveApplications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onPrepare={openPreparation} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(liveApplications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} />
             )
           ) : null}
-          {page === 'companies' ? <CompaniesPage companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
+          {page === 'companies' ? <CompaniesPage initialCompanyId={initialCompanyId} companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
-          {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
-          {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
+          {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} initialEventId={initialEventId} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
+          {page === 'documents' ? <DocumentsPage initialDocumentId={initialDocumentId} documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
           {page === 'ai' ? <AIToolsPage scout={scout} setScout={setScout} documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} settings={settings} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}
-          {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
+          {page === 'notes' ? notesPage : null}
         </div>
       </div>
       {commonOverlays}

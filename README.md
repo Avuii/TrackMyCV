@@ -269,7 +269,7 @@ The [GitHub Pages deployment workflow](.github/workflows/deploy.yml) builds and 
 - **Authentication:** The full backend implements email/password registration, sign-in, and sign-out with database-backed sessions.
 - **Credential handling:** Passwords and session tokens are stored as hashes; authentication routes include input validation and rate limiting.
 - **Data storage:** Account-related records, applications, calendar events, and document metadata use SQL Server. Uploaded files are stored by the API.
-- **Browser-stored data:** Company profiles, notes, job preferences, and appearance settings currently do not synchronize across devices.
+- **Workspace data:** Company profiles, notes and attachments, and job preferences synchronize through the API. Appearance settings are stored in the browser.
 - **External processing:** When AI features are enabled, relevant extracted document text is transmitted to OpenAI.
 
 > [!IMPORTANT]
@@ -286,7 +286,7 @@ The [GitHub Pages deployment workflow](.github/workflows/deploy.yml) builds and 
 - [x] Dashboard metrics and recruitment statistics.
 - [x] Calendar with month/week/day views and API-backed events.
 - [x] Document uploads, links, metadata, archiving, and downloads.
-- [x] Company profiles, notes with checklists and attachments, and job preferences using browser storage.
+- [x] API-backed company profiles, notes with checklists and attachments, and job preferences.
 - [x] Responsive layout and appearance customization.
 - [x] Configurable interview, deadline, and follow-up email reminders, plus weekly/monthly summaries and test emails (SMTP required).
 - [x] CV review, job-match review, and saved review history (OpenAI required).
@@ -304,10 +304,11 @@ The [GitHub Pages deployment workflow](.github/workflows/deploy.yml) builds and 
 
 **Connected Recruitment Workspace**
 
-- [ ] Move company profiles, notes/attachments, and job preferences to API-backed storage for cross-device access.
-- [ ] Connect applications with documents by ID, companies, notes, and calendar deadlines.
-- [ ] Add application activity timelines, document usage history, in-app notifications, and follow-up suggestions.
-- [ ] Apply user-configured follow-up intervals to reminders and verify SMTP timing and delivery.
+- [x] Move company profiles, notes/attachments, and job preferences to API-backed storage for cross-device access.
+- [x] Connect applications with documents by ID, companies, notes, and calendar deadlines.
+- [x] Add application activity timelines, document usage history, in-app notifications, and follow-up suggestions.
+- [x] Apply user-configured follow-up intervals and verify timing and delivery against a local SMTP receiver.
+- [ ] Verify delivery to a real inbox with the configured SMTP account.
 
 **Quality & Deployment**
 

@@ -63,7 +63,7 @@ export function useWorkspaceSection<T>(
           const changed = remote.revision !== snapshot?.revision;
           snapshot = { revision: remote.revision, saved: remote.data === null ? null : JSON.stringify(remote.data) };
           if (remote.data !== null && changed) {
-            current.current.apply(remote.data);
+            current.current.apply(mergeChanges(JSON.parse(local), current.current.value, remote.data) as T);
             setLoadedAccount(account);
             setError(undefined);
             return;

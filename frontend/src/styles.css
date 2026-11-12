@@ -835,6 +835,22 @@ small {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.workspace-history {
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+
+.workspace-history ul {
+  display: grid;
+  gap: 8px;
+  padding-inline-start: 20px;
+}
+
+.workspace-history li small {
+  display: block;
+  color: var(--muted);
+}
+
 .application-details-trigger {
   max-width: 100%;
   padding: 0;
