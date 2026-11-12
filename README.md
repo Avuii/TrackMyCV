@@ -128,6 +128,7 @@ To run the interactive demo locally, use `npm ci --prefix demo` followed by `npm
 | [`docker-compose.yml`](docker-compose.yml) | Local SQL Server and API services |
 | [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | Builds and deploys the demo to GitHub Pages |
 
+
 ## Author
 
-Created by **Katarzyna Stańczyk**.
+Created by **[Avuii](https://github.com/Avuii)**
