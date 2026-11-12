@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="TrackMyCV.Tests" />
     <ProjectReference Include="..\TrackMyCV.Application\TrackMyCV.Application.csproj" />
     <ProjectReference Include="..\TrackMyCV.Infrastructure\TrackMyCV.Infrastructure.csproj" />
   </ItemGroup>

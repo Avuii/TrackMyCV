@@ -252,16 +252,17 @@ The API also supports application and calendar management, document storage, and
 
 ### Build Verification
 
-Run these checks after installing the relevant dependencies:
+Run the full-stack build and automated checks:
 
 ```powershell
+npm ci --prefix frontend
 npm run build --prefix frontend
-npm ci --prefix demo
-npm run build --prefix demo
-dotnet build backend/TrackMyCV.slnx
+dotnet test backend/TrackMyCV.slnx --configuration Release
 ```
 
-The [GitHub Actions deployment workflow](.github/workflows/deploy.yml) installs and builds the demo before publishing it to GitHub Pages. It is **not** a complete automated test pipeline for the full-stack application.
+The [CI workflow](.github/workflows/ci.yml) runs these checks on pushes and pull requests. The HTTP integration tests use isolated in-memory databases and temporary upload directories. AI, PDF rendering, and email delivery use test substitutes.
+
+The [GitHub Pages deployment workflow](.github/workflows/deploy.yml) builds and publishes the demo.
 
 ### Security & Data Handling
 
@@ -276,7 +277,7 @@ The [GitHub Actions deployment workflow](.github/workflows/deploy.yml) installs 
 
 ## Project Status & Roadmap
 
-**Current stage:** Active development. The local full-stack application is functional; production deployment and broader test coverage are still pending.
+**Current stage:** Active development. The local full-stack application and CI checks are available. Production deployment is pending.
 
 ### Implemented
 
@@ -310,9 +311,9 @@ The [GitHub Actions deployment workflow](.github/workflows/deploy.yml) installs 
 
 **Quality & Deployment**
 
-- [ ] Add automated tests for authentication, application CRUD, document uploads, calendar synchronization, reminders, and AI workflows.
-- [ ] Update the backend dependency flagged during the build audit (`System.Security.Cryptography.Pkcs` 9.0.4).
-- [ ] Commit a frontend lockfile and pin dependencies for reproducible builds.
+- [x] Add automated tests for authentication, application CRUD, document uploads, calendar synchronization, reminders, and AI workflows.
+- [x] Update the backend dependency flagged during the build audit (`System.Security.Cryptography.Pkcs` 9.0.4).
+- [x] Commit a frontend lockfile and pin dependencies for reproducible builds.
 - [ ] Deploy the full frontend, API, and database with persistent uploads, backups, health checks, and monitoring.
 
 **User Experience & Preparation**

@@ -22,6 +22,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.PostConfigure<OpenAiOptions>(options =>
 {
@@ -143,6 +144,8 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
+
+public partial class Program;
 
 internal sealed class DatabaseHealthCheck(IServiceScopeFactory scopes) : IHealthCheck
 {

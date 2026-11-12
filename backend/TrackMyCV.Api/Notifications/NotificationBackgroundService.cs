@@ -18,18 +18,20 @@ public class NotificationBackgroundService : BackgroundService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationBackgroundService> _logger;
+    private readonly TimeProvider _clock;
 
-    public NotificationBackgroundService(IServiceScopeFactory scopeFactory, ILogger<NotificationBackgroundService> logger)
+    public NotificationBackgroundService(IServiceScopeFactory scopeFactory, ILogger<NotificationBackgroundService> logger, TimeProvider clock)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _clock = clock;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await RunSafely(stoppingToken);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5), _clock);
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
@@ -41,27 +43,7 @@ public class NotificationBackgroundService : BackgroundService
     {
         try
         {
-            using var scope = _scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-
-            if (!emailSender.IsConfigured)
-            {
-                _logger.LogDebug("TrackMyCV email sender is not configured. Notification scan skipped.");
-                return;
-            }
-
-            var settings = await dbContext.UserNotificationSettings
-                .AsNoTracking()
-                .Where(x => x.Email != string.Empty)
-                .ToListAsync(cancellationToken);
-
-            foreach (var userSettings in settings)
-            {
-                await ProcessCalendarEvents(dbContext, emailSender, userSettings, cancellationToken);
-                await ProcessApplicationFollowUps(dbContext, emailSender, userSettings, cancellationToken);
-                await ProcessSummary(dbContext, emailSender, userSettings, cancellationToken);
-            }
+            await ScanAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -72,13 +54,38 @@ public class NotificationBackgroundService : BackgroundService
         }
     }
 
+    internal async Task ScanAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+        if (!emailSender.IsConfigured)
+        {
+            _logger.LogDebug("TrackMyCV email sender is not configured. Notification scan skipped.");
+            return;
+        }
+
+        var settings = await dbContext.UserNotificationSettings
+            .AsNoTracking()
+            .Where(x => x.Email != string.Empty)
+            .ToListAsync(cancellationToken);
+        var now = _clock.GetLocalNow().DateTime;
+
+        foreach (var userSettings in settings)
+        {
+            await ProcessCalendarEvents(dbContext, emailSender, userSettings, now, cancellationToken);
+            await ProcessApplicationFollowUps(dbContext, emailSender, userSettings, now, cancellationToken);
+            await ProcessSummary(dbContext, emailSender, userSettings, now, cancellationToken);
+        }
+    }
+
     private static async Task ProcessCalendarEvents(
         AppDbContext dbContext,
         IEmailSender emailSender,
         UserNotificationSettings settings,
+        DateTime now,
         CancellationToken cancellationToken)
     {
-        var now = DateTime.Now;
         var fromDate = DateOnly.FromDateTime(now.AddDays(-1));
         var toDate = DateOnly.FromDateTime(now.AddDays(2));
         var events = await dbContext.NotificationCalendarEvents
@@ -96,18 +103,18 @@ public class NotificationBackgroundService : BackgroundService
 
             if (settings.InterviewReminders && IsInterview(calendarEvent))
             {
-                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "interview-24h", startAt.AddDays(-1), cancellationToken);
-                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "interview-1h", startAt.AddHours(-1), cancellationToken);
+                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "interview-24h", startAt.AddDays(-1), now, cancellationToken);
+                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "interview-1h", startAt.AddHours(-1), now, cancellationToken);
             }
 
             if (settings.ApplicationDeadlines && IsDeadline(calendarEvent))
             {
-                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "deadline", startAt - ReminderOffset(settings.ReminderTime), cancellationToken);
+                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "deadline", startAt - ReminderOffset(settings.ReminderTime), now, cancellationToken);
             }
 
             if (settings.FollowUpReminders && IsFollowUp(calendarEvent))
             {
-                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "follow-up-event", startAt - ReminderOffset(settings.ReminderTime), cancellationToken);
+                await TrySendCalendarReminder(dbContext, emailSender, settings, calendarEvent, "follow-up-event", startAt - ReminderOffset(settings.ReminderTime), now, cancellationToken);
             }
         }
     }
@@ -119,9 +126,10 @@ public class NotificationBackgroundService : BackgroundService
         NotificationCalendarEvent calendarEvent,
         string kind,
         DateTime remindAt,
+        DateTime now,
         CancellationToken cancellationToken)
     {
-        if (DateTime.Now < remindAt)
+        if (now < remindAt)
         {
             return;
         }
@@ -149,6 +157,7 @@ public class NotificationBackgroundService : BackgroundService
         AppDbContext dbContext,
         IEmailSender emailSender,
         UserNotificationSettings settings,
+        DateTime now,
         CancellationToken cancellationToken)
     {
         if (!settings.FollowUpReminders)
@@ -156,7 +165,7 @@ public class NotificationBackgroundService : BackgroundService
             return;
         }
 
-        var dueOnOrBefore = DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+        var dueOnOrBefore = DateOnly.FromDateTime(now.AddDays(-7));
         var applications = await dbContext.JobApplications
             .Where(x => x.AppUserId == settings.AppUserId && FollowUpStatuses.Contains(x.Status))
             .ToListAsync(cancellationToken);
@@ -195,10 +204,9 @@ public class NotificationBackgroundService : BackgroundService
         AppDbContext dbContext,
         IEmailSender emailSender,
         UserNotificationSettings settings,
+        DateTime now,
         CancellationToken cancellationToken)
     {
-        var now = DateTime.Now;
-
         if (settings.WeeklySummary && now.DayOfWeek == DayOfWeek.Monday && now.Hour >= 8)
         {
             var week = ISOWeek.GetWeekOfYear(now);
