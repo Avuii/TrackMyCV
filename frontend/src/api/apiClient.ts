@@ -1,7 +1,7 @@
 const DEFAULT_API_URL = 'http://localhost:5228';
 const AUTH_TOKEN_KEY = 'trackmycv.auth.token';
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_URL).replace(/\/+$/, '');
+export const API_BASE_URL = (import.meta.env.VITE_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, '');
 
 export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
 
@@ -119,6 +119,12 @@ const buildHeaders = (headers?: HeadersInit, hasJsonBody = false) => {
   return result;
 };
 
+export class ApiResponseError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const hasJsonBody = Boolean(options.body) && typeof options.body === 'object' && !(options.body instanceof FormData);
   const body = hasJsonBody ? JSON.stringify(options.body) : options.body;
@@ -138,7 +144,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
-    throw new Error(await createHttpErrorMessage(response, method, url));
+    throw new ApiResponseError(response.status, await createHttpErrorMessage(response, method, url));
   }
 
   if (response.status === 204) {
@@ -164,7 +170,7 @@ export async function apiBlobRequest(path: string, options: RequestOptions = {})
   }
 
   if (!response.ok) {
-    throw new Error(await createHttpErrorMessage(response, method, url));
+    throw new ApiResponseError(response.status, await createHttpErrorMessage(response, method, url));
   }
 
   return response.blob();

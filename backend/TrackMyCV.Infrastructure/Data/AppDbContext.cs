@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -32,9 +32,19 @@ public class AppDbContext : DbContext
 
     public DbSet<CvReview> CvReviews => Set<CvReview>();
 
+    public DbSet<WorkspaceSection> WorkspaceSections => Set<WorkspaceSection>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<WorkspaceSection>(entity =>
+        {
+            entity.HasKey(x => new { x.AppUserId, x.Name });
+            entity.Property(x => x.Name).HasMaxLength(80);
+            entity.Property(x => x.Revision).IsConcurrencyToken();
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<JobApplication>(entity =>
         {
@@ -65,6 +75,8 @@ public class AppDbContext : DbContext
 
             entity.Property(x => x.OfferUrl)
                 .HasMaxLength(700);
+
+            entity.HasOne<UserDocument>().WithMany().HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.NoAction);
 
             entity.Property(x => x.CvName)
                 .HasMaxLength(180);

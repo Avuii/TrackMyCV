@@ -21,6 +21,7 @@ export interface JobApplicationDto {
   requirements: string;
   benefits: string;
   notes: string;
+  documentId: string | null;
   cvName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -47,6 +48,7 @@ interface JobApplicationRequest {
   requirements: string;
   benefits: string;
   notes: string;
+  documentId: string | null;
   cvName: string;
 }
 
@@ -257,6 +259,7 @@ export function mapApplicationFromApi(dto: JobApplicationDto): JobApplication {
     benefits: splitList(dto.benefits),
     notes: dto.notes,
     offerUrl: dto.offerUrl,
+    documentId: dto.documentId,
     cv: dto.cvName
   };
 }
@@ -279,6 +282,7 @@ export function mapApplicationToApi(application: ApplicationUpsertInput): JobApp
     requirements: joinList(application.requirements),
     benefits: joinList(application.benefits),
     notes: application.notes,
+    documentId: application.documentId ?? null,
     cvName: application.cv
   };
 }

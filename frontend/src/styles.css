@@ -729,6 +729,29 @@ small {
   transform: rotate(180deg);
 }
 
+.notification-inbox .notification-list {
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(480px, 70vh);
+  overflow-y: auto;
+}
+
+.notification-list p {
+  padding: 0 12px;
+}
+
+.notification-list button span {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-list button small {
+  opacity: 0.8;
+}
+
+.notification-list button.unread {
+  border-inline-start: 3px solid currentColor;
+}
+
 .profile-menu {
   position: absolute;
   right: 0;
@@ -806,6 +829,160 @@ small {
 .dashboard-grid {
   grid-template-columns: minmax(0, 1fr) 336px;
   align-items: start;
+}
+
+.dashboard-grid.dashboard-main-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.application-details-trigger {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.application-details-trigger:is(:hover, :focus-visible) {
+  text-decoration: underline;
+}
+
+.dashboard-controls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.preparation-page {
+  gap: 16px;
+}
+
+.preparation-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: clamp(14px, 3vw, 24px);
+  overflow-wrap: anywhere;
+}
+
+.preparation-card :is(h2, h3, p, ul) {
+  margin-block: 0;
+}
+
+.preparation-card h2 {
+  font-size: 1.25rem;
+}
+
+.preparation-card h3 {
+  font-size: 1rem;
+}
+
+.preparation-card ul {
+  padding-inline-start: 1.4rem;
+}
+
+.preparation-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preparation-picker {
+  max-width: 36rem;
+}
+
+.preparation-form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.preparation-form > :is(.form-field, .preparation-fields) {
+  width: 100%;
+}
+
+.preparation-actions,
+.preparation-templates li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.preparation-collection,
+.preparation-question {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.preparation-collection summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: 6px;
+}
+
+.preparation-collection[open] > :not(summary) {
+  margin-top: 12px;
+}
+
+.preparation-question {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.preparation-check {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  cursor: pointer;
+}
+
+.preparation-check input {
+  flex-shrink: 0;
+}
+
+.dashboard-widget-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.dashboard-widget-options legend {
+  margin-bottom: 6px;
+}
+
+:is(.preparation-page, .dashboard-controls, .mobile-bottom-nav, [role="dialog"]) :focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .preparation-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :is(.preparation-page, .dashboard-controls) :is(button, summary, .preparation-check) {
+    min-height: 44px;
+  }
+
+  .preparation-page :is(input, select, textarea) {
+    font-size: 16px;
+  }
+
+  .dashboard-widget-options {
+    display: grid;
+    gap: 0;
+  }
 }
 
 .main-column,
@@ -5781,7 +5958,30 @@ svg.donut-chart circle {
     min-width: 0 !important;
   }
 
-  .profile-menu {
+  .notification-inbox .notification-list {
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(480px, 70vh);
+  overflow-y: auto;
+}
+
+.notification-list p {
+  padding: 0 12px;
+}
+
+.notification-list button span {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-list button small {
+  opacity: 0.8;
+}
+
+.notification-list button.unread {
+  border-inline-start: 3px solid currentColor;
+}
+
+.profile-menu {
     right: 0;
     left: auto;
     width: min(320px, calc(100vw - 28px));

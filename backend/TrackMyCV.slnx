@@ -3,4 +3,5 @@
   <Project Path="TrackMyCV.Application/TrackMyCV.Application.csproj" />
   <Project Path="TrackMyCV.Domain/TrackMyCV.Domain.csproj" />
   <Project Path="TrackMyCV.Infrastructure/TrackMyCV.Infrastructure.csproj" />
+  <Project Path="TrackMyCV.Tests/TrackMyCV.Tests.csproj" />
 </Solution>

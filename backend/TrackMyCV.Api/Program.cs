@@ -1,7 +1,11 @@
 using TrackMyCV.Api.Auth;
 using TrackMyCV.Api.Ai;
+using TrackMyCV.Api.JobScout;
 using TrackMyCV.Api.Notifications;
 using System.Threading.RateLimiting;
+using System.Net;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using TrackMyCV.Infrastructure;
 using TrackMyCV.Infrastructure.Data;
@@ -9,6 +13,9 @@ using TrackMyCV.Infrastructure.Data;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<JobScoutService>(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("sqlserver");
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -74,15 +81,28 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (IPAddress.TryParse(app.Configuration["ReverseProxy:Address"], out var proxyAddress))
+{
+    var options = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+    options.KnownProxies.Add(proxyAddress);
+    app.UseForwardedHeaders(options);
+}
+
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Database:ApplyMigrations"))
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
 }
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.Use(async (context, next) =>
 {
@@ -112,12 +132,26 @@ app.Use(async (context, next) =>
 
 app.UseCors("Frontend");
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 
 app.UseMiddleware<TokenAuthenticationMiddleware>();
 
 app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
+
+internal sealed class DatabaseHealthCheck(IServiceScopeFactory scopes) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.Database.CanConnectAsync(cancellationToken)
+            ? HealthCheckResult.Healthy()
+            : HealthCheckResult.Unhealthy();
+    }
+}

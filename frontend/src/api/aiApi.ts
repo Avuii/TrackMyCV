@@ -66,6 +66,12 @@ export type CvReviewDto = {
   errorMessage?: string | null;
 };
 
+export type PreparationResult = {
+  summary: string;
+  questions: string[];
+  suggestions: string[];
+};
+
 export type CoverLetterGenerateRequest = {
   documentId: string;
   companyName: string;
@@ -105,6 +111,13 @@ export type CoverLetterGenerateResponse = {
 };
 
 export const aiApi = {
+  generatePreparation(applicationId: string, jobDescription: string, language: 'en' | 'pl') {
+    return apiRequest<PreparationResult>(`/api/ai/preparation/${encodeURIComponent(applicationId)}`, {
+      method: 'POST',
+      body: { jobDescription, language }
+    });
+  },
+
   createCvReview(input: CvReviewRequest) {
     return apiRequest<CvReviewDto>('/api/ai/cv-reviews', {
       method: 'POST',

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TrackMyCV.Infrastructure.Data;
 using TrackMyCV.Api.Auth;
 using TrackMyCV.Application.Applications.DTOs;
 using TrackMyCV.Application.Applications.Interfaces;
@@ -12,9 +14,12 @@ public class JobApplicationsController : ControllerBase
 {
     private readonly IJobApplicationRepository _repository;
 
-    public JobApplicationsController(IJobApplicationRepository repository)
+    private readonly AppDbContext _db;
+
+    public JobApplicationsController(IJobApplicationRepository repository, AppDbContext db)
     {
         _repository = repository;
+        _db = db;
     }
 
     [HttpGet]
@@ -68,6 +73,12 @@ public class JobApplicationsController : ControllerBase
             return validationProblem;
         }
 
+        var document = dto.DocumentId is Guid documentId
+            ? await _db.UserDocuments.AsNoTracking().FirstOrDefaultAsync(item => item.Id == documentId && item.AppUserId == userId.Value)
+            : null;
+        if (dto.DocumentId.HasValue && document is null)
+            return BadRequest(new { message = "Select a document from your workspace." });
+
         var application = new JobApplication
         {
             AppUserId = userId.Value,
@@ -87,7 +98,8 @@ public class JobApplicationsController : ControllerBase
             Requirements = Clean(dto.Requirements, 4000),
             Benefits = Clean(dto.Benefits, 4000),
             Notes = Clean(dto.Notes, 6000),
-            CvName = Clean(dto.CvName, 180)
+            DocumentId = document?.Id,
+            CvName = Clean(document?.Name ?? dto.CvName, 180)
         };
 
         var created = await _repository.CreateAsync(application);
@@ -117,6 +129,12 @@ public class JobApplicationsController : ControllerBase
             return validationProblem;
         }
 
+        var document = dto.DocumentId is Guid documentId
+            ? await _db.UserDocuments.AsNoTracking().FirstOrDefaultAsync(item => item.Id == documentId && item.AppUserId == userId.Value)
+            : null;
+        if (dto.DocumentId.HasValue && document is null)
+            return BadRequest(new { message = "Select a document from your workspace." });
+
         application.CompanyId = dto.CompanyId;
         application.CompanyName = Clean(dto.CompanyName, 180);
         application.Position = Clean(dto.Position, 220);
@@ -133,7 +151,8 @@ public class JobApplicationsController : ControllerBase
         application.Requirements = Clean(dto.Requirements, 4000);
         application.Benefits = Clean(dto.Benefits, 4000);
         application.Notes = Clean(dto.Notes, 6000);
-        application.CvName = Clean(dto.CvName, 180);
+        application.DocumentId = document?.Id;
+        application.CvName = Clean(document?.Name ?? dto.CvName, 180);
 
         await _repository.UpdateAsync(application);
 
@@ -183,6 +202,7 @@ public class JobApplicationsController : ControllerBase
             Requirements = application.Requirements,
             Benefits = application.Benefits,
             Notes = application.Notes,
+            DocumentId = application.DocumentId,
             CvName = application.CvName,
             CreatedAt = application.CreatedAt,
             UpdatedAt = application.UpdatedAt

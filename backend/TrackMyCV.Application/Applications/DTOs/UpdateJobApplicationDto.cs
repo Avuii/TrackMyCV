@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -39,6 +39,8 @@ public class UpdateJobApplicationDto
     public string Benefits { get; set; } = string.Empty;
 
     public string Notes { get; set; } = string.Empty;
+
+    public Guid? DocumentId { get; set; }
 
     public string CvName { get; set; } = string.Empty;
 }

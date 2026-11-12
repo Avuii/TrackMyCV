@@ -63,13 +63,16 @@ import { useDocuments } from './features/documents/hooks/useDocuments';
 import { authApi, type AuthUser, type LoginInput, type RegisterInput } from './api/authApi';
 import { apiRequest, clearAuthToken, getAuthToken } from './api/apiClient';
 import type { ApplicationUpsertInput } from './api/applicationsApi';
+import { useWorkspaceSection } from './api/useWorkspaceSection';
+import { NotificationInbox } from './features/notifications/NotificationInbox';
+import { dashboardWidgets, emptyPreparation, PreparationPage, type DashboardWidget, type PreparationWorkspace } from './features/preparation/PreparationPage';
 import { type StoredDocument } from './api/documentsApi';
 import { aiApi, type CoverLetterCandidate, type CoverLetterGenerateResponse, type CvReviewDto, type CvReviewRequest } from './api/aiApi';
 import { calendarEventsApi, type CalendarEventDto, type CalendarEventRequest } from './api/calendarEventsApi';
 import { notificationsApi, type NotificationSettingsDto, type NotificationSettingsRequest } from './api/notificationsApi';
 import type { ApplicationStatus as ApiApplicationStatus, JobApplication as ApiJobApplication } from './types';
 
-type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes' | 'ai';
+type Page = 'dashboard' | 'applications' | 'companies' | 'statistics' | 'calendar' | 'documents' | 'notes' | 'ai' | 'preparation';
 type Theme = 'light' | 'dark' | 'system';
 type Status = 'Saved' | 'Applied' | 'In progress' | 'Interview' | 'Task / test' | 'Offer' | 'Rejected' | 'No response' | 'Ghosted' | 'Archived';
 type WorkMode = 'Remote' | 'Hybrid' | 'On-site' | 'All work modes';
@@ -98,6 +101,7 @@ type JobApplication = {
   requirements: string;
   benefits: string;
   notes: string;
+  documentId?: string | null;
   cv: string;
 };
 
@@ -520,6 +524,7 @@ const apiApplicationToUi = (application: ApiJobApplication): JobApplication => {
     requirements: toListText(cleanApplication.requirements),
     benefits: toListText(cleanApplication.benefits),
     notes: cleanApplication.notes,
+    documentId: cleanApplication.documentId,
     cv: cleanApplication.cv
   };
 };
@@ -553,7 +558,7 @@ const apiDocumentToUi = (document: StoredDocument): DocumentItem => {
 };
 
 const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput => ({
-  companyId: application.companyId === undefined || application.companyId === null ? null : String(application.companyId),
+  companyId: typeof application.companyId === 'string' ? application.companyId : null,
   company: application.company,
   position: application.position,
   category: application.category,
@@ -569,6 +574,7 @@ const uiApplicationToApi = (application: JobApplication): ApplicationUpsertInput
   benefits: splitTextList(application.benefits),
   notes: application.notes,
   offerUrl: application.offerUrl,
+  documentId: application.documentId,
   cv: application.cv
 });
 
@@ -692,6 +698,7 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'notes', label: 'Notes', icon: StickyNote },
+  { id: 'preparation', label: 'Preparation', icon: CheckSquare },
   { id: 'ai', label: 'AI Tools', icon: Sparkles }
 ];
 
@@ -703,6 +710,7 @@ const pageLabels: Record<Page, { title: string; subtitle: string }> = {
   calendar: { title: 'Calendar', subtitle: 'Plan interviews, follow-ups and recruitment tasks.' },
   documents: { title: 'Documents', subtitle: 'Manage CV versions, cover letters and application files.' },
   notes: { title: 'Notes', subtitle: 'Keep recruitment notes, interview questions and company research in one place.' },
+  preparation: { title: 'Preparation', subtitle: 'Compare your CV and practice for your interviews.' },
   ai: { title: 'AI Tools', subtitle: 'Review CVs and generate cover letters from your saved documents.' }
 };
 
@@ -1771,7 +1779,7 @@ function Sidebar({ page, setPage, applications, settings }: { page: Page; setPag
         {navItems.map((item) => {
           const Icon = item.icon;
           const badge = item.id === 'applications' ? activeCount : item.id === 'calendar' ? upcomingCount : 0;
-          return <button key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} type="button" onClick={() => setPage(item.id)}><Icon size={18} /><span>{item.label}</span>{badge ? <span className="nav-badge">{badge}</span> : null}</button>;
+          return <button key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} type="button" aria-current={page === item.id ? 'page' : undefined} onClick={() => setPage(item.id)}><Icon size={18} /><span>{item.label}</span>{badge ? <span className="nav-badge">{badge}</span> : null}</button>;
         })}
       </nav>
       {settings.showMotivation ? (
@@ -1802,7 +1810,7 @@ function Topbar({ page, profile, resolvedTheme, setTheme, onOpenApplication, onO
       <div className="topbar-title"><h1>{title}</h1><p>{subtitle}</p></div>
       <div className="topbar-actions">
         <button className="icon-button" type="button" aria-label="Search" onClick={() => setPage('applications')}><Search size={19} /></button>
-        <button className="icon-button with-dot" type="button" aria-label="Notifications" onClick={() => openSettings('notifications')}><Bell size={19} /></button>
+        <NotificationInbox navigate={setPage} />
         <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>{resolvedTheme === 'light' ? <Moon size={19} /> : <Sun size={19} />}</button>
         <div className="profile-wrap">
           <button className={`profile-button ${open ? 'open' : ''}`} type="button" onClick={() => setOpen((v) => !v)}><ProfileAvatar profile={profile} className="avatar-soft" iconSize={18} /><span>{firstName}</span><ChevronDown size={16} className={open ? 'rotated' : ''} /></button>
@@ -1832,7 +1840,7 @@ function CategoryPill({ category }: { category: string }) {
   return <span className="category-pill">{category}</span>;
 }
 
-function DashboardPage({ applications, events, setPage }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void }) {
+function DashboardPage({ applications, events, setPage, hidden }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; hidden: DashboardWidget[] }) {
   const stats = calculateStats(applications);
   const latest = [...applications].sort((a, b) => b.dateApplied.localeCompare(a.dateApplied)).slice(0, 5);
 
@@ -1853,13 +1861,16 @@ function DashboardPage({ applications, events, setPage }: { applications: JobApp
   }
 
   return (
-    <div className="page-grid dashboard-grid">
+    <div className={`page-grid dashboard-grid${hidden.includes('agenda') && hidden.includes('insights') ? ' dashboard-main-only' : ''}`}>
       <main className="main-column">
-        <div className="metrics-grid"><MetricCard label="Total applied" value={stats.total} hint="all time" /><MetricCard label="Active" value={stats.active} hint="in progress" tone="blue-text" /><MetricCard label="Interviews" value={stats.interviews} hint="positive stages" tone="rose-text" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from all applications" tone="green-text" /></div>
-        <section className="panel-card recent-panel"><div className="card-header"><div><h2>Recent applications</h2><p>5 most recent entries</p></div><button className="text-button" type="button" onClick={() => setPage('applications')}>View all <ChevronDown className="chevron-right" size={16} /></button></div><ApplicationsTable applications={latest} compact /></section>
-        <div className="small-card-grid"><MiniListCard icon={Building2} title="Top companies" rows={topRows(applications.map((app) => app.company))} /><MiniListCard icon={BriefcaseBusiness} title="Top categories" rows={topRows(applications.map((app) => app.category))} /><MiniListCard icon={Globe} title="Sources" rows={topRows(applications.map((app) => app.source))} /></div>
+        {!hidden.includes('metrics') && <div className="metrics-grid"><MetricCard label="Total applied" value={stats.total} hint="all time" /><MetricCard label="Active" value={stats.active} hint="in progress" tone="blue-text" /><MetricCard label="Interviews" value={stats.interviews} hint="positive stages" tone="rose-text" /><MetricCard label="Response rate" value={`${stats.responseRate}%`} hint="from all applications" tone="green-text" /></div>}
+        {!hidden.includes('recent') && <section className="panel-card recent-panel"><div className="card-header"><div><h2>Recent applications</h2><p>5 most recent entries</p></div><button className="text-button" type="button" onClick={() => setPage('applications')}>View all <ChevronDown className="chevron-right" size={16} /></button></div><ApplicationsTable applications={latest} compact /></section>}
+        {!hidden.includes('insights') && <div className="small-card-grid"><MiniListCard icon={Building2} title="Top companies" rows={topRows(applications.map((app) => app.company))} /><MiniListCard icon={BriefcaseBusiness} title="Top categories" rows={topRows(applications.map((app) => app.category))} /><MiniListCard icon={Globe} title="Sources" rows={topRows(applications.map((app) => app.source))} /></div>}
       </main>
-      <aside className="right-column"><ApplicationSummary applications={applications} /><SuccessRateCard applications={applications} /><UpcomingCard events={events} onOpenCalendar={() => setPage('calendar')} /></aside>
+      {(!hidden.includes('agenda') || !hidden.includes('insights')) && <aside className="right-column">
+        {!hidden.includes('insights') && <><ApplicationSummary applications={applications} /><SuccessRateCard applications={applications} /></>}
+        {!hidden.includes('agenda') && <UpcomingCard events={events} onOpenCalendar={() => setPage('calendar')} />}
+      </aside>}
     </div>
   );
 }
@@ -2003,7 +2014,10 @@ function ApplicationsTable({
 
               <td>
                 <div className="position-cell">
-                  <strong>{app.position}</strong>
+                  {onSelect ? <button className="application-details-trigger" type="button" onClick={event => {
+                    event.stopPropagation();
+                    onSelect(app);
+                  }}>{app.position}</button> : <strong>{app.position}</strong>}
                   {!compact ? <small>{app.level}</small> : null}
                 </div>
               </td>
@@ -2102,6 +2116,7 @@ function ApplicationsPage({
   applications,
   onOpenApplication,
   onOpenEditApplication,
+  onPrepare,
   onStatusChange,
   onDelete,
   selectedApplication,
@@ -2113,6 +2128,7 @@ function ApplicationsPage({
   applications: JobApplication[];
   onOpenApplication: () => void;
   onOpenEditApplication: (app: JobApplication) => void;
+  onPrepare: (app: JobApplication) => void;
   onStatusChange: (id: EntityId, status: Status) => void;
   onDelete: (id: EntityId) => void;
   selectedApplication: JobApplication | null;
@@ -2265,6 +2281,7 @@ function ApplicationsPage({
         <ApplicationDetailsModal
           application={previewApplication}
           onClose={() => setPreviewApplication(null)}
+          onPrepare={() => onPrepare(previewApplication)}
           onEdit={() => {
             setPreviewApplication(null);
             onOpenEditApplication(previewApplication);
@@ -2298,7 +2315,10 @@ function DesktopApplicationsList({
             <div className="desktop-application-copy">
               <div className="desktop-application-title-row">
                 <div>
-                  <h2>{app.position}</h2>
+                  <h2><button className="application-details-trigger" type="button" onClick={event => {
+                    event.stopPropagation();
+                    onSelect(app);
+                  }}>{app.position}</button></h2>
                   <p>{app.company}</p>
                 </div>
                 <StatusBadge status={app.status} />
@@ -2381,11 +2401,13 @@ function ApplicationDetails({ application, onEdit }: { application: JobApplicati
 function ApplicationDetailsModal({
   application,
   onClose,
-  onEdit
+  onEdit,
+  onPrepare
 }: {
   application: JobApplication;
   onClose: () => void;
   onEdit: () => void;
+  onPrepare: () => void;
 }) {
   return (
     <BaseModal
@@ -2404,6 +2426,7 @@ function ApplicationDetailsModal({
         ) : null}
 
         <footer className="modal-footer inner">
+          <button className="secondary-button" type="button" onClick={onPrepare}>Prepare for interview</button>
           <button className="secondary-button" type="button" onClick={onClose}>
             Close
           </button>
@@ -3248,7 +3271,9 @@ type AiTool = 'review' | 'cover' | 'scout';
 type JobScoutTab = 'new' | 'saved' | 'ignored' | 'added' | 'history';
 type JobScoutMatchStatus = 'new' | 'saved' | 'ignored' | 'added';
 type JobScoutRunStatus = 'completed' | 'blocked' | 'failed';
-type JobScoutFrequency = 'Manual' | 'Daily' | 'Weekdays' | 'Weekly';
+type JobScoutState = { matches: JobScoutMatch[]; runs: JobScoutRun[] };
+type JobScoutProps = { scout: JobScoutState; setScout: Dispatch<SetStateAction<JobScoutState>> };
+const emptyScout: JobScoutState = { matches: [], runs: [] };
 
 type JobScoutMatch = {
   id: string;
@@ -3285,7 +3310,7 @@ const jobScoutTabs: { id: JobScoutTab; label: string }[] = [
   { id: 'history', label: 'Search history' }
 ];
 
-const jobScoutConfiguredSources: string[] = [];
+
 
 const coverLetterCandidateFromProfile = (profile: Profile): CoverLetterCandidate => ({
   fullName: profile.name && profile.name.trim().toLowerCase() !== 'user' ? profile.name.trim() : '',
@@ -3318,8 +3343,10 @@ function AIToolsPage({
   profile,
   settings,
   onOpenSettings,
-  onAddApplicationFromScout
-}: {
+  onAddApplicationFromScout,
+  scout,
+  setScout
+}: JobScoutProps & {
   documents: DocumentItem[];
   documentsLoading?: boolean;
   onRefreshDocuments?: () => void;
@@ -3374,12 +3401,18 @@ function AIToolsPage({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
   const [coverPreviewError, setCoverPreviewError] = useState('');
   const [scoutTab, setScoutTab] = useState<JobScoutTab>('new');
-  const [scoutMatches, setScoutMatches] = useState<JobScoutMatch[]>([]);
-  const [scoutRuns, setScoutRuns] = useState<JobScoutRun[]>([]);
+  const { matches: scoutMatches, runs: scoutRuns } = scout;
+  const [jobScoutConfiguredSources, setJobScoutConfiguredSources] = useState<string[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    apiRequest<string[]>('/api/job-scout/sources', { signal: controller.signal })
+      .then(setJobScoutConfiguredSources)
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   const [scoutBusy, setScoutBusy] = useState(false);
   const [scoutMinScore, setScoutMinScore] = useState(70);
-  const [scoutFrequency, setScoutFrequency] = useState<JobScoutFrequency>('Daily');
-  const [scoutUseCvContext, setScoutUseCvContext] = useState(false);
+
   const coverCandidate = coverLetterCandidateFromProfile(profile);
   const coverProfileMissing = getCoverLetterProfileMissing(profile);
   const selectedReviewCvLabel = cvOptions.find((option) => option.id === reviewForm.documentId)?.label || cvOptions[0]?.label || '';
@@ -3635,51 +3668,54 @@ function AIToolsPage({
   async function runJobScout() {
     setScoutBusy(true);
     setError('');
+    const startedAt = new Date().toISOString();
+    const id = crypto.randomUUID();
 
-    const now = new Date().toISOString();
-
-    if (!hasJobSources) {
-      const blockedRun: JobScoutRun = {
-        id: `scout-run-${Date.now()}`,
-        startedAt: now,
-        completedAt: now,
-        status: 'blocked',
-        newMatches: 0,
-        message: 'No legal job source provider is configured yet. Connect API, RSS or company careers providers before running discovery.'
-      };
-
-      setScoutRuns((current) => [blockedRun, ...current].slice(0, 12));
+    try {
+      const preferences = settings.preferences;
+      const result = await apiRequest<{ matches: JobScoutMatch[]; failedSources: string[] }>('/api/job-scout/search', {
+        method: 'POST',
+        body: {
+          categories: preferences.categories,
+          levels: preferences.levels,
+          locations: uniqueOptions(preferences.locations, preferences.locationPreferences.map(location => location.city)),
+          workModes: preferences.workModes,
+          minimumScore: scoutMinScore
+        }
+      });
+      setScout(current => {
+        const known = new Set(current.matches.map(match => match.id));
+        const fresh = result.matches.filter(match => !known.has(match.id));
+        const retained = current.matches.filter(match => match.status !== 'new' || result.matches.some(item => item.id === match.id));
+        const run: JobScoutRun = {
+          id, startedAt, completedAt: new Date().toISOString(), status: 'completed', newMatches: fresh.length,
+          message: result.failedSources.length ? 'Unavailable sources: ' + result.failedSources.join(', ') : 'Search completed.'
+        };
+        return { matches: [...fresh, ...retained], runs: [run, ...current.runs].slice(0, 20) };
+      });
+      setScoutTab('new');
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'Job search could not be completed.';
+      const run: JobScoutRun = { id, startedAt, completedAt: new Date().toISOString(), status: 'failed', newMatches: 0, message };
+      setScout(current => ({ ...current, runs: [run, ...current.runs].slice(0, 20) }));
       setScoutTab('history');
-      setToast('AI Job Scout needs job source providers before searching.');
+      setError(message);
+    } finally {
       setScoutBusy(false);
-      return;
     }
-
-    const completedRun: JobScoutRun = {
-      id: `scout-run-${Date.now()}`,
-      startedAt: now,
-      completedAt: now,
-      status: 'completed',
-      newMatches: 0,
-      message: 'Search completed. No new matching jobs were returned by configured providers.'
-    };
-
-    setScoutRuns((current) => [completedRun, ...current].slice(0, 12));
-    setScoutTab('new');
-    setScoutBusy(false);
   }
 
   function updateScoutMatchStatus(id: string, status: JobScoutMatchStatus) {
-    setScoutMatches((current) => current.map((match) => match.id === id ? { ...match, status } : match));
-    setScoutTab(status === 'new' ? 'new' : status);
-    setToast(status === 'saved' ? 'Job match saved.' : status === 'ignored' ? 'Job match ignored.' : 'Job match updated.');
+    setScout(current => ({ ...current, matches: current.matches.map(match => match.id === id ? { ...match, status } : match) }));
+    setScoutTab(status);
+    setToast(status === 'saved' ? 'Job match saved.' : 'Job match ignored.');
   }
 
   async function addScoutMatchToApplications(match: JobScoutMatch) {
     try {
       setError('');
       await onAddApplicationFromScout(match);
-      setScoutMatches((current) => current.map((item) => item.id === match.id ? { ...item, status: 'added' } : item));
+      setScout(current => ({ ...current, matches: current.matches.map(item => item.id === match.id ? { ...item, status: 'added' } : item) }));
       setScoutTab('added');
       setToast('Job match added to Applications.');
     } catch (requestError) {
@@ -3716,13 +3752,13 @@ function AIToolsPage({
             <div className="ai-tool-card-meta">
               <small>{scoutNewMatches.length} new matches</small>
               <small>Last search: {lastScoutRun ? formatDate(lastScoutRun.completedAt.slice(0, 10)) : 'Never'}</small>
-              <small>Next search: {hasJobSources ? scoutFrequency : 'After source setup'}</small>
+
             </div>
           </div>
         </button>
       </div>
 
-      {!cvDocuments.length ? (
+      {!cvDocuments.length && activeTool !== 'scout' ? (
         <div className="panel-card empty-state">
           <FileText size={28} />
           <strong>No CV documents yet</strong>
@@ -3770,12 +3806,8 @@ function AIToolsPage({
               configuredSources={jobScoutConfiguredSources}
               hasJobSources={hasJobSources}
               minScore={scoutMinScore}
-              frequency={scoutFrequency}
-              useCvContext={scoutUseCvContext}
               busy={scoutBusy}
               onMinScoreChange={setScoutMinScore}
-              onFrequencyChange={setScoutFrequency}
-              onUseCvContextChange={setScoutUseCvContext}
               onViewMatches={() => setScoutTab('new')}
               onSearch={() => void runJobScout()}
               onOpenPreferences={() => onOpenSettings?.('preferences')}
@@ -3857,12 +3889,8 @@ function JobScoutForm({
   configuredSources,
   hasJobSources,
   minScore,
-  frequency,
-  useCvContext,
   busy,
   onMinScoreChange,
-  onFrequencyChange,
-  onUseCvContextChange,
   onViewMatches,
   onSearch,
   onOpenPreferences
@@ -3871,12 +3899,8 @@ function JobScoutForm({
   configuredSources: string[];
   hasJobSources: boolean;
   minScore: number;
-  frequency: JobScoutFrequency;
-  useCvContext: boolean;
   busy: boolean;
   onMinScoreChange: (value: number) => void;
-  onFrequencyChange: (value: JobScoutFrequency) => void;
-  onUseCvContextChange: (value: boolean) => void;
   onViewMatches: () => void;
   onSearch: () => void;
   onOpenPreferences: () => void;
@@ -3884,7 +3908,7 @@ function JobScoutForm({
   return (
     <form className="modal-form compact-ai-form job-scout-form" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
       <div className="mini-title"><BriefcaseBusiness size={18} /><h2>AI Job Scout</h2></div>
-      <p className="ai-helper-text">Cyclically checks connected job sources, deduplicates offers and asks AI only to score and explain real matches.</p>
+      <p className="ai-helper-text">Search recent listings and see how they match your role, experience, location and work-mode preferences.</p>
 
       <div className={`job-source-notice ${hasJobSources ? 'ready' : 'blocked'}`}>
         <Sparkles size={18} />
@@ -3909,18 +3933,8 @@ function JobScoutForm({
         </div>
       </div>
 
-      <div className="form-grid">
-        <NumberStepper label="Notify above match score" value={minScore} onChange={onMinScoreChange} min={0} max={100} unit="%" />
-        <div className="form-field"><span>Search schedule</span><CustomSelect value={frequency} options={['Manual', 'Daily', 'Weekdays', 'Weekly']} onChange={(value) => onFrequencyChange(value as JobScoutFrequency)} /></div>
-      </div>
-
-      <div className="job-scout-consent">
-        <div>
-          <strong>Use full CV context</strong>
-          <span>Off by default. Job Scout can score from profile preferences only until you explicitly allow CV content.</span>
-        </div>
-        <button className={`toggle ${useCvContext ? 'on' : ''}`} type="button" aria-pressed={useCvContext} onClick={() => onUseCvContextChange(!useCvContext)}><span /></button>
-      </div>
+      <NumberStepper label="Minimum match score" value={minScore} onChange={onMinScoreChange} min={0} max={100} unit="%" />
+      <a href="https://www.arbeitnow.com/" target="_blank" rel="noreferrer">Job listings by Arbeitnow</a>
 
       <div className="job-scout-actions">
         <button className="secondary-button" type="button" onClick={onViewMatches}>View matches</button>
@@ -4529,8 +4543,40 @@ function NotesPage({ notes, setNotes, setToast }: { notes: NoteItem[]; setNotes:
   );
 }
 
+function useDialogFocus(onClose: () => void) {
+  const dialog = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    dialog.current?.focus();
+    return () => {
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      event.stopPropagation();
+      onClose();
+    }
+    if (event.key !== 'Tab' || event.defaultPrevented) return;
+
+    const controls = [...event.currentTarget.querySelectorAll<HTMLElement>(
+      'button, a[href], input, select, textarea, summary, [tabindex], [contenteditable="true"]'
+    )].filter(control => control.tabIndex >= 0 && !control.matches(':disabled') && control.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    const active = document.activeElement;
+    if (!first || active === (event.shiftKey ? first : last) || active === event.currentTarget) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus();
+    }
+  }
+  return { ref: dialog, tabIndex: -1, onKeyDown };
+}
+
 function BaseModal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
-  return <div className="modal-backdrop"><section className="add-modal" role="dialog" aria-modal="true"><header className="modal-header"><div><h2>{title}</h2><p>{subtitle}</p></div><button className="close-button" type="button" onClick={onClose}><X size={20} /></button></header>{children}</section></div>;
+  const focus = useDialogFocus(onClose);
+  return <div className="modal-backdrop"><section className="add-modal" role="dialog" aria-modal="true" aria-label={title} {...focus}><header className="modal-header"><div><h2>{title}</h2><p>{subtitle}</p></div><button className="close-button" type="button" onClick={onClose} aria-label="Close"><X size={20} /></button></header>{children}</section></div>;
 }
 
 function ModalFooter({ onClose, submitLabel }: { onClose: () => void; submitLabel: string }) {
@@ -4538,15 +4584,19 @@ function ModalFooter({ onClose, submitLabel }: { onClose: () => void; submitLabe
 }
 
 function ApplicationModal({ application, companies, documents, categoryOptions, levelOptions, onClose, onSave }: { application?: JobApplication; companies: Company[]; documents: DocumentItem[]; categoryOptions: string[]; levelOptions: string[]; onClose: () => void; onSave: (app: JobApplication) => void }) {
-  const cvOptions = documents.filter((doc) => doc.type === 'CV').map((doc) => doc.name);
-  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: cvOptions[0] || 'No CV selected' });
+  const cvOptions = documents.filter(doc => doc.status !== 'Archived' || doc.id === application?.documentId);
+  const [form, setForm] = useState<Omit<JobApplication, 'id'>>(() => application ? { ...application } : { company: companies[0]?.name || '', companyId: companies[0]?.id, domain: companies[0]?.domain || '', position: '', category: '.NET', level: 'Internship', status: 'Applied', dateApplied: today(), lastContact: '', nextStep: 'Waiting', location: 'Remote', workMode: 'Hybrid', source: 'LinkedIn', offerUrl: '', requirements: '', benefits: '', notes: '', cv: '' });
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [key]: value })); }
   function chooseCompany(name: string) { const company = companies.find((item) => item.name === name); setForm((current) => ({ ...current, company: name, companyId: company?.id, domain: company?.domain || safeDomain(name), offerUrl: current.offerUrl || company?.website || '' })); }
   function submit(event: FormEvent) {
     event.preventDefault();
     onSave({ ...form, id: application?.id || makeId(), domain: safeDomain(form.company, form.domain), cv: form.cv === 'No CV selected' ? '' : form.cv });
   }
-  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="Example Company" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder=".NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>CV version</span><CustomSelect value={form.cv || 'No CV selected'} options={['No CV selected', ...cvOptions, 'Other']} onChange={(v) => set('cv', v)} /></div></div><TextAreaField label="Requirements" value={form.requirements} onChange={(v) => set('requirements', v)} placeholder="C#, SQL, Git..." /><TextAreaField label="Benefits" value={form.benefits} onChange={(v) => set('benefits', v)} placeholder="Hybrid work, mentoring..." /><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} placeholder="What should you remember?" /><ModalFooter onClose={onClose} submitLabel={application ? 'Save changes' : 'Save application'} /></form></BaseModal>;
+  return <BaseModal title={application ? 'Edit application' : 'Add application'} subtitle="Create or update a recruitment entry." onClose={onClose}><form className="add-form custom-scroll" onSubmit={submit}><div className="form-grid"><div className="form-field"><span>Saved company</span><CustomSelect value={companies.some((c) => c.name === form.company) ? form.company : 'Custom company'} options={[...companies.map((c) => c.name), 'Custom company']} onChange={(v) => v === 'Custom company' ? set('company', '') : chooseCompany(v)} /></div><TextField label="Company name" value={form.company} onChange={(v) => set('company', v)} placeholder="Example Company" /><TextField label="Company domain" value={form.domain} onChange={(v) => set('domain', v)} placeholder="company.com" /><TextField label="Position" value={form.position} onChange={(v) => set('position', v)} placeholder=".NET Intern" /><TextField label="Offer URL" value={form.offerUrl} onChange={(v) => set('offerUrl', v)} placeholder="https://..." /><div className="form-field"><span>Category</span><CustomSelect value={form.category} options={categoryOptions} onChange={(v) => set('category', v)} /></div><div className="form-field"><span>Level</span><CustomSelect value={form.level} options={levelOptions} onChange={(v) => set('level', v)} /></div><div className="form-field"><span>Status</span><CustomSelect value={form.status} options={statuses} onChange={(v) => set('status', v as Status)} /></div><div className="form-field"><span>Source</span><CustomSelect value={form.source} options={sources} onChange={(v) => set('source', v)} /></div><TextField label="Location" value={form.location} onChange={(v) => set('location', v)} /><div className="form-field"><span>Work mode</span><CustomSelect value={form.workMode} options={workModes} onChange={(v) => set('workMode', v as WorkMode)} /></div><TextField label="Date applied" type="date" value={form.dateApplied} onChange={(v) => set('dateApplied', v)} /><TextField label="Last contact" type="date" value={form.lastContact} onChange={(v) => set('lastContact', v)} /><TextField label="Next step" value={form.nextStep} onChange={(v) => set('nextStep', v)} /><div className="form-field"><span>Application document</span><select aria-label="Application document" value={form.documentId || (form.cv ? 'legacy' : '')} onChange={(event) => {
+    const id = event.target.value;
+    const doc = cvOptions.find(item => String(item.id) === id);
+    setForm(current => ({ ...current, documentId: doc ? id : null, cv: doc?.name ?? (id === 'legacy' ? application?.cv || '' : '') }));
+  }}><option value="">No document selected</option>{application?.cv && !application.documentId && <option value="legacy">{application.cv} (previous CV name)</option>}{cvOptions.map(doc => <option key={doc.id} value={doc.id}>{doc.name}{cvOptions.filter(other => other.name === doc.name).length > 1 ? ' · ' + String(doc.id).slice(0, 8) : ''}</option>)}</select></div></div><TextAreaField label="Requirements" value={form.requirements} onChange={(v) => set('requirements', v)} placeholder="C#, SQL, Git..." /><TextAreaField label="Benefits" value={form.benefits} onChange={(v) => set('benefits', v)} placeholder="Hybrid work, mentoring..." /><TextAreaField label="Notes" value={form.notes} onChange={(v) => set('notes', v)} placeholder="What should you remember?" /><ModalFooter onClose={onClose} submitLabel={application ? 'Save changes' : 'Save application'} /></form></BaseModal>;
 }
 
 function ProfileCustomizationModal({ profile, setProfile, settings, setSettings, activeTab, setActiveTab, theme, setTheme, onClose, onImportCsv, onExport, onBackup, onReset, onSaveSettings, onSendNotificationTest }: { profile: Profile; setProfile: (profile: Profile) => void; settings: AppSettings; setSettings: (settings: AppSettings) => void; activeTab: ProfileTab; setActiveTab: (tab: ProfileTab) => void; theme: Theme; setTheme: (theme: Theme) => void; onClose: () => void; onImportCsv: (file: File) => void; onExport: () => void; onBackup: () => void; onReset: () => void; onSaveSettings?: (settings: AppSettings, profile: Profile) => void | Promise<void>; onSendNotificationTest?: (settings: AppSettings, profile: Profile) => void | Promise<void> }) {
@@ -5028,7 +5078,7 @@ function DataTab({ onImportCsv, onExport, onBackup, onReset }: { onImportCsv: (f
 }
 
 function Toast({ message }: { message: string }) {
-  return <div className="toast"><CheckCircle2 size={17} /> {message}</div>;
+  return <div className="toast" role="status"><CheckCircle2 size={17} /> {message}</div>;
 }
 
 function useIsMobile(breakpoint = 900) {
@@ -5067,7 +5117,12 @@ function useResolvedTheme(theme: Theme): 'light' | 'dark' {
   return theme === 'system' ? systemTheme : theme;
 }
 
-type MobileLayoutProps = {
+type MobileLayoutProps = JobScoutProps & {
+  preparationPage: React.ReactNode;
+  dashboardControls: React.ReactNode;
+  dashboardHidden: DashboardWidget[];
+  applicationStatus: React.ReactNode;
+  onPrepare: (application: JobApplication) => void;
   shellClass: string;
   page: Page;
   setPage: (page: Page) => void;
@@ -5113,6 +5168,11 @@ type MobileLayoutProps = {
 };
 
 function MobileLayout({
+  preparationPage,
+  dashboardControls,
+  dashboardHidden,
+  applicationStatus,
+  onPrepare,
   shellClass,
   page,
   setPage,
@@ -5150,6 +5210,8 @@ function MobileLayout({
   onPreviewDocument,
   onSaveCoverLetter,
   onAddApplicationFromScout,
+  scout,
+  setScout,
   onSyncNotificationEvent,
   onDeleteNotificationEvent,
   categoryOptions,
@@ -5171,43 +5233,48 @@ function MobileLayout({
         resolvedTheme={resolvedTheme}
         setTheme={setTheme}
         onOpenSettings={onOpenSettings}
+        navigate={setPage}
       />
 
       <main className="mobile-content custom-scroll">
-        {page === 'dashboard' ? (
+        {page === 'dashboard' ? (applicationStatus || <>
+          {dashboardControls}
           <MobileDashboardPage
             applications={applications}
             events={events}
             setPage={setPage}
             onOpenEditApplication={onOpenEditApplication}
+            hidden={dashboardHidden}
           />
-        ) : null}
+        </>) : null}
 
-        {page === 'applications' ? (
+        {page === 'applications' ? (applicationStatus || (
           <MobileApplicationsPage
             applications={applications}
             onOpenApplication={openAddApplication}
             onOpenEditApplication={onOpenEditApplication}
+            onPrepare={onPrepare}
             onStatusChange={onStatusChange}
             onDelete={onDeleteApplication}
             onExport={onExport}
             categoryOptions={categoryOptions}
             levelOptions={levelOptions}
           />
-        ) : null}
+        )) : null}
 
         {page === 'calendar' ? (
           <MobileCalendarPage events={events} applications={applications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={onSyncNotificationEvent} onDeleteNotificationEvent={onDeleteNotificationEvent} />
         ) : null}
 
         {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
+        {page === 'preparation' ? preparationPage : null}
         {page === 'companies' ? <CompaniesPage companies={companies} applications={applications} setCompanies={setCompanies} setToast={setToast} /> : null}
         {page === 'statistics' ? <StatisticsPage applications={applications} categoryOptions={categoryOptions} /> : null}
         {page === 'documents' ? <DocumentsPage documents={documents} applications={applications} setDocuments={setDocuments} onExport={onExport} setToast={setToast} loading={documentsLoading} error={documentsError} onRefresh={onRefreshDocuments} onUploadDocument={onUploadDocument} onCreateDocumentLink={onCreateDocumentLink} onDeleteDocument={onDeleteDocument} onArchiveDocument={onArchiveDocument} onUpdateDocumentTitle={onUpdateDocumentTitle} onDownloadDocument={onDownloadDocument} onPreviewDocument={onPreviewDocument} /> : null}
-        {page === 'ai' ? <AIToolsPage documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} settings={settings} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
+        {page === 'ai' ? <AIToolsPage scout={scout} setScout={setScout} documents={documents} documentsLoading={documentsLoading} onRefreshDocuments={onRefreshDocuments} setToast={setToast} onSaveCoverLetter={onSaveCoverLetter} profile={profile} settings={settings} onOpenSettings={onOpenSettings} onAddApplicationFromScout={onAddApplicationFromScout} /> : null}
       </main>
 
-      <FloatingActionButton onClick={openAddApplication} label="Add application" />
+      {page !== 'preparation' && <FloatingActionButton onClick={openAddApplication} label="Add application" />}
       <MobileBottomNav page={page} setPage={setPage} onMore={() => setMoreOpen(true)} />
 
       {moreOpen ? (
@@ -5230,7 +5297,7 @@ function MobileLayout({
   );
 }
 
-function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings }: { page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
+function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings, navigate }: { navigate: (page: Page) => void; page: Page; profile: Profile; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void; onOpenSettings: (tab?: ProfileTab) => void }) {
   const meta = pageLabels[page];
   const firstName = profile.name.split(' ')[0] || 'User';
 
@@ -5239,6 +5306,7 @@ function MobileHeader({ page, profile, resolvedTheme, setTheme, onOpenSettings }
       <div className="mobile-header-top">
         <Logo />
         <div className="mobile-header-actions">
+          <NotificationInbox navigate={navigate} />
           <button className="icon-button" type="button" aria-label="Toggle theme" onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}>
             {resolvedTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
@@ -5261,7 +5329,7 @@ function MobileBottomNav({ page, setPage, onMore }: { page: Page; setPage: (page
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
     { id: 'applications', label: 'Apps', icon: BriefcaseBusiness },
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-    { id: 'notes', label: 'Notes', icon: StickyNote }
+    { id: 'preparation', label: 'Prepare', icon: CheckSquare }
   ];
   const moreActive = !primaryItems.some((item) => item.id === page);
 
@@ -5270,7 +5338,7 @@ function MobileBottomNav({ page, setPage, onMore }: { page: Page; setPage: (page
       {primaryItems.map((item) => {
         const Icon = item.icon;
         return (
-          <button key={item.id} type="button" className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>
+          <button key={item.id} type="button" className={page === item.id ? 'active' : ''} aria-current={page === item.id ? 'page' : undefined} onClick={() => setPage(item.id)}>
             <Icon size={19} />
             <span>{item.label}</span>
           </button>
@@ -5298,6 +5366,7 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
     { id: 'companies', label: 'Companies', icon: Building2, description: 'Company history and contacts' },
     { id: 'statistics', label: 'Statistics', icon: BarChart3, description: 'Progress and response rates' },
     { id: 'documents', label: 'Documents', icon: FileText, description: 'CVs, links and files' },
+    { id: 'notes', label: 'Notes', icon: StickyNote, description: 'Recruitment notes and research' },
     { id: 'ai', label: 'AI Tools', icon: Sparkles, description: 'CV review and cover letters' }
   ];
 
@@ -5342,9 +5411,10 @@ function MobileMoreMenu({ page, setPage, onClose, onOpenSettings, onLogout, onEx
 }
 
 function MobileBottomSheet({ title, subtitle, onClose, children, className = '' }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; className?: string }) {
+  const focus = useDialogFocus(onClose);
   return (
     <div className="mobile-sheet-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className={`mobile-bottom-sheet ${className}`} role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`mobile-bottom-sheet ${className}`} role="dialog" aria-modal="true" aria-label={title} {...focus} onMouseDown={(event) => event.stopPropagation()}>
         <div className="mobile-sheet-handle" aria-hidden="true" />
         <header className="mobile-sheet-header">
           <div>
@@ -5359,7 +5429,7 @@ function MobileBottomSheet({ title, subtitle, onClose, children, className = '' 
   );
 }
 
-function MobileDashboardPage({ applications, events, setPage, onOpenEditApplication }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; onOpenEditApplication: (app: JobApplication) => void }) {
+function MobileDashboardPage({ applications, events, setPage, onOpenEditApplication, hidden }: { applications: JobApplication[]; events: CalendarEvent[]; setPage: (page: Page) => void; onOpenEditApplication: (app: JobApplication) => void; hidden: DashboardWidget[] }) {
   const stats = calculateStats(applications);
   const nextActions = applications
     .filter((app) => ['Interview', 'Task / test', 'No response', 'Ghosted', 'In progress'].includes(app.status))
@@ -5369,14 +5439,14 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
 
   return (
     <section className="mobile-dashboard">
-      <div className="mobile-metrics-row custom-scroll">
+      {!hidden.includes('metrics') && <div className="mobile-metrics-row custom-scroll">
         <MetricCard label="Total" value={stats.total} hint="applications" />
         <MetricCard label="Active" value={stats.active} hint="open processes" tone="blue-text" />
         <MetricCard label="Interviews" value={stats.interviews} hint="positive stages" tone="rose-text" />
         <MetricCard label="Response" value={`${stats.responseRate}%`} hint="all time" tone="green-text" />
-      </div>
+      </div>}
 
-      <section className="mobile-section-card">
+      {!hidden.includes('insights') && <section className="mobile-section-card">
         <div className="mobile-section-head">
           <div><h2>Next actions</h2><p>Things worth checking first.</p></div>
           <button type="button" onClick={() => setPage('applications')}>All</button>
@@ -5385,9 +5455,9 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
           {nextActions.map((app) => <MobileActionItem key={app.id} application={app} onClick={() => onOpenEditApplication(app)} />)}
           {!nextActions.length ? <MobileEmptyState icon={CheckCircle2} title="Nothing urgent" text="No urgent recruitment steps for now." /> : null}
         </div>
-      </section>
+      </section>}
 
-      <section className="mobile-section-card">
+      {!hidden.includes('recent') && <section className="mobile-section-card">
         <div className="mobile-section-head">
           <div><h2>Recent applications</h2><p>Latest saved entries.</p></div>
           <button type="button" onClick={() => setPage('applications')}>Open</button>
@@ -5395,9 +5465,9 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
         <div className="mobile-card-list compact">
           {recent.map((app) => <MobileApplicationCard key={app.id} application={app} onOpen={() => onOpenEditApplication(app)} onEdit={() => onOpenEditApplication(app)} />)}
         </div>
-      </section>
+      </section>}
 
-      <section className="mobile-section-card">
+      {!hidden.includes('agenda') && <section className="mobile-section-card">
         <div className="mobile-section-head">
           <div><h2>Agenda</h2><p>Upcoming recruitment events.</p></div>
           <button type="button" onClick={() => setPage('calendar')}>Calendar</button>
@@ -5406,7 +5476,7 @@ function MobileDashboardPage({ applications, events, setPage, onOpenEditApplicat
           {upcoming.map((event) => <MobileAgendaItem key={event.id} event={event} />)}
           {!upcoming.length ? <MobileEmptyState icon={CalendarDays} title="No events" text="Add interviews and reminders to your calendar." /> : null}
         </div>
-      </section>
+      </section>}
     </section>
   );
 }
@@ -5424,7 +5494,7 @@ function MobileActionItem({ application, onClick }: { application: JobApplicatio
   );
 }
 
-function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onStatusChange: (id: EntityId, status: Status) => void; onDelete: (id: EntityId) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
+function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApplication, onPrepare, onStatusChange, onDelete, onExport, categoryOptions, levelOptions }: { applications: JobApplication[]; onOpenApplication: () => void; onOpenEditApplication: (app: JobApplication) => void; onPrepare: (app: JobApplication) => void; onStatusChange: (id: EntityId, status: Status) => void; onDelete: (id: EntityId) => void; onExport: () => void; categoryOptions: string[]; levelOptions: string[] }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All');
   const [category, setCategory] = useState('All');
@@ -5533,6 +5603,7 @@ function MobileApplicationsPage({ applications, onOpenApplication, onOpenEditApp
         <ApplicationDetailsSheet
           application={details}
           onClose={() => setDetails(null)}
+          onPrepare={() => onPrepare(details)}
           onEdit={() => {
             setDetails(null);
             onOpenEditApplication(details);
@@ -5602,7 +5673,7 @@ function MobileFiltersSheet({ status, setStatus, category, setCategory, level, s
   );
 }
 
-function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete, onPrepare }: { application: JobApplication; onClose: () => void; onEdit: () => void; onDelete: () => void; onPrepare: () => void }) {
   return (
     <MobileBottomSheet title="Application details" subtitle={`${application.company} · ${application.position}`} onClose={onClose} className="mobile-application-details-sheet">
       <div className="mobile-detail-hero">
@@ -5634,6 +5705,7 @@ function ApplicationDetailsSheet({ application, onClose, onEdit, onDelete }: { a
         <p>{application.notes || 'No notes saved yet.'}</p>
       </div>
 
+      <button className="primary-button" type="button" onClick={onPrepare}>Prepare for interview</button>
       <div className="mobile-sheet-actions sticky-actions">
         <button className="secondary-button" type="button" onClick={() => application.offerUrl && window.open(application.offerUrl, '_blank')}><ExternalLink size={17} /> Offer</button>
         <button className="secondary-button" type="button" onClick={onEdit}><Pencil size={17} /> Edit</button>
@@ -5737,6 +5809,11 @@ function App() {
   const [events, setEvents] = useState<CalendarEvent[]>(appInitialEvents);
   const [documents, setDocuments] = useState<DocumentItem[]>(appInitialDocuments);
   const [notes, setNotes] = useState<NoteItem[]>(appInitialNotes);
+  const [scout, setScout] = useState<JobScoutState>(emptyScout);
+  const [preparation, setPreparation] = useState(emptyPreparation);
+  const [prepareApplicationId, setPrepareApplicationId] = useState('');
+  const activeAccount = useRef(authUser?.id);
+  activeAccount.current = authUser?.id;
   const [theme, setTheme] = useState<Theme>(() => normalizeTheme(readStorage('trackmycv.login-theme', initialTheme)));
   const [page, setPage] = useState<Page>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -5755,7 +5832,19 @@ function App() {
     [documentsApiState.documents]
   );
 
+  useWorkspaceSection(authUser?.id, 'companies', companies, setCompanies, setToast);
+  useWorkspaceSection(authUser?.id, 'notes', notes, setNotes, setToast);
+  useWorkspaceSection(authUser?.id, 'preferences', settings.preferences, (preferences) => {
+    setSettings(current => normalizeAppSettings({ ...current, preferences }));
+  }, setToast);
+  useWorkspaceSection(authUser?.id, 'scout', scout, setScout, setToast);
+  const preparationSync = useWorkspaceSection(authUser?.id, 'preparation', preparation, setPreparation, setToast);
+
   function clearWorkspaceState() {
+    activeAccount.current = undefined;
+    setScout(emptyScout);
+    setPreparation(emptyPreparation);
+    setPrepareApplicationId('');
     setProfile(initialProfile);
     setSettings(initialSettings);
     setApplications(appInitialApplications);
@@ -6104,6 +6193,7 @@ function App() {
       requirements: uniqueOptions(match.matchedSkills, match.gaps.map((gap) => `Gap: ${gap}`)).join('\n'),
       benefits: '',
       notes,
+      documentId: defaultCv ? String(defaultCv.id) : null,
       cv: defaultCv?.name || ''
     };
 
@@ -6191,7 +6281,7 @@ function App() {
     }
   }
 
-  function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications: liveApplications, companies, events, documents: liveDocuments, notes }, setToast); }
+  function backup() { downloadJson('trackmycv-backup.json', { profile, settings, applications: liveApplications, companies, events, documents: liveDocuments, notes, preparation }, setToast); }
   const resolvedTheme = useResolvedTheme(theme);
   const shellClass = `app-shell theme-${theme} ${resolvedTheme === 'dark' ? 'dark' : ''} density-${settings.density.toLowerCase()} accent-${settings.accent.toLowerCase().replaceAll(' ', '-')} ${settings.animations ? 'animations-on' : 'animations-off'}`;
   const categoryOptions = uniqueOptions(categories, settings.preferences.categories);
@@ -6204,7 +6294,7 @@ function App() {
       <main className={`login-page ${resolvedTheme === 'dark' ? 'dark' : ''}`}>
         <section className="login-card">
           <Logo />
-          <div className="empty-state"><BriefcaseBusiness size={28} /><strong>Checking session</strong><span>Connecting to the local API.</span></div>
+          <div className="empty-state" role="status"><BriefcaseBusiness size={28} /><strong>Checking session</strong></div>
         </section>
       </main>
     );
@@ -6214,6 +6304,68 @@ function App() {
     writeStorage('trackmycv.login-theme', nextTheme);
     setTheme(nextTheme);
   }} />;
+
+  function openPreparation(application: JobApplication) {
+    setPrepareApplicationId(String(application.id));
+    setPage('preparation');
+  }
+
+  function addFirstApplication() {
+    setPage('applications');
+    setEditingApplication(null);
+  }
+
+  const applicationStatus = applicationsApi.loading || applicationsApi.error
+    ? <LoadStatus label="applications" error={applicationsApi.error} retry={applicationsApi.loadApplications} /> : null;
+  const preparationStatus = !preparationSync.ready || preparationSync.error
+    ? <LoadStatus label="preparation workspace" error={preparationSync.error} retry={preparationSync.retry} /> : null;
+  const preparationPage = applicationStatus || (!preparationSync.ready ? preparationStatus : <>
+    {preparationStatus}
+    <PreparationPage key={prepareApplicationId} initialApplicationId={prepareApplicationId}
+      applications={liveApplications} cvs={liveDocuments.filter(doc => doc.type === 'CV')}
+      workspace={preparation} setWorkspace={(update: SetStateAction<PreparationWorkspace>) => {
+        if (authUser?.id === activeAccount.current) setPreparation(update);
+      }}
+      documentsLoading={documentsApiState.loading} documentsError={documentsApiState.error}
+      refreshDocuments={documentsApiState.loadDocuments} openDocuments={() => setPage('documents')} addApplication={addFirstApplication} />
+  </>);
+  const dashboardControls = !preparationSync.ready ? (preparationSync.error ? preparationStatus : null) : (
+    <div className="dashboard-controls">
+      {preparationStatus}
+      {!preparation.dashboard.onboardingDismissed && (
+        <section className="panel-card preparation-card" aria-label="Getting started">
+          <h2>Get started</h2>
+          <div className="preparation-actions">
+            {liveApplications.length ? <span>✓ Application added</span> : <button className="primary-button" type="button" onClick={addFirstApplication}>Add an application</button>}
+            {liveDocuments.some(doc => doc.type === 'CV' && doc.fileName) ? <span>✓ CV uploaded</span> : <button className="secondary-button" type="button" onClick={() => setPage('documents')}>Upload your CV</button>}
+            <button className="secondary-button" type="button" onClick={() => setPage('preparation')}>Prepare for an interview</button>
+            <button className="text-button" type="button" onClick={() => setPreparation(current => ({
+              ...current, dashboard: { ...current.dashboard, onboardingDismissed: true }
+            }))}>Dismiss guide</button>
+          </div>
+        </section>
+      )}
+      <details className="panel-card preparation-collection dashboard-customization">
+        <summary>Customize dashboard</summary>
+        <fieldset className="dashboard-widget-options">
+          <legend>Visible widgets</legend>
+          {(Object.keys(dashboardWidgets) as DashboardWidget[]).map(widget => (
+            <label className="preparation-check" key={widget}>
+              <input type="checkbox" checked={!preparation.dashboard.hidden.includes(widget)} onChange={event => {
+                const visible = event.target.checked;
+                setPreparation(current => ({
+                  ...current, dashboard: { ...current.dashboard, hidden: visible
+                    ? current.dashboard.hidden.filter(item => item !== widget)
+                    : [...current.dashboard.hidden, widget] }
+                }));
+              }} />
+              {dashboardWidgets[widget]}
+            </label>
+          ))}
+        </fieldset>
+      </details>
+    </div>
+  );
 
   const commonOverlays = (
     <>
@@ -6226,6 +6378,13 @@ function App() {
   if (isMobile) {
     return (
       <MobileLayout
+        preparationPage={preparationPage}
+        dashboardControls={dashboardControls}
+        dashboardHidden={preparation.dashboard.hidden}
+        applicationStatus={applicationStatus}
+        onPrepare={openPreparation}
+        scout={scout}
+        setScout={setScout}
         shellClass={shellClass}
         page={page}
         setPage={setPage}
@@ -6279,27 +6438,37 @@ function App() {
       <div className="workspace">
         <Topbar page={page} profile={profile} resolvedTheme={resolvedTheme} setTheme={setTheme} onOpenApplication={() => { setPage('applications'); setEditingApplication(null); }} onOpenSettings={openSettings} onLogout={logout} setPage={setPage} />
         <div className="content custom-scroll">
-          {page === 'dashboard' ? <DashboardPage applications={liveApplications} events={events} setPage={setPage} /> : null}
+          {page === 'dashboard' ? (applicationStatus || <>
+            {dashboardControls}
+            {(!preparationSync.ready || preparation.dashboard.onboardingDismissed || liveApplications.length > 0) &&
+              <DashboardPage applications={liveApplications} events={events} setPage={setPage} hidden={preparation.dashboard.hidden} />}
+          </>) : null}
+          {page === 'preparation' ? preparationPage : null}
           {page === 'applications' ? (
-            applicationsApi.loading ? (
-              <section className="page-section"><div className="panel-card empty-state"><BriefcaseBusiness size={28} /><strong>Loading applications</strong><span>Connecting to the backend API.</span></div></section>
-            ) : applicationsApi.error ? (
-              <section className="page-section"><div className="panel-card empty-state"><BriefcaseBusiness size={28} /><strong>Applications API unavailable</strong><span>{applicationsApi.error}</span><button className="secondary-button" type="button" onClick={applicationsApi.loadApplications}>Refresh</button></div></section>
-            ) : (
-              <ApplicationsPage applications={liveApplications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(liveApplications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} />
+            applicationStatus || (
+              <ApplicationsPage applications={liveApplications} onOpenApplication={() => setEditingApplication(null)} onOpenEditApplication={(app) => setEditingApplication(app)} onPrepare={openPreparation} onStatusChange={updateStatus} onDelete={deleteApplication} selectedApplication={selectedApplication} setSelectedApplication={setSelectedApplication} onExport={() => exportCsv(liveApplications, setToast)} categoryOptions={categoryOptions} levelOptions={levelOptions} />
             )
           ) : null}
           {page === 'companies' ? <CompaniesPage companies={companies} applications={liveApplications} setCompanies={setCompanies} setToast={setToast} /> : null}
           {page === 'statistics' ? <StatisticsPage applications={liveApplications} categoryOptions={categoryOptions} /> : null}
           {page === 'calendar' ? <CalendarPage events={events} applications={liveApplications} setEvents={setEvents} setToast={setToast} onSyncNotificationEvent={syncNotificationEvent} onDeleteNotificationEvent={deleteNotificationEvent} /> : null}
           {page === 'documents' ? <DocumentsPage documents={liveDocuments} applications={liveApplications} setDocuments={setDocuments} onExport={() => exportCsv(liveApplications, setToast)} setToast={setToast} loading={documentsApiState.loading} error={documentsApiState.error} onRefresh={documentsApiState.loadDocuments} onUploadDocument={uploadDocument} onCreateDocumentLink={createDocumentLink} onDeleteDocument={deleteDocument} onArchiveDocument={archiveDocument} onUpdateDocumentTitle={updateDocumentTitle} onDownloadDocument={downloadDocument} onPreviewDocument={previewDocument} /> : null}
-          {page === 'ai' ? <AIToolsPage documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} settings={settings} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}
+          {page === 'ai' ? <AIToolsPage scout={scout} setScout={setScout} documents={liveDocuments} documentsLoading={documentsApiState.loading} onRefreshDocuments={documentsApiState.loadDocuments} setToast={setToast} onSaveCoverLetter={saveCoverLetterDocument} profile={profile} settings={settings} onOpenSettings={openSettings} onAddApplicationFromScout={addJobScoutApplication} /> : null}
           {page === 'notes' ? <NotesPage notes={notes} setNotes={setNotes} setToast={setToast} /> : null}
         </div>
       </div>
       {commonOverlays}
     </div>
   );
+}
+
+function LoadStatus({ label, error, retry }: { label: string; error?: string | null; retry: () => void }) {
+  return <section className="panel-card preparation-card">
+    {error ? <>
+      <div role="alert"><strong>Could not sync {label}</strong><p>{error}</p></div>
+      <button className="secondary-button" type="button" onClick={retry}>Retry</button>
+    </> : <p role="status">Loading {label}…</p>}
+  </section>;
 }
 
 export default App;

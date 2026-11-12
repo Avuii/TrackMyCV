@@ -1,0 +1,78 @@
+services:
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    networks:
+      public:
+        ipv4_address: 172.30.42.2
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      ReverseProxy__Address: 172.30.42.2
+      Database__ApplyMigrations: "true"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=TrackMyCVDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      EMAIL__ENABLED: ${EMAIL__ENABLED:-false}
+      EMAIL__HOST: ${EMAIL__HOST:-}
+      EMAIL__PORT: ${EMAIL__PORT:-587}
+      EMAIL__ENABLESSL: ${EMAIL__ENABLESSL:-true}
+      EMAIL__USERNAME: ${EMAIL__USERNAME:-}
+      EMAIL__PASSWORD: ${EMAIL__PASSWORD:-}
+      EMAIL__FROMEMAIL: ${EMAIL__FROMEMAIL:-notifications@trackmycv.local}
+      EMAIL__FROMNAME: ${EMAIL__FROMNAME:-TrackMyCV}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - uploads:/app/App_Data
+    networks:
+      - public
+      - database
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: ${MSSQL_PID:-Express}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    networks:
+      - database
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+
+networks:
+  public:
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24
+  database:
+    internal: true
+
+volumes:
+  caddy-data:
+  caddy-config:
+  uploads:
+  sqlserver-data:

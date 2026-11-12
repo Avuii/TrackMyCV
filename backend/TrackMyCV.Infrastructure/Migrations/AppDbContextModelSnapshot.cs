@@ -130,6 +130,16 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.ToTable("Companies");
                 });
 
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.WorkspaceSection", b =>
+                {
+                    b.Property<Guid>("AppUserId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Name").HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<string>("Json").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("Revision").IsConcurrencyToken().HasColumnType("uniqueidentifier");
+                    b.HasKey("AppUserId", "Name");
+                    b.ToTable("WorkspaceSections");
+                });
+
             modelBuilder.Entity("TrackMyCV.Domain.Entities.JobApplication", b =>
                 {
                     b.Property<Guid>("Id")
@@ -163,6 +173,9 @@ namespace TrackMyCV.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(180)
                         .HasColumnType("nvarchar(180)");
+
+                    b.Property<Guid?>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateOnly>("DateApplied")
                         .HasColumnType("date");
@@ -221,6 +234,8 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.HasIndex("AppUserId");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("DocumentId");
 
                     b.ToTable("JobApplications");
                 });
@@ -583,6 +598,15 @@ namespace TrackMyCV.Infrastructure.Migrations
                     b.Navigation("AppUser");
                 });
 
+            modelBuilder.Entity("TrackMyCV.Domain.Entities.WorkspaceSection", b =>
+                {
+                    b.HasOne("TrackMyCV.Domain.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("TrackMyCV.Domain.Entities.JobApplication", b =>
                 {
                     b.HasOne("TrackMyCV.Domain.Entities.AppUser", "AppUser")
@@ -595,6 +619,11 @@ namespace TrackMyCV.Infrastructure.Migrations
                         .HasForeignKey("CompanyId");
 
                     b.Navigation("AppUser");
+
+                    b.HasOne("TrackMyCV.Domain.Entities.UserDocument", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Company");
                 });

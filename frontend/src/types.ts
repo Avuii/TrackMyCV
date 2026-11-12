@@ -120,6 +120,7 @@ export interface JobApplication {
   benefits: string[];
   notes: string;
   offerUrl: string;
+  documentId?: string | null;
   cv: string;
   coverLetter?: string;
   recruiterId?: number;

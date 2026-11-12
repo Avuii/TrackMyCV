@@ -65,6 +65,7 @@ temp/
 
 # Package manager files
 package-lock.json
+!frontend/package-lock.json
 
 
 # Optional local config

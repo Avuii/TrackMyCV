@@ -50,23 +50,16 @@ public class DocumentsController : ControllerBase
             .OrderByDescending(x => x.UpdatedAt)
             .ToListAsync();
 
-        var cvAssignments = await _dbContext.JobApplications
-            .Where(x => x.AppUserId == userId.Value && x.CvName != string.Empty)
-            .Select(x => new { x.Id, x.CvName })
+        var assignments = await _dbContext.JobApplications
+            .Where(x => x.AppUserId == userId.Value && x.DocumentId != null)
+            .Select(x => new { x.Id, x.DocumentId })
             .ToListAsync();
-
-        var usageByName = cvAssignments
-            .GroupBy(x => x.CvName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
-
-        var assignedByName = cvAssignments
-            .GroupBy(x => x.CvName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(x => x.Key, x => x.Select(application => application.Id).ToArray(), StringComparer.OrdinalIgnoreCase);
-
-        return Ok(documents.Select(document => MapDocument(
-            document,
-            usageByName.GetValueOrDefault(document.Name),
-            assignedByName.GetValueOrDefault(document.Name, Array.Empty<Guid>()))).ToList());
+        var assignedByDocument = assignments.ToLookup(x => x.DocumentId, x => x.Id);
+        return Ok(documents.Select(document =>
+        {
+            var ids = assignedByDocument[document.Id].ToArray();
+            return MapDocument(document, ids.Length, ids);
+        }).ToList());
     }
 
     [HttpPost("upload")]
@@ -383,7 +376,18 @@ public class DocumentsController : ControllerBase
             return NotFound();
         }
 
+        if (await _dbContext.CvReviews.AnyAsync(review => review.DocumentId == id))
+            return Conflict(new { message = "Delete the CV reviews for this document before deleting it." });
+
         var absolutePath = GetSafeDocumentPath(document);
+
+        var applications = await _dbContext.JobApplications
+            .Where(item => item.AppUserId == document.AppUserId && item.DocumentId == id).ToListAsync();
+        foreach (var application in applications)
+        {
+            application.DocumentId = null;
+            application.CvName = string.Empty;
+        }
 
         _dbContext.UserDocuments.Remove(document);
         await _dbContext.SaveChangesAsync();
